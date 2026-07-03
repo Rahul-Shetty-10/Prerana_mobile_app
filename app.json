@@ -1,13 +1,16 @@
 {
   "expo": {
-    "name": "Prerana_mobile_app",
-    "slug": "Prerana_mobile_app",
+    "name": "Prerana Mobile",
+    "slug": "prerana-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,6 +23,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow Prerana Mobile to access Face ID for secure sign in."
+        }
+      ],
+      "expo-web-browser",
+      "expo-font"
+    ]
   }
 }

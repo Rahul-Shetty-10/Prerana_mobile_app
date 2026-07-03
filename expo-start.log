@@ -1,0 +1,11 @@
+
+> prerana_mobile_app@1.0.0 start
+> expo start --localhost --port 8081
+
+env: load .env
+env: export EXPO_PUBLIC_API_BASE_URL EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY EXPO_PUBLIC_TENANT_SLUG
+Starting project at C:\Users\dell\Documents\Ellipsonic\Murshid\Prerana_mobile_app
+Starting Metro Bundler
+
+Waiting on http://localhost:8081
+Logs for your project will appear below.
