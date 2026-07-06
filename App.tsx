@@ -5,13 +5,13 @@ import {
   useAuth,
   useClerk,
   useSignIn,
-  useUser,
 } from "@clerk/clerk-expo";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -21,6 +21,7 @@ import {
   View,
 } from "react-native";
 import { appConfig } from "./src/config";
+import { mobileApi } from "./src/api/mobileApi";
 import { tokenCache } from "./src/lib/tokenCache";
 
 export default function App() {
@@ -157,24 +158,22 @@ function SignedInHome() {
   const { getToken } = useAuth();
   const { signOut } = useClerk();
   const [error, setError] = useState("");
+  const [sessionJson, setSessionJson] = useState("");
+  const [dashboardJson, setDashboardJson] = useState("");
+  const [isFetchingSession, setIsFetchingSession] = useState(false);
+  const [isFetchingDashboard, setIsFetchingDashboard] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
-    async function logDevToken() {
+    async function verifyTokenTemplate() {
       try {
-        const token = await getToken({ template: "convex" });
-        if (token) {
-          console.info("[Prerana mobile dev] Use this Bearer token for Postman testing:", token);
-          console.info("[Prerana mobile dev] X-Tenant-Slug:", appConfig.tenantSlug);
-        }
+        await getToken({ template: "convex" });
       } catch (err) {
-        const message = getErrorMessage(err);
-        console.info("[Prerana mobile dev] Failed to get convex JWT:", message);
-        setError(message);
+        setError(getErrorMessage(err));
       }
     }
 
-    void logDevToken();
+    void verifyTokenTemplate();
   }, [getToken]);
 
   async function handleSignOut() {
@@ -192,19 +191,150 @@ function SignedInHome() {
     }
   }
 
+  async function handleFetchSession() {
+    if (isFetchingSession) {
+      return;
+    }
+
+    setIsFetchingSession(true);
+    setError("");
+    setSessionJson("");
+    try {
+      const data = await mobileApi<unknown>("/session", {
+        getToken,
+        tenantSlug: appConfig.tenantSlug,
+      });
+      setSessionJson(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setIsFetchingSession(false);
+    }
+  }
+
+  async function handleFetchDashboard() {
+    if (isFetchingDashboard) {
+      return;
+    }
+
+    setIsFetchingDashboard(true);
+    setError("");
+    setDashboardJson("");
+    try {
+      const data = await mobileApi<unknown>("/student/dashboard", {
+        getToken,
+        tenantSlug: appConfig.tenantSlug,
+      });
+      setDashboardJson(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setIsFetchingDashboard(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.blankSafeArea}>
-      <View style={styles.blankHeader}>
-        <Pressable disabled={isSigningOut} onPress={handleSignOut} style={styles.signOutButton}>
-          {isSigningOut ? (
-            <ActivityIndicator color="#fff7f3" />
-          ) : (
-            <Text style={styles.signOutButtonText}>Sign out</Text>
-          )}
+      <ScrollView contentContainerStyle={styles.signedInContent}>
+        <View style={styles.blankHeader}>
+          <Pressable disabled={isSigningOut} onPress={handleSignOut} style={styles.signOutButton}>
+            {isSigningOut ? (
+              <ActivityIndicator color="#fff7f3" />
+            ) : (
+              <Text style={styles.signOutButtonText}>Sign out</Text>
+            )}
+          </Pressable>
+        </View>
+
+        <EndpointTestCard
+          iconName="person-circle-outline"
+          isLoading={isFetchingSession}
+          onPress={handleFetchSession}
+          path="GET /session"
+          title="Test session endpoint"
+        />
+
+        <Pressable
+          disabled={isFetchingDashboard}
+          onPress={handleFetchDashboard}
+          style={({ pressed }) => [
+            styles.testCard,
+            pressed && !isFetchingDashboard ? styles.testCardPressed : null,
+          ]}
+        >
+          <View style={styles.testCardHeader}>
+            <Ionicons color="#f5a08d" name="speedometer-outline" size={22} />
+            <Text style={styles.testCardTitle}>Test dashboard endpoint</Text>
+          </View>
+          <Text style={styles.testCardSubtitle}>GET /student/dashboard</Text>
+          <View style={styles.testCardButton}>
+            {isFetchingDashboard ? (
+              <ActivityIndicator color="#241817" />
+            ) : (
+              <Text style={styles.testCardButtonText}>Fetch dashboard data</Text>
+            )}
+          </View>
         </Pressable>
-      </View>
-      {error ? <Text style={styles.blankErrorText}>{error}</Text> : null}
+
+        {error ? <Text style={styles.blankErrorText}>{error}</Text> : null}
+
+        {sessionJson ? (
+          <View style={styles.responsePanel}>
+            <Text style={styles.responseTitle}>Session response</Text>
+            <Text selectable style={styles.responseJson}>
+              {sessionJson}
+            </Text>
+          </View>
+        ) : null}
+
+        {dashboardJson ? (
+          <View style={styles.responsePanel}>
+            <Text style={styles.responseTitle}>Dashboard response</Text>
+            <Text selectable style={styles.responseJson}>
+              {dashboardJson}
+            </Text>
+          </View>
+        ) : null}
+      </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function EndpointTestCard({
+  iconName,
+  isLoading,
+  onPress,
+  path,
+  title,
+}: {
+  iconName: keyof typeof Ionicons.glyphMap;
+  isLoading: boolean;
+  onPress: () => void;
+  path: string;
+  title: string;
+}) {
+  return (
+    <Pressable
+      disabled={isLoading}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.testCard,
+        pressed && !isLoading ? styles.testCardPressed : null,
+      ]}
+    >
+      <View style={styles.testCardHeader}>
+        <Ionicons color="#f5a08d" name={iconName} size={22} />
+        <Text style={styles.testCardTitle}>{title}</Text>
+      </View>
+      <Text style={styles.testCardSubtitle}>{path}</Text>
+      <View style={styles.testCardButton}>
+        {isLoading ? (
+          <ActivityIndicator color="#241817" />
+        ) : (
+          <Text style={styles.testCardButtonText}>Fetch data</Text>
+        )}
+      </View>
+    </Pressable>
   );
 }
 
@@ -232,8 +362,25 @@ function getErrorMessage(error: unknown) {
   return "Something went wrong.";
 }
 
+function getApiErrorMessage(error: unknown) {
+  const message = getErrorMessage(error);
+  if (message.includes("Invalid or expired Clerk token")) {
+    return [
+      message,
+      "Check that EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY belongs to the same Clerk project used by the API.",
+    ].join("\n");
+  }
+
+  return message;
+}
+
 function isLiveClerkKeyBlockedOnLocalhost() {
-  if (!appConfig.clerkPublishableKey.startsWith("pk_live_") || typeof window === "undefined") {
+  if (
+    Platform.OS !== "web" ||
+    !appConfig.clerkPublishableKey.startsWith("pk_live_") ||
+    typeof window === "undefined" ||
+    !window.location
+  ) {
     return false;
   }
 
@@ -251,8 +398,11 @@ const styles = StyleSheet.create({
   },
   blankHeader: {
     alignItems: "flex-end",
-    paddingHorizontal: 20,
-    paddingTop: 18,
+  },
+  signedInContent: {
+    gap: 18,
+    padding: 20,
+    paddingBottom: 40,
   },
   screenContent: {
     gap: 18,
@@ -364,8 +514,6 @@ const styles = StyleSheet.create({
     color: "#ffb3a7",
     fontSize: 14,
     lineHeight: 20,
-    paddingHorizontal: 20,
-    paddingTop: 12,
   },
   signOutButton: {
     alignItems: "center",
@@ -381,5 +529,64 @@ const styles = StyleSheet.create({
     color: "#fff7f3",
     fontSize: 14,
     fontWeight: "800",
+  },
+  testCard: {
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "#5e4742",
+    borderRadius: 8,
+    backgroundColor: "#2f2220",
+    padding: 18,
+  },
+  testCardPressed: {
+    opacity: 0.82,
+  },
+  testCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  testCardTitle: {
+    color: "#fff7f3",
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  testCardSubtitle: {
+    color: "#d7c6c0",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  testCardButton: {
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: "#f5a08d",
+    paddingHorizontal: 14,
+  },
+  testCardButtonText: {
+    color: "#241817",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  responsePanel: {
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#4c3934",
+    borderRadius: 8,
+    backgroundColor: "#1d1413",
+    padding: 14,
+  },
+  responseTitle: {
+    color: "#fff7f3",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  responseJson: {
+    color: "#d7c6c0",
+    fontFamily: "monospace",
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
