@@ -5,8 +5,6 @@ type GetToken = (options?: { template?: string }) => Promise<string | null>;
 type MobileApiOptions = {
   getToken: GetToken;
   tenantSlug: string;
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
-  body?: Record<string, unknown>;
 };
 
 type MobileApiSuccess<TData> = {
@@ -40,13 +38,12 @@ export async function mobileApi<TData>(path: string, options: MobileApiOptions):
   }
 
   const response = await fetch(`${appConfig.apiBaseUrl}${path}`, {
-    method: options.method ?? "GET",
+    method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       "X-Tenant-Slug": options.tenantSlug,
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
   const payload = (await response.json()) as MobileApiResponse<TData>;

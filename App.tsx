@@ -24,6 +24,17 @@ import { appConfig } from "./src/config";
 import { tokenCache } from "./src/lib/tokenCache";
 
 export default function App() {
+  if (isLiveClerkKeyBlockedOnLocalhost()) {
+    return (
+      <ScreenShell centered>
+        <Text style={styles.title}>Production Clerk cannot run on localhost web</Text>
+        <Text style={styles.muted}>
+          Use the development Clerk key for Expo web, or test the live key from smartguru.in/native mobile.
+        </Text>
+      </ScreenShell>
+    );
+  }
+
   return (
     <ClerkProvider publishableKey={appConfig.clerkPublishableKey} tokenCache={tokenCache}>
       <StatusBar style="light" />
@@ -157,7 +168,9 @@ function SignedInHome() {
           console.info("[Prerana mobile dev] X-Tenant-Slug:", appConfig.tenantSlug);
         }
       } catch (err) {
-        setError(getErrorMessage(err));
+        const message = getErrorMessage(err);
+        console.info("[Prerana mobile dev] Failed to get convex JWT:", message);
+        setError(message);
       }
     }
 
@@ -217,6 +230,14 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
   return "Something went wrong.";
+}
+
+function isLiveClerkKeyBlockedOnLocalhost() {
+  if (!appConfig.clerkPublishableKey.startsWith("pk_live_") || typeof window === "undefined") {
+    return false;
+  }
+
+  return ["localhost", "127.0.0.1"].includes(window.location.hostname);
 }
 
 const styles = StyleSheet.create({

@@ -8,12 +8,14 @@ Expo starter for the Prerana 2.0 student mobile client. The app signs in with Cl
 2. Fill:
 
 ```txt
-EXPO_PUBLIC_API_BASE_URL=https://<staging-url>/api/mobile/v1
+EXPO_PUBLIC_API_BASE_URL=https://app.smartguru.in/api/mobile/v1
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<Clerk publishable key>
 EXPO_PUBLIC_TENANT_SLUG=seed-tenant-alpha
 ```
 
 Use a deployed staging API for normal development. A local laptop URL only works while the laptop and Next.js server are running.
+
+Do not use a production `pk_live_...` Clerk key on Expo web localhost. Clerk production keys are domain-restricted. For Expo web local testing, use a development `pk_test_...` key and a backend configured with that same Clerk project. Use the live key from the production domain or native mobile build.
 
 ## Run
 
