@@ -19,7 +19,14 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
+      "package": "com.darshu_2228.preranamobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,7 +41,15 @@
       ],
       "expo-web-browser",
       "expo-font",
-      "expo-status-bar"
-    ]
+      "expo-status-bar",
+      "expo-sharing",
+      "expo-audio",
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dc214ed6-8e49-4035-8651-4b796b0d250f"
+      }
+    }
   }
 }

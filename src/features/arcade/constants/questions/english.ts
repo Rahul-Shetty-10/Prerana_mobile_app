@@ -1,0 +1,58 @@
+import { LightningQuestion } from "../../types";
+
+export const ENGLISH_QUESTIONS: LightningQuestion[] = [
+  {
+    id: "lt-eng-1",
+    category: "English",
+    questionType: "mcq",
+    difficulty: "Easy",
+    question: "Synonym for 'Meticulous':",
+    options: ["Careless", "Careful", "Hurried", "Lazy"],
+    correctIndex: 1,
+  },
+  {
+    id: "lt-eng-2",
+    category: "English",
+    questionType: "true_false",
+    difficulty: "Easy",
+    question: "'Opaque' means allowing light to pass through.",
+    options: ["True", "False"],
+    correctIndex: 1,
+  },
+  {
+    id: "lt-eng-3",
+    category: "English",
+    questionType: "mcq",
+    difficulty: "Medium",
+    question: "Figure of speech: 'The leaves danced in the wind.'",
+    options: ["Simile", "Metaphor", "Personification", "Hyperbole"],
+    correctIndex: 2,
+  },
+  {
+    id: "lt-eng-4",
+    category: "English",
+    questionType: "true_false",
+    difficulty: "Medium",
+    question: "A portmanteau blends two words into one.",
+    options: ["True", "False"],
+    correctIndex: 0,
+  },
+  {
+    id: "lt-eng-5",
+    category: "English",
+    questionType: "mcq",
+    difficulty: "Hard",
+    question: "Past participle of the verb 'Swim':",
+    options: ["Swam", "Swimming", "Swum", "Swims"],
+    correctIndex: 2,
+  },
+  {
+    id: "lt-eng-6",
+    category: "English",
+    questionType: "mcq",
+    difficulty: "Easy",
+    question: "Antonym for 'Ancient':",
+    options: ["Old", "Modern", "Historic", "Aged"],
+    correctIndex: 1,
+  },
+];

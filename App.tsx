@@ -7,54 +7,100 @@ import {
   useSignIn,
 } from "@clerk/clerk-expo";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { appConfig } from "./src/config";
-import { mobileApi } from "./src/api/mobileApi";
+import { DashboardScreen } from "./src/features/dashboard";
 import { tokenCache } from "./src/lib/tokenCache";
+import { RootNavigator } from "./src/navigation";
+import { ThemeProvider } from "./src/shared/theme/ThemeContext";
 
 export default function App() {
-  if (isLiveClerkKeyBlockedOnLocalhost()) {
+  useEffect(() => {
+    console.log("[SUBJECTS][APP] App launched");
+    console.log("[SUBJECTS][APP] Environment config:", {
+      apiBaseUrl: appConfig.apiBaseUrl,
+      clerkPublishableKey: appConfig.clerkPublishableKey ? `PRESENT (${appConfig.clerkPublishableKey.substring(0, 15)}...)` : "MISSING",
+      tenantSlug: appConfig.tenantSlug
+    });
+  }, []);
+
+  if (!appConfig.clerkPublishableKey) {
     return (
-      <ScreenShell centered>
-        <Text style={styles.title}>Production Clerk cannot run on localhost web</Text>
-        <Text style={styles.muted}>
-          Use the development Clerk key for Expo web, or test the live key from smartguru.in/native mobile.
-        </Text>
-      </ScreenShell>
+      <SafeAreaProvider>
+        <ScreenShell centered>
+          <Text style={styles.title}>Missing Clerk config</Text>
+          <Text style={styles.muted}>
+            Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env file before starting Expo.
+          </Text>
+        </ScreenShell>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <ClerkProvider publishableKey={appConfig.clerkPublishableKey} tokenCache={tokenCache}>
-      <StatusBar style="light" />
-      <Root />
-    </ClerkProvider>
+    <SafeAreaProvider>
+      <ClerkProvider publishableKey={appConfig.clerkPublishableKey} tokenCache={tokenCache}>
+        <ThemeProvider>
+          <StatusBar style="light" />
+          <Root />
+        </ThemeProvider>
+      </ClerkProvider>
+    </SafeAreaProvider>
   );
 }
 
 function Root() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const bypassClerk = false;
+  
+  let isLoaded = false;
+  let isSignedIn = false;
+  let getToken: any = null;
 
-  if (!appConfig.clerkPublishableKey) {
-    return (
-      <ScreenShell>
-        <Text style={styles.title}>Missing Clerk config</Text>
-        <Text style={styles.muted}>Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY before starting Expo.</Text>
-      </ScreenShell>
-    );
+  try {
+    const auth = useAuth();
+    isLoaded = auth.isLoaded;
+    isSignedIn = auth.isSignedIn ?? false;
+    getToken = auth.getToken;
+  } catch (e) {
+    console.error("[SUBJECTS][APP] useAuth error caught:", e);
   }
+
+  if (bypassClerk) {
+    isLoaded = true;
+    isSignedIn = true;
+    getToken = async () => "mock-clerk-token";
+  }
+
+  const loggedClerkReady = useRef(false);
+  const loggedAuth = useRef(false);
+  const loggedGetToken = useRef(false);
+
+  useEffect(() => {
+    if (isLoaded && !loggedClerkReady.current) {
+      console.log("[SUBJECTS][APP] Clerk ready, isLoaded = true");
+      loggedClerkReady.current = true;
+    }
+    if (isSignedIn && !loggedAuth.current) {
+      console.log("[SUBJECTS][APP] User authenticated");
+      loggedAuth.current = true;
+    }
+    if (typeof getToken === "function" && !loggedGetToken.current) {
+      console.log("[SUBJECTS][APP] getToken available");
+      loggedGetToken.current = true;
+    }
+  }, [isLoaded, isSignedIn, getToken]);
 
   if (!isLoaded) {
     return (
@@ -65,7 +111,7 @@ function Root() {
     );
   }
 
-  return isSignedIn ? <SignedInHome /> : <SignInScreen />;
+  return isSignedIn ? <SignedInHome mockGetToken={getToken} /> : <SignInScreen />;
 }
 
 function SignInScreen() {
@@ -154,150 +200,17 @@ function SignInScreen() {
   );
 }
 
-function SignedInHome() {
-  const { getToken } = useAuth();
-  const { signOut } = useClerk();
-  const [error, setError] = useState("");
-  const [sessionJson, setSessionJson] = useState("");
-  const [dashboardJson, setDashboardJson] = useState("");
-  const [isFetchingSession, setIsFetchingSession] = useState(false);
-  const [isFetchingDashboard, setIsFetchingDashboard] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  useEffect(() => {
-    async function verifyTokenTemplate() {
-      try {
-        await getToken({ template: "convex" });
-      } catch (err) {
-        setError(getErrorMessage(err));
-      }
-    }
-
-    void verifyTokenTemplate();
-  }, [getToken]);
-
-  async function handleSignOut() {
-    if (isSigningOut) {
-      return;
-    }
-
-    setIsSigningOut(true);
-    setError("");
+function SignedInHome({ mockGetToken }: { mockGetToken?: any }) {
+  let getToken = mockGetToken;
+  if (!getToken) {
     try {
-      await signOut();
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setIsSigningOut(false);
+      const auth = useAuth();
+      getToken = auth.getToken;
+    } catch (e) {
+      getToken = async () => "mock-clerk-token";
     }
   }
-
-  async function handleFetchSession() {
-    if (isFetchingSession) {
-      return;
-    }
-
-    setIsFetchingSession(true);
-    setError("");
-    setSessionJson("");
-    try {
-      const data = await mobileApi<unknown>("/session", {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
-      });
-      setSessionJson(JSON.stringify(data, null, 2));
-    } catch (err) {
-      setError(getApiErrorMessage(err));
-    } finally {
-      setIsFetchingSession(false);
-    }
-  }
-
-  async function handleFetchDashboard() {
-    if (isFetchingDashboard) {
-      return;
-    }
-
-    setIsFetchingDashboard(true);
-    setError("");
-    setDashboardJson("");
-    try {
-      const data = await mobileApi<unknown>("/student/dashboard", {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
-      });
-      setDashboardJson(JSON.stringify(data, null, 2));
-    } catch (err) {
-      setError(getApiErrorMessage(err));
-    } finally {
-      setIsFetchingDashboard(false);
-    }
-  }
-
-  return (
-    <SafeAreaView style={styles.blankSafeArea}>
-      <ScrollView contentContainerStyle={styles.signedInContent}>
-        <View style={styles.blankHeader}>
-          <Pressable disabled={isSigningOut} onPress={handleSignOut} style={styles.signOutButton}>
-            {isSigningOut ? (
-              <ActivityIndicator color="#fff7f3" />
-            ) : (
-              <Text style={styles.signOutButtonText}>Sign out</Text>
-            )}
-          </Pressable>
-        </View>
-
-        <EndpointTestCard
-          iconName="person-circle-outline"
-          isLoading={isFetchingSession}
-          onPress={handleFetchSession}
-          path="GET /session"
-          title="Test session endpoint"
-        />
-
-        <Pressable
-          disabled={isFetchingDashboard}
-          onPress={handleFetchDashboard}
-          style={({ pressed }) => [
-            styles.testCard,
-            pressed && !isFetchingDashboard ? styles.testCardPressed : null,
-          ]}
-        >
-          <View style={styles.testCardHeader}>
-            <Ionicons color="#f5a08d" name="speedometer-outline" size={22} />
-            <Text style={styles.testCardTitle}>Test dashboard endpoint</Text>
-          </View>
-          <Text style={styles.testCardSubtitle}>GET /student/dashboard</Text>
-          <View style={styles.testCardButton}>
-            {isFetchingDashboard ? (
-              <ActivityIndicator color="#241817" />
-            ) : (
-              <Text style={styles.testCardButtonText}>Fetch dashboard data</Text>
-            )}
-          </View>
-        </Pressable>
-
-        {error ? <Text style={styles.blankErrorText}>{error}</Text> : null}
-
-        {sessionJson ? (
-          <View style={styles.responsePanel}>
-            <Text style={styles.responseTitle}>Session response</Text>
-            <Text selectable style={styles.responseJson}>
-              {sessionJson}
-            </Text>
-          </View>
-        ) : null}
-
-        {dashboardJson ? (
-          <View style={styles.responsePanel}>
-            <Text style={styles.responseTitle}>Dashboard response</Text>
-            <Text selectable style={styles.responseJson}>
-              {dashboardJson}
-            </Text>
-          </View>
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
-  );
+  return <RootNavigator getToken={getToken} />;
 }
 
 function EndpointTestCard({
@@ -351,8 +264,27 @@ function ScreenShell({ centered = false, children }: { centered?: boolean; child
   );
 }
 
+interface ClerkErrorItem {
+  message: string;
+  longMessage?: string;
+}
+
+interface ClerkAPIResponseErrorObject {
+  errors: ClerkErrorItem[];
+}
+
+function isClerkResponseError(error: unknown): error is ClerkAPIResponseErrorObject {
+  return (
+    isClerkAPIResponseError(error) &&
+    typeof error === "object" &&
+    error !== null &&
+    "errors" in error &&
+    Array.isArray((error as ClerkAPIResponseErrorObject).errors)
+  );
+}
+
 function getErrorMessage(error: unknown) {
-  if (isClerkAPIResponseError(error)) {
+  if (isClerkResponseError(error)) {
     return error.errors.map((item) => item.longMessage || item.message).join("\n");
   }
 
@@ -374,18 +306,6 @@ function getApiErrorMessage(error: unknown) {
   return message;
 }
 
-function isLiveClerkKeyBlockedOnLocalhost() {
-  if (
-    Platform.OS !== "web" ||
-    !appConfig.clerkPublishableKey.startsWith("pk_live_") ||
-    typeof window === "undefined" ||
-    !window.location
-  ) {
-    return false;
-  }
-
-  return ["localhost", "127.0.0.1"].includes(window.location.hostname);
-}
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -465,7 +385,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderWidth: 1,
     borderColor: "#5e4742",
-    borderRadius: 8,
+    borderRadius: 20,
     color: "#fff7f3",
     paddingHorizontal: 14,
     fontSize: 16,
@@ -476,7 +396,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#5e4742",
-    borderRadius: 8,
+    borderRadius: 20,
   },
   passwordInput: {
     flex: 1,
@@ -496,7 +416,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: "#f5a08d",
     paddingHorizontal: 18,
   },
@@ -522,7 +442,7 @@ const styles = StyleSheet.create({
     minWidth: 96,
     borderWidth: 1,
     borderColor: "#7b5b54",
-    borderRadius: 8,
+    borderRadius: 20,
     paddingHorizontal: 14,
   },
   signOutButtonText: {
@@ -534,7 +454,7 @@ const styles = StyleSheet.create({
     gap: 14,
     borderWidth: 1,
     borderColor: "#5e4742",
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: "#2f2220",
     padding: 18,
   },
@@ -561,7 +481,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: "#f5a08d",
     paddingHorizontal: 14,
   },
@@ -574,7 +494,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: "#4c3934",
-    borderRadius: 8,
+    borderRadius: 20,
     backgroundColor: "#1d1413",
     padding: 14,
   },

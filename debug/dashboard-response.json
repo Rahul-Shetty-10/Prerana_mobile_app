@@ -1,0 +1,194 @@
+{
+  "ok": true,
+  "data": {
+    "student": {
+      "userName": "Rahul Sharma",
+      "greeting": "Good morning",
+      "notificationCount": 3,
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop"
+    },
+    "welcomeCard": {
+      "badgeText": "STUDENT DASHBOARD",
+      "title": "Welcome Back, Rahul!",
+      "description": "Track your daily study targets, review formula sheets, and continue your active practice sets.",
+      "subjects": [
+        "Physics",
+        "Chemistry",
+        "Mathematics",
+        "Biology"
+      ]
+    },
+    "stats": [
+      {
+        "title": "Overall Accuracy",
+        "value": "84.5%",
+        "icon": "analytics-outline",
+        "variant": "coral",
+        "changeText": "+2.4%",
+        "changeType": "positive"
+      },
+      {
+        "title": "Questions Solved",
+        "value": "1,240",
+        "icon": "checkmark-done-circle-outline",
+        "variant": "emerald",
+        "changeText": "+150",
+        "changeType": "positive"
+      },
+      {
+        "title": "Study Hours",
+        "value": "38.5 hrs",
+        "icon": "time-outline",
+        "variant": "amber",
+        "changeText": "+4.2h",
+        "changeType": "positive"
+      },
+      {
+        "title": "National Rank",
+        "value": "#412",
+        "icon": "trophy-outline",
+        "variant": "purple",
+        "changeText": "Top 2%",
+        "changeType": "positive"
+      }
+    ],
+    "focusNow": {
+      "nextChapter": {
+        "subjectName": "Physics",
+        "chapterTitle": "Chapter 4: Thermodynamics & Heat Transfer",
+        "progressPercentage": 68,
+        "estimatedMinutes": 25
+      },
+      "libraryStatus": {
+        "savedResourcesCount": 14,
+        "activeLabsCount": 3
+      }
+    },
+    "performance": {
+      "overallAccuracy": 84.5,
+      "masteryLevel": "Advanced",
+      "subjectsPerformance": [
+        {
+          "subject": "Physics",
+          "scorePercentage": 88,
+          "questionsSolved": 420,
+          "colorVariant": "coral"
+        },
+        {
+          "subject": "Chemistry",
+          "scorePercentage": 82,
+          "questionsSolved": 380,
+          "colorVariant": "amber"
+        },
+        {
+          "subject": "Mathematics",
+          "scorePercentage": 79,
+          "questionsSolved": 290,
+          "colorVariant": "blue"
+        },
+        {
+          "subject": "Biology",
+          "scorePercentage": 91,
+          "questionsSolved": 150,
+          "colorVariant": "emerald"
+        }
+      ]
+    },
+    "signals": [
+      {
+        "id": "sig-1",
+        "category": "assessments",
+        "title": "Full Mock Test #4 Completed",
+        "subtitle": "Score: 248/300 • Accuracy: 86%",
+        "timestamp": "2 hours ago",
+        "statusText": "Passed",
+        "statusVariant": "success",
+        "iconName": "document-text-outline"
+      },
+      {
+        "id": "sig-2",
+        "category": "assessments",
+        "title": "Physics Weekly Quiz #12",
+        "subtitle": "Score: 18/20 • Speed: 1.2 min/q",
+        "timestamp": "Yesterday",
+        "statusText": "Top 5%",
+        "statusVariant": "success",
+        "iconName": "ribbon-outline"
+      },
+      {
+        "id": "sig-3",
+        "category": "requests",
+        "title": "Organic Chemistry Reaction Mechanism Notes",
+        "subtitle": "Requested for Chapter 7 • Status: In Review",
+        "timestamp": "3 hours ago",
+        "statusText": "Pending",
+        "statusVariant": "warning",
+        "iconName": "git-pull-request-outline"
+      },
+      {
+        "id": "sig-4",
+        "category": "requests",
+        "title": "Calculus Definite Integrals Solution Key",
+        "subtitle": "Uploaded by Teacher • Ready to download",
+        "timestamp": "1 day ago",
+        "statusText": "Approved",
+        "statusVariant": "info",
+        "iconName": "checkmark-circle-outline"
+      },
+      {
+        "id": "sig-5",
+        "category": "library",
+        "title": "NEET 2025 Physics Formula Sheet",
+        "subtitle": "Saved to Revision Desk",
+        "timestamp": "4 hours ago",
+        "statusText": "Saved",
+        "statusVariant": "info",
+        "iconName": "bookmark-outline"
+      },
+      {
+        "id": "sig-6",
+        "category": "library",
+        "title": "Electrostatics Interactive Simulation Lab",
+        "subtitle": "Added to Study Lab Collection",
+        "timestamp": "2 days ago",
+        "statusText": "Saved",
+        "statusVariant": "info",
+        "iconName": "flask-outline"
+      }
+    ],
+    "quickRoutes": [
+      {
+        "id": "qr-1",
+        "title": "Continue Next Chapter",
+        "subtitle": "Thermodynamics & Heat Transfer",
+        "icon": "play-circle-outline",
+        "badgeText": "Resume",
+        "variant": "coral"
+      },
+      {
+        "id": "qr-2",
+        "title": "Take Assessment",
+        "subtitle": "Weekly Physics Speed Quiz",
+        "icon": "clipboard-outline",
+        "badgeText": "Quiz",
+        "variant": "purple"
+      },
+      {
+        "id": "qr-3",
+        "title": "Saved Formula Library",
+        "subtitle": "14 Formula Sheets & Notes",
+        "icon": "library-outline",
+        "badgeText": "Library",
+        "variant": "blue"
+      },
+      {
+        "id": "qr-4",
+        "title": "Student Profile",
+        "subtitle": "Target Exams & Study Schedule",
+        "icon": "person-outline",
+        "badgeText": "Account",
+        "variant": "amber"
+      }
+    ]
+  }
+}
