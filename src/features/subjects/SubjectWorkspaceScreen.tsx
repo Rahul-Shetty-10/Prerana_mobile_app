@@ -98,7 +98,7 @@ export function SubjectWorkspaceScreen({
                 if (workspace.chapters[0]) onSelectChapter?.(workspace.chapters[0]);
               }}
               onViewQuizzes={() => {
-                (navigation as any).navigate("AssessmentsTab", { screen: "QuizzesHome" });
+                (navigation as any).navigate("Games", { screen: "QuizzesHome" });
               }}
             />
 

@@ -50,7 +50,7 @@ function MainTabs({ getToken }: { getToken?: GetToken }) {
           else if (route.name === "FundamentalsTab") iconName = "book-outline";
           else if (route.name === "SubjectsTab") iconName = "grid-outline";
           else if (route.name === "LibraryTab") iconName = "library-outline";
-          else if (route.name === "AssessmentsTab") iconName = "clipboard-outline";
+          else if (route.name === "AssessmentsTab") iconName = "game-controller-outline";
 
           return <AppIcon color={color} name={iconName} size={size || 20} />;
         },
@@ -92,13 +92,13 @@ function MainTabs({ getToken }: { getToken?: GetToken }) {
       <Tab.Screen
         listeners={({ navigation }) => ({
           tabPress: () => {
-            (navigation as any).navigate("AssessmentsTab", { screen: "QuizzesHome" });
+            (navigation as any).navigate("AssessmentsTab", { screen: "ArcadeHome" });
           },
         })}
         name="AssessmentsTab"
-        options={{ tabBarLabel: "Assessments" }}
+        options={{ tabBarLabel: "Arcade" }}
       >
-        {() => <AssessmentsNavigator getToken={getToken} />}
+        {() => <ArcadeNavigator getToken={getToken} />}
       </Tab.Screen>
     </Tab.Navigator>
   );
@@ -130,7 +130,7 @@ export function RootNavigator({ getToken }: RootNavigatorProps) {
           )}
         </Stack.Screen>
         <Stack.Screen name="Games">
-          {() => <ArcadeNavigator getToken={getToken} />}
+          {() => <AssessmentsNavigator getToken={getToken} />}
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>

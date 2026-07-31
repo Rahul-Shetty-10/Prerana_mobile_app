@@ -115,10 +115,10 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
           />
 
           <PreferenceTile
-            iconName="game-controller-outline"
+            iconName="clipboard-outline"
             onPress={() => navigation.navigate("Games")}
-            subtitle="Access the interactive Arcade Games module"
-            title="Arcade"
+            subtitle="Access the quizzes history and performance assessments"
+            title="Assessments"
           />
 
           <PreferenceTile
