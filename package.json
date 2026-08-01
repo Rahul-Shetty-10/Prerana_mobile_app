@@ -39,5 +39,10 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
+  "packageManager": "npm@10.9.2",
   "private": true
 }
