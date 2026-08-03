@@ -3,8 +3,13 @@ import { mobileApi } from "../../../api/mobileApi";
 import { ChapterItem, SubjectMeta, SubjectWorkspacePayload } from "../types";
 import { IconName } from "../../../shared/icons";
 import { StatCardVariant } from "../../dashboard/types";
-import { MOCK_SUBJECTS } from "../mock/mockSubjects";
-import { getMockSubjectWorkspace } from "../mock/mockWorkspace";
+
+export class SubjectsError extends Error {
+  constructor(public code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA', message: string) {
+    super(message);
+    this.name = 'SubjectsError';
+  }
+}
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -62,11 +67,11 @@ function getColorVariantForSubject(subjectCode?: string, index: number = 0): Sta
 export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMeta[]> {
   console.log("[SUBJECTS][SERVICE] fetchSubjectsList(): START");
 
-  try {
-    if (!getToken) {
-      throw new Error("Authentication token is required to load subjects.");
-    }
+  if (!getToken) {
+    throw new SubjectsError('UNAUTHORIZED', 'Authentication token is required to load subjects.');
+  }
 
+  try {
     const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
       getToken,
       tenantSlug: appConfig.tenantSlug,
@@ -81,34 +86,17 @@ export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMet
       } else if (Array.isArray((rawData as any).subjects)) {
         subjects = (rawData as any).subjects;
       } else if (rawData.snapshot && Array.isArray(rawData.snapshot)) {
-        // Alternative case where snapshot itself is the array of subjects
         subjects = rawData.snapshot;
       } else {
         console.warn("[SUBJECTS][SERVICE] fetchSubjectsList(): Payload structure is unexpected. Keys in rawData:", Object.keys(rawData));
-        if (rawData.snapshot) {
-          console.warn("[SUBJECTS][SERVICE] Keys in rawData.snapshot:", Object.keys(rawData.snapshot));
-        }
       }
-    } else {
-      console.warn("[SUBJECTS][SERVICE] fetchSubjectsList(): Raw data is nullish or not an object:", rawData);
     }
 
     const backendCount = subjects.length;
     console.log(`[SUBJECTS][SERVICE] fetchSubjectsList(): Validated backend subject count: ${backendCount}`);
 
     if (subjects.length === 0) {
-      console.log("[SUBJECTS][SERVICE] No subjects found or validated from backend response. Falling back to local mock data.");
-      const mockMapped = MOCK_SUBJECTS.map((s) => ({
-        id: s.id,
-        name: s.name,
-        chapterCount: s.chapterCount,
-        partCount: s.partCount,
-        iconName: s.iconName,
-        colorVariant: s.colorVariant,
-      }));
-      console.log(`[SUBJECTS][SERVICE] fetchSubjectsList(): Mapped subject count: ${mockMapped.length}`);
-      console.log("[SUBJECTS][SERVICE] fetchSubjectsList(): END");
-      return mockMapped;
+      throw new SubjectsError('EMPTY_DATA', 'No subjects found or returned from the server.');
     }
 
     const mapped = subjects.map((item, idx) => {
@@ -133,21 +121,17 @@ export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMet
     console.log("[SUBJECTS][SERVICE] fetchSubjectsList(): END");
     return mapped;
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.log(`[SUBJECTS][ERROR] Component: subjectsService | Function: fetchSubjectsList | Error message: ${errorMsg}`);
-    console.log("[SUBJECTS][SERVICE] fetchSubjectsList backend failed. Falling back to local mock data.");
-    const mockMapped = MOCK_SUBJECTS.map((s) => ({
-      id: s.id,
-      name: s.name,
-      chapterCount: s.chapterCount,
-      partCount: s.partCount,
-      iconName: s.iconName,
-      colorVariant: s.colorVariant,
-    }));
-    console.log(`[SUBJECTS][SERVICE] fetchSubjectsList(): Mapped subject count: ${mockMapped.length}`);
-    console.log(`[SUBJECTS][SERVICE] fetchSubjectsList(): First mapped subject: ${JSON.stringify(mockMapped[0])}`);
-    console.log("[SUBJECTS][SERVICE] fetchSubjectsList(): END");
-    return mockMapped;
+    console.error("[SUBJECTS][SERVICE] error in fetchSubjectsList:", error);
+    if (error instanceof SubjectsError) throw error;
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("unauthorized") || msg.includes("unauthenticated") || msg.includes("clerk token")) {
+        throw new SubjectsError('UNAUTHORIZED', error.message);
+      } else if (msg.includes("network") || msg.includes("fetch")) {
+        throw new SubjectsError('NETWORK_FAILURE', error.message);
+      }
+    }
+    throw new SubjectsError('SERVER_ERROR', 'Failed to fetch subjects list');
   }
 }
 
@@ -157,11 +141,11 @@ export async function fetchSubjectWorkspace(
 ): Promise<SubjectWorkspacePayload> {
   console.log(`[SUBJECTS][SERVICE] fetchSubjectWorkspace(): START for subjectId=${subjectId}`);
 
-  try {
-    if (!getToken) {
-      throw new Error("Authentication token is required to load subject workspace.");
-    }
+  if (!getToken) {
+    throw new SubjectsError('UNAUTHORIZED', 'Authentication token is required to load subject workspace.');
+  }
 
+  try {
     const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
       getToken,
       tenantSlug: appConfig.tenantSlug,
@@ -178,12 +162,10 @@ export async function fetchSubjectWorkspace(
       } else {
         console.warn("[SUBJECTS][SERVICE] fetchSubjectWorkspace(): Payload structure is unexpected. Keys in rawData:", Object.keys(rawData));
       }
-    } else {
-      console.warn("[SUBJECTS][SERVICE] fetchSubjectWorkspace(): Raw data is nullish or not an object:", rawData);
     }
 
     if (subjects.length === 0) {
-      throw new Error("No subjects validated from learning snapshot.");
+      throw new SubjectsError('EMPTY_DATA', 'No subjects found on backend.');
     }
 
     const itemIdx = subjects.findIndex(
@@ -191,7 +173,7 @@ export async function fetchSubjectWorkspace(
     );
     
     if (itemIdx < 0) {
-      throw new Error(`Selected subject '${subjectId}' workspace not found on backend.`);
+      throw new SubjectsError('SERVER_ERROR', `Selected subject '${subjectId}' workspace not found on backend.`);
     }
 
     const item = subjects[itemIdx];
@@ -223,15 +205,22 @@ export async function fetchSubjectWorkspace(
     return {
       subject: subjectMeta,
       stats: {
-        completedChapters: Math.floor(chapterCount * 0.4),
+        completedChapters: 0, // Set to 0 to avoid dummy content fabrication.
         totalChapters: chapterCount,
       },
       chapters,
     };
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.log(`[SUBJECTS][ERROR] Component: subjectsService | Function: fetchSubjectWorkspace | Error message: ${errorMsg}`);
-    console.log("[SUBJECTS][SERVICE] fetchSubjectWorkspace backend failed. Falling back to local mock workspace.");
-    return getMockSubjectWorkspace(subjectId);
+    console.error("[SUBJECTS][SERVICE] error in fetchSubjectWorkspace:", error);
+    if (error instanceof SubjectsError) throw error;
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("unauthorized") || msg.includes("unauthenticated") || msg.includes("clerk token")) {
+        throw new SubjectsError('UNAUTHORIZED', error.message);
+      } else if (msg.includes("network") || msg.includes("fetch")) {
+        throw new SubjectsError('NETWORK_FAILURE', error.message);
+      }
+    }
+    throw new SubjectsError('SERVER_ERROR', 'Failed to fetch subject workspace');
   }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchSubjectsList, fetchSubjectWorkspace } from "../services";
+import { fetchSubjectsList, fetchSubjectWorkspace, SubjectsError } from "../services";
 import { SubjectMeta, SubjectWorkspacePayload } from "../types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -15,15 +15,27 @@ export function useSubjectsList(getToken?: GetToken) {
   }, [subjects, isLoading, error]);
 
   const loadData = useCallback(async () => {
+    if (!getToken) {
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchSubjectsList(getToken);
       setSubjects(data);
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to load subjects";
-      setError(errorMsg);
-      console.log(`[SUBJECTS][ERROR] Component: useSubjectsList | Function: loadData | Error message: ${errorMsg}`);
+      console.error("[SUBJECTS][HOOK] useSubjectsList caught error:", err);
+      if (err instanceof SubjectsError) {
+        if (err.code === 'NETWORK_FAILURE') {
+          setError("Network connection issue. Please check your connection and retry.");
+        } else if (err.code === 'UNAUTHORIZED') {
+          setError("Session expired. Please sign in again.");
+        } else {
+          setError("Failed to load subjects. Please try again later.");
+        }
+      } else {
+        setError("Failed to load subjects. Please try again later.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +60,18 @@ export function useSubjectWorkspace(subjectId: string, getToken?: GetToken) {
       const data = await fetchSubjectWorkspace(subjectId, getToken);
       setWorkspace(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load workspace");
+      console.error("[SUBJECTS][HOOK] useSubjectWorkspace caught error:", err);
+      if (err instanceof SubjectsError) {
+        if (err.code === 'NETWORK_FAILURE') {
+          setError("Network connection issue. Please check your connection and retry.");
+        } else if (err.code === 'UNAUTHORIZED') {
+          setError("Session expired. Please sign in again.");
+        } else {
+          setError("Failed to load subject workspace. Please try again later.");
+        }
+      } else {
+        setError("Failed to load subject workspace. Please try again later.");
+      }
     } finally {
       setIsLoading(false);
     }
