@@ -20,11 +20,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { appConfig } from "./src/config";
 import { DashboardScreen } from "./src/features/dashboard";
 import { tokenCache } from "./src/lib/tokenCache";
 import { RootNavigator } from "./src/navigation";
 import { ThemeProvider } from "./src/shared/theme/ThemeContext";
+import { mobileApi, MobileSessionData } from "./src/api/mobileApi";
+import { clearLearningState } from "./src/shared/services/learningStateService";
 
 export default function App() {
   useEffect(() => {
@@ -62,26 +65,8 @@ export default function App() {
 }
 
 function Root() {
-  const bypassClerk = false;
-  
-  let isLoaded = false;
-  let isSignedIn = false;
-  let getToken: any = null;
-
-  try {
-    const auth = useAuth();
-    isLoaded = auth.isLoaded;
-    isSignedIn = auth.isSignedIn ?? false;
-    getToken = auth.getToken;
-  } catch (e) {
-    console.error("[SUBJECTS][APP] useAuth error caught:", e);
-  }
-
-  if (bypassClerk) {
-    isLoaded = true;
-    isSignedIn = true;
-    getToken = async () => "mock-clerk-token";
-  }
+  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
+  const [sessionState, setSessionState] = useState<'loading' | 'verifying' | 'verified' | 'failed'>('loading');
 
   const loggedClerkReady = useRef(false);
   const loggedAuth = useRef(false);
@@ -102,7 +87,64 @@ function Root() {
     }
   }, [isLoaded, isSignedIn, getToken]);
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (!isSignedIn) {
+      setSessionState('loading');
+      return;
+    }
+
+    const verifyBackendSession = async (isBackground: boolean) => {
+      try {
+        const data = await mobileApi<MobileSessionData>("/session", {
+          getToken,
+          tenantSlug: appConfig.tenantSlug,
+        });
+        if (data.role !== "student") {
+          throw new Error("User role is not student");
+        }
+        await AsyncStorage.setItem("@prerana_session", JSON.stringify(data));
+        setSessionState("verified");
+      } catch (error) {
+        console.error("[SUBJECTS][APP] Backend session verification error:", error);
+        await AsyncStorage.removeItem("@prerana_session");
+        setSessionState("failed");
+      }
+    };
+
+    const initializeSession = async () => {
+      try {
+        const cachedSession = await AsyncStorage.getItem("@prerana_session");
+        if (cachedSession) {
+          setSessionState("verified");
+          // Background verification to ensure token/session is still active
+          verifyBackendSession(true);
+        } else {
+          setSessionState("verifying");
+          await verifyBackendSession(false);
+        }
+      } catch (e) {
+        setSessionState("verifying");
+        await verifyBackendSession(false);
+      }
+    };
+
+    initializeSession();
+  }, [isLoaded, isSignedIn, getToken]);
+
+  const handleSignOut = async () => {
+    try {
+      await AsyncStorage.removeItem("@prerana_session");
+      await AsyncStorage.clear();
+      await clearLearningState();
+      await signOut();
+    } catch (e) {
+      await signOut();
+    }
+  };
+
+  if (!isLoaded || (isSignedIn && sessionState === "loading")) {
     return (
       <ScreenShell centered>
         <ActivityIndicator color="#f5a08d" />
@@ -111,7 +153,59 @@ function Root() {
     );
   }
 
-  return isSignedIn ? <SignedInHome mockGetToken={getToken} /> : <SignInScreen />;
+  if (isSignedIn && sessionState === "verifying") {
+    return (
+      <ScreenShell centered>
+        <ActivityIndicator color="#f5a08d" />
+        <Text style={styles.muted}>Verifying account with backend...</Text>
+      </ScreenShell>
+    );
+  }
+
+  if (isSignedIn && sessionState === "failed") {
+    return <SessionErrorScreen onSignOut={handleSignOut} />;
+  }
+
+  return isSignedIn && sessionState === "verified" ? (
+    <SignedInHome mockGetToken={getToken} />
+  ) : (
+    <SignInScreen />
+  );
+}
+
+function SessionErrorScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handlePress = async () => {
+    setIsSigningOut(true);
+    try {
+      await onSignOut();
+    } catch (e) {
+      // Ignore
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  return (
+    <ScreenShell centered>
+      <View style={styles.brandBlock}>
+        <Text style={styles.eyebrow}>Verification Error</Text>
+        <Text style={styles.title}>We couldn't verify your account.</Text>
+        <Text style={styles.subtitle}>Please sign in again or contact your administrator.</Text>
+      </View>
+
+      <View style={[styles.panel, { width: "100%", marginTop: 24 }]}>
+        <Pressable disabled={isSigningOut} onPress={handlePress} style={styles.primaryButton}>
+          {isSigningOut ? (
+            <ActivityIndicator color="#241817" />
+          ) : (
+            <Text style={styles.primaryButtonText}>✔ Sign Out</Text>
+          )}
+        </Pressable>
+      </View>
+    </ScreenShell>
+  );
 }
 
 function SignInScreen() {
@@ -203,12 +297,8 @@ function SignInScreen() {
 function SignedInHome({ mockGetToken }: { mockGetToken?: any }) {
   let getToken = mockGetToken;
   if (!getToken) {
-    try {
-      const auth = useAuth();
-      getToken = auth.getToken;
-    } catch (e) {
-      getToken = async () => "mock-clerk-token";
-    }
+    const auth = useAuth();
+    getToken = auth.getToken;
   }
   return <RootNavigator getToken={getToken} />;
 }
