@@ -9,15 +9,13 @@ import {
   StatCardProps,
   WelcomeCardProps,
 } from "../types";
-import {
-  MOCK_FOCUS_NOW,
-  MOCK_PERFORMANCE,
-  MOCK_QUICK_ROUTES,
-  MOCK_SIGNALS,
-  MOCK_STATS_DATA,
-  MOCK_STUDENT,
-  MOCK_WELCOME_DATA,
-} from "../constants";
+
+export class DashboardError extends Error {
+  constructor(public code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA', message: string) {
+    super(message);
+    this.name = 'DashboardError';
+  }
+}
 
 export interface DashboardApiResponse {
   student?: {
@@ -31,6 +29,7 @@ export interface DashboardApiResponse {
     title?: string;
     description?: string;
     subjects?: string[];
+    selectedSubject?: string;
   };
   stats?: StatCardProps[];
   focusNow?: FocusNowProps;
@@ -59,48 +58,59 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
     });
 
     if (!rawData) {
-      return {
-        student: MOCK_STUDENT,
-        welcomeCard: MOCK_WELCOME_DATA,
-        stats: MOCK_STATS_DATA,
-        focusNow: MOCK_FOCUS_NOW,
-        performance: MOCK_PERFORMANCE,
-        signals: MOCK_SIGNALS,
-        quickRoutes: MOCK_QUICK_ROUTES,
-      };
+      throw new DashboardError('EMPTY_DATA', 'No data returned from the server');
     }
 
     return {
       student: {
-        userName: rawData.student?.userName || MOCK_STUDENT.userName,
-        greeting: rawData.student?.greeting || MOCK_STUDENT.greeting,
-        notificationCount: rawData.student?.notificationCount ?? MOCK_STUDENT.notificationCount,
-        avatarUrl: rawData.student?.avatarUrl || MOCK_STUDENT.avatarUrl,
+        userName: rawData.student?.userName || "",
+        greeting: rawData.student?.greeting || "",
+        notificationCount: rawData.student?.notificationCount ?? 0,
+        avatarUrl: rawData.student?.avatarUrl,
       },
       welcomeCard: {
-        badgeText: rawData.welcomeCard?.badgeText || MOCK_WELCOME_DATA.badgeText,
-        title: rawData.welcomeCard?.title || MOCK_WELCOME_DATA.title,
-        description: rawData.welcomeCard?.description || MOCK_WELCOME_DATA.description,
-        subjects: rawData.welcomeCard?.subjects || MOCK_WELCOME_DATA.subjects,
-        selectedSubject:
-          rawData.welcomeCard?.subjects?.[0] || MOCK_WELCOME_DATA.selectedSubject,
+        badgeText: rawData.welcomeCard?.badgeText || "",
+        title: rawData.welcomeCard?.title || "",
+        description: rawData.welcomeCard?.description || "",
+        subjects: rawData.welcomeCard?.subjects || [],
+        selectedSubject: rawData.welcomeCard?.selectedSubject || rawData.welcomeCard?.subjects?.[0] || "",
       },
-      stats: rawData.stats && rawData.stats.length > 0 ? rawData.stats : MOCK_STATS_DATA,
-      focusNow: rawData.focusNow || MOCK_FOCUS_NOW,
-      performance: rawData.performance || MOCK_PERFORMANCE,
-      signals: rawData.signals && rawData.signals.length > 0 ? rawData.signals : MOCK_SIGNALS,
-      quickRoutes: rawData.quickRoutes && rawData.quickRoutes.length > 0 ? rawData.quickRoutes : MOCK_QUICK_ROUTES,
+      stats: rawData.stats || [],
+      focusNow: {
+        nextChapter: rawData.focusNow?.nextChapter ? {
+          subjectName: rawData.focusNow.nextChapter.subjectName || "",
+          chapterTitle: rawData.focusNow.nextChapter.chapterTitle || "",
+          progressPercentage: rawData.focusNow.nextChapter.progressPercentage ?? 0,
+          estimatedMinutes: rawData.focusNow.nextChapter.estimatedMinutes ?? 0,
+        } : undefined,
+        libraryStatus: rawData.focusNow?.libraryStatus ? {
+          savedResourcesCount: rawData.focusNow.libraryStatus.savedResourcesCount ?? 0,
+          activeLabsCount: rawData.focusNow.libraryStatus.activeLabsCount ?? 0,
+        } : undefined,
+      },
+      performance: {
+        overallAccuracy: rawData.performance?.overallAccuracy ?? 0,
+        masteryLevel: rawData.performance?.masteryLevel || "",
+        subjectsPerformance: rawData.performance?.subjectsPerformance || [],
+      },
+      signals: rawData.signals || [],
+      quickRoutes: rawData.quickRoutes || [],
     };
   } catch (error) {
-    // If API is unauthenticated or offline, gracefully return formatted fallback data
-    return {
-      student: MOCK_STUDENT,
-      welcomeCard: MOCK_WELCOME_DATA,
-      stats: MOCK_STATS_DATA,
-      focusNow: MOCK_FOCUS_NOW,
-      performance: MOCK_PERFORMANCE,
-      signals: MOCK_SIGNALS,
-      quickRoutes: MOCK_QUICK_ROUTES,
-    };
+    console.error("[SUBJECTS][DASHBOARD] error in fetchDashboardData:", error);
+    if (error instanceof DashboardError) {
+      throw error;
+    }
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("unauthorized") || msg.includes("unauthenticated") || msg.includes("clerk token")) {
+        throw new DashboardError('UNAUTHORIZED', error.message);
+      } else if (msg.includes("network") || msg.includes("fetch")) {
+        throw new DashboardError('NETWORK_FAILURE', error.message);
+      } else {
+        throw new DashboardError('SERVER_ERROR', error.message);
+      }
+    }
+    throw new DashboardError('SERVER_ERROR', 'Unexpected dashboard service failure');
   }
 }

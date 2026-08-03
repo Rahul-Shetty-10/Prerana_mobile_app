@@ -1,27 +1,38 @@
 import { useCallback, useEffect, useState } from "react";
-import { DashboardDataPayload, fetchDashboardData } from "../services";
-import {
-  MOCK_FOCUS_NOW,
-  MOCK_PERFORMANCE,
-  MOCK_QUICK_ROUTES,
-  MOCK_SIGNALS,
-  MOCK_STATS_DATA,
-  MOCK_STUDENT,
-  MOCK_WELCOME_DATA,
-} from "../constants";
+import { DashboardDataPayload, fetchDashboardData, DashboardError } from "../services";
+
+const DEFAULT_EMPTY_DATA: DashboardDataPayload = {
+  student: {
+    userName: "",
+    greeting: "",
+    notificationCount: 0,
+    avatarUrl: undefined,
+  },
+  welcomeCard: {
+    badgeText: "",
+    title: "",
+    description: "",
+    subjects: [],
+    selectedSubject: "",
+  },
+  stats: [],
+  focusNow: {
+    nextChapter: undefined,
+    libraryStatus: undefined,
+  },
+  performance: {
+    overallAccuracy: 0,
+    masteryLevel: "",
+    subjectsPerformance: [],
+  },
+  signals: [],
+  quickRoutes: [],
+};
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export function useDashboardData(getToken?: GetToken) {
-  const [data, setData] = useState<DashboardDataPayload>({
-    student: MOCK_STUDENT,
-    welcomeCard: MOCK_WELCOME_DATA,
-    stats: MOCK_STATS_DATA,
-    focusNow: MOCK_FOCUS_NOW,
-    performance: MOCK_PERFORMANCE,
-    signals: MOCK_SIGNALS,
-    quickRoutes: MOCK_QUICK_ROUTES,
-  });
+  const [data, setData] = useState<DashboardDataPayload>(DEFAULT_EMPTY_DATA);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +47,18 @@ export function useDashboardData(getToken?: GetToken) {
       const result = await fetchDashboardData(getToken);
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+      console.error("[SUBJECTS][DASHBOARD] loadData hook caught error:", err);
+      if (err instanceof DashboardError) {
+        if (err.code === 'NETWORK_FAILURE') {
+          setError("Network connection issue. Please check your connection and retry.");
+        } else if (err.code === 'UNAUTHORIZED') {
+          setError("Session expired. Please sign in again.");
+        } else {
+          setError("Failed to load dashboard data. Please check your connection and try again.");
+        }
+      } else {
+        setError("Failed to load dashboard data. Please check your connection and try again.");
+      }
     } finally {
       setIsLoading(false);
     }

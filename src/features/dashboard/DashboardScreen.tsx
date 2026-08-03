@@ -49,6 +49,15 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
     })();
   }, []);
 
+  // Update selectedSubject once backend data is fetched
+  useEffect(() => {
+    if (data.welcomeCard.selectedSubject) {
+      setSelectedSubject(data.welcomeCard.selectedSubject);
+    } else if (data.welcomeCard.subjects && data.welcomeCard.subjects.length > 0) {
+      setSelectedSubject(data.welcomeCard.subjects[0]);
+    }
+  }, [data.welcomeCard.selectedSubject, data.welcomeCard.subjects]);
+
   const handleSubjectSelect = (subjectName: string) => {
     setSelectedSubject(subjectName);
     const matched = MOCK_SUBJECTS_LIST.find(
