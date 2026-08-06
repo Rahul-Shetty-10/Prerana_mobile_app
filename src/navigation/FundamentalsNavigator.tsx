@@ -43,12 +43,12 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
         {({ route, navigation }) => (
           <SubjectDetailScreen
             onBackPress={() => navigation.goBack()}
-            onSelectTrack={(trackType) => {
+            onSelectTrack={(trackType, trackSlug) => {
               navigation.navigate("Exercise", {
                 trackType,
                 subjectId: route.params.subject.id,
                 subjectSlug: route.params.subject.subjectSlug,
-                trackSlug: trackType,
+                trackSlug: trackSlug,
                 title: `${route.params.subject.title} - ${trackType.toUpperCase()} TRACK`,
               });
             }}

@@ -16,6 +16,7 @@ import { QuestionItem, TrackType } from "./types";
 import { Button } from "../../shared/components";
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { AppIcon } from "../../shared/icons";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface ExerciseScreenProps {
@@ -157,11 +158,21 @@ export function ExerciseScreen({
             <Text style={styles.loadingText}>Loading Exercise Session...</Text>
           </View>
         ) : error ? (
-          <View style={styles.loadingContainer}>
-            <Text style={[styles.loadingText, { color: "#EF4444", textAlign: "center" }]}>{error}</Text>
+          <View style={styles.emptyStateContainer}>
+            <View style={[styles.emptyStateCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <View style={[styles.emptyStateIconCircle, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}>
+                <AppIcon name="time-outline" size={36} color={colors.primary.main} />
+              </View>
+              <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>Questions Coming Soon</Text>
+              <Text style={[styles.emptyStateMessage, { color: themeColors.textMuted }]}>{error}</Text>
+              <View style={[styles.emptyStatePill, { backgroundColor: colors.primary.main + "18" }]}>
+                <AppIcon name="construct-outline" size={13} color={colors.primary.main} />
+                <Text style={[styles.emptyStatePillText, { color: colors.primary.main }]}>Being prepared by our team</Text>
+              </View>
+            </View>
           </View>
         ) : totalQuestions === 0 ? (
-          <View style={styles.loadingContainer}>
+          <View style={styles.emptyStateContainer}>
             <Text style={[styles.loadingText, { textAlign: "center" }]}>No questions available for this session yet.</Text>
           </View>
         ) : (
@@ -314,5 +325,52 @@ const getStyles = (themeColors: any) => StyleSheet.create({
   },
   navButton: {
     flex: 1,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl,
+    paddingTop: spacing.xxl,
+  },
+  emptyStateCard: {
+    width: "100%",
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: spacing.xl,
+    alignItems: "center",
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  emptyStateIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
+  emptyStateTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.heavy,
+    textAlign: "center",
+  },
+  emptyStateMessage: {
+    fontSize: typography.fontSize.sm,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  emptyStatePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.full,
+    marginTop: spacing.xs,
+  },
+  emptyStatePillText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
   },
 });

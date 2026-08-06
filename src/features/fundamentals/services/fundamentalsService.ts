@@ -1,6 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import { FundamentalsDataPayload, SubjectItem } from "../types";
+import { FundamentalsDataPayload, SubjectItem, SubjectTrack } from "../types";
 import { MOCK_FUNDAMENTALS_HEADER, MOCK_FUNDAMENTALS_SUBJECTS } from "../constants";
 import { IconName } from "../../../shared/icons";
 import { StatCardVariant } from "../../dashboard/types";
@@ -75,6 +75,14 @@ interface BackendCatalogSubject {
   subjectCode?: string;
   description?: string;
   trackCount?: number;
+  tracks?: Array<{
+    slug?: string;
+    trackSlug?: string;
+    name?: string;
+    trackName?: string;
+    questionCount?: number;
+    level?: string;
+  }>;
 }
 
 interface CatalogApiResponse {
@@ -145,8 +153,18 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
 
     let totalTrackCount = 0;
     const mappedSubjects: SubjectItem[] = rawSubjects.map((item, idx) => {
-      const subjectTrackCount = item.trackCount || 4;
+      const subjectTrackCount = item.trackCount || (item.tracks ? item.tracks.length : 4);
       totalTrackCount += subjectTrackCount;
+
+      // Map backend tracks if available
+      const mappedTracks: SubjectTrack[] | undefined = item.tracks && item.tracks.length > 0
+        ? item.tracks.map((t: any) => ({
+            slug: t.slug || t.trackSlug || "",
+            name: t.name || t.trackName || t.slug || "",
+            questionCount: t.questionCount,
+            level: t.level,
+          })).filter((t: SubjectTrack) => t.slug)
+        : undefined;
 
       return {
         id: item.id || item.subjectSlug || `subj-${idx}`,
@@ -158,6 +176,7 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
         trackCount: subjectTrackCount,
         questionCount: subjectTrackCount > 0 ? subjectTrackCount * 30 : 120,
         colorVariant: getColorVariantForSubject(item.subjectCode, idx),
+        tracks: mappedTracks,
       };
     });
 

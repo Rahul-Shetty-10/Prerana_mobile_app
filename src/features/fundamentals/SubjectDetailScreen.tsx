@@ -11,7 +11,7 @@ import { Header } from "../../shared/components/Header";
 export interface SubjectDetailScreenProps {
   subject: SubjectItem;
   onBackPress: () => void;
-  onSelectTrack: (trackType: TrackType) => void;
+  onSelectTrack: (trackType: TrackType, trackSlug: string) => void;
 }
 
 interface TrackCardItem {
@@ -123,7 +123,14 @@ export function SubjectDetailScreen({
               <Pressable
                 key={track.type}
                 accessibilityRole="button"
-                onPress={() => onSelectTrack(track.type)}
+                onPress={() => {
+                  // Use backend track slug if available, fall back to frontend TrackType
+                  const backendTrack = subject.tracks?.find(
+                    (t) => t.slug === track.type || t.name?.toLowerCase().includes(track.type)
+                  );
+                  const resolvedSlug = backendTrack?.slug || track.type;
+                  onSelectTrack(track.type, resolvedSlug);
+                }}
                 style={({ pressed }) => [styles.trackCard, pressed && styles.pressed]}
               >
                 <View style={track.type === "explorer" ? styles.trackTopRow : styles.trackTopRow}>

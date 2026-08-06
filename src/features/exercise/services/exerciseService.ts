@@ -145,15 +145,25 @@ export async function fetchFundamentalsTrack(
     throw new Error("Authentication required. Please sign in.");
   }
 
-  const data = await mobileApi<any>(
-    `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
-    {
-      getToken,
-      tenantSlug: appConfig.tenantSlug,
-    }
-  );
+  console.log(`[EXERCISE][fetchFundamentalsTrack] Fetching: subjectSlug="${subjectSlug}", trackSlug="${trackSlug}"`);
 
-  console.log("[EXERCISE][DEBUG] /student/fundamentals/track response keys:", data ? Object.keys(data) : "null");
+  let data: any;
+  try {
+    data = await mobileApi<any>(
+      `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
+      {
+        getToken,
+        tenantSlug: appConfig.tenantSlug,
+      }
+    );
+  } catch (httpErr) {
+    // The backend returned a non-ok response (e.g. 404, 500). Surface a clean message.
+    const msg = httpErr instanceof Error ? httpErr.message : String(httpErr);
+    console.warn(`[EXERCISE][fetchFundamentalsTrack] HTTP error for subjectSlug="${subjectSlug}", trackSlug="${trackSlug}":`, msg);
+    throw new Error(`Questions for this track are not available yet. (${msg})`);
+  }
+
+  console.log("[EXERCISE][DEBUG] /student/fundamentals/track response:", JSON.stringify(data));
 
   let questionsList: any[] = [];
 
@@ -191,7 +201,7 @@ export async function fetchFundamentalsTrack(
   }
 
   if (!questionsList || questionsList.length === 0) {
-    throw new Error("No questions found for this fundamentals track. The backend may not have uploaded content yet.");
+    throw new Error("No questions are available for this track yet. Check back soon!");
   }
 
   const mappedQuestions: QuestionItem[] = questionsList.map((q, idx) => ({
