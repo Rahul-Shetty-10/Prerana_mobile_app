@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchExerciseSession } from "../services";
+import { fetchExerciseSession, fetchFundamentalsTrack } from "../services";
 import { ExerciseSessionPayload, TrackType } from "../types";
 import { MOCK_EXERCISE_EXPLORER } from "../constants";
 
@@ -9,7 +9,9 @@ export function useExerciseSession(
   trackType: TrackType = "explorer",
   subjectId: string = "subj-science",
   chapterId: string = "chap-1",
-  getToken?: GetToken
+  getToken?: GetToken,
+  subjectSlug?: string,
+  trackSlug?: string
 ) {
   const [session, setSession] = useState<ExerciseSessionPayload>({
     ...MOCK_EXERCISE_EXPLORER,
@@ -24,7 +26,9 @@ export function useExerciseSession(
   const loadSession = useCallback(async () => {
     setIsLoading(true);
     try {
-      const payload = await fetchExerciseSession(trackType, subjectId, chapterId, getToken);
+      const payload = subjectSlug && trackSlug
+        ? await fetchFundamentalsTrack(subjectSlug, trackSlug, getToken)
+        : await fetchExerciseSession(trackType, subjectId, chapterId, getToken);
       setSession(payload);
       setCurrentQuestionIndex(0);
       setUserAnswers({});
@@ -38,7 +42,7 @@ export function useExerciseSession(
     } finally {
       setIsLoading(false);
     }
-  }, [trackType, subjectId, chapterId, getToken]);
+  }, [trackType, subjectId, chapterId, getToken, subjectSlug, trackSlug]);
 
   useEffect(() => {
     void loadSession();

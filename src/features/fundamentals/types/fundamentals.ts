@@ -10,6 +10,7 @@ export interface SubjectItem {
   trackCount: number;
   questionCount: number;
   colorVariant?: StatCardVariant;
+  subjectSlug: string;
 }
 
 export interface FundamentalsHeroProps {

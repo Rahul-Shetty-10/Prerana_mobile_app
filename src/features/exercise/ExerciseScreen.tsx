@@ -22,6 +22,8 @@ export interface ExerciseScreenProps {
   trackType?: TrackType;
   subjectId?: string;
   chapterId?: string;
+  subjectSlug?: string;
+  trackSlug?: string;
   getToken?: GetToken;
   onBackPress?: () => void;
   onSubmitSuccess?: () => void;
@@ -31,6 +33,8 @@ export function ExerciseScreen({
   trackType = "explorer",
   subjectId = "subj-science",
   chapterId = "chap-1",
+  subjectSlug,
+  trackSlug,
   getToken,
   onBackPress,
   onSubmitSuccess,
@@ -55,7 +59,7 @@ export function ExerciseScreen({
     goToPrevQuestion,
     jumpToQuestion,
     submitSession,
-  } = useExerciseSession(trackType, subjectId, chapterId, getToken);
+  } = useExerciseSession(trackType, subjectId, chapterId, getToken, subjectSlug, trackSlug);
 
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
   const isCurrentFlagged = flaggedIndices.includes(currentQuestionIndex);

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import {
   ActivityIndicator,
+  Dimensions,
   Modal,
   Platform,
   Pressable,
@@ -20,6 +21,10 @@ import { colors, radius, shadows, spacing, typography } from "../../../shared/th
 import { ensurePdfJsCached, writeTextbookHtml, textbookHtmlPath } from "../utils/pdfCache";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { ZoomPanView } from "./ZoomPanView";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
 interface PDFViewerProps {
   documentTitle: string;
@@ -47,16 +52,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
   const targetPageRef = useRef<number | null>(null);
   const targetPageTimeoutRef = useRef<any>(null);
 
-  // No backend URL — show Coming Soon immediately
-  if (!pdfUrl) {
-    return (
-      <ContentComingSoon
-        icon="document-text-outline"
-        title="Textbook Notes Coming Soon"
-        message="Textbook notes for this chapter are being prepared. Check back soon!"
-      />
-    );
-  }
+
 
   useEffect(() => {
     return () => {
@@ -262,7 +258,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
     );
   };
 
-  const renderPDFContent = () => {
+  const renderPDFContent = (width: number, height: number) => {
     if (Platform.OS === "web") {
       const srcUri = pdfUrl || Asset.fromModule(require("../../../chapter/Textbook.pdf")).uri;
       return (
@@ -275,20 +271,30 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
     }
 
     return (
-      <View style={{ flex: 1, transform: [{ scale: zoomScale }, { rotate: `${rotation}deg` }] }}>
-        <WebView
-          allowFileAccess
-          allowUniversalAccessFromFileURLs
-          mixedContentMode="always"
-          onMessage={handleMessage}
-          originWhitelist={["*"]}
-          ref={webViewRef}
-          scalesPageToFit={true}
-          source={{ uri: textbookHtmlPath }}
-          style={[styles.webView, loadState === "rendering" && { opacity: 0 }]}
-          onLoadEnd={handleLoadEnd}
-        />
-      </View>
+      <ZoomPanView
+        width={width}
+        height={height}
+        zoomScale={zoomScale}
+        setZoomScale={setZoomScale}
+        rotation={rotation}
+      >
+        {({ width: w, height: h }) => (
+          <WebView
+            allowFileAccess
+            allowUniversalAccessFromFileURLs
+            mixedContentMode="always"
+            onMessage={handleMessage}
+            originWhitelist={["*"]}
+            ref={webViewRef}
+            scalesPageToFit={true}
+            setBuiltInZoomControls={true}
+            setDisplayZoomControls={false}
+            source={{ uri: textbookHtmlPath }}
+            style={[styles.webView, { width: w, height: h }, loadState === "rendering" && { opacity: 0 }]}
+            onLoadEnd={handleLoadEnd}
+          />
+        )}
+      </ZoomPanView>
     );
   };
 
@@ -351,7 +357,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
         />
 
         <View style={styles.modalBody}>
-          {isFullscreen ? renderPDFContent() : null}
+          {isFullscreen ? renderPDFContent(SCREEN_WIDTH, Dimensions.get("window").height - 160) : null}
         </View>
 
         {renderPageNav()}
@@ -378,7 +384,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
         {renderLoader()}
         {renderError()}
 
-        {(loadState === "ready" || loadState === "rendering") && !isFullscreen && renderPDFContent()}
+        {(loadState === "ready" || loadState === "rendering") && !isFullscreen && renderPDFContent(CARD_WIDTH, 480)}
       </View>
 
       {renderPageNav()}

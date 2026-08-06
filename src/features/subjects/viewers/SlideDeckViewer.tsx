@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import {
   ActivityIndicator,
+  Dimensions,
   Modal,
   Platform,
   Pressable,
@@ -20,6 +21,10 @@ import { colors, radius, shadows, spacing, typography } from "../../../shared/th
 import { ensurePdfJsCached, writeSlidedeckHtml, slidedeckHtmlPath } from "../utils/pdfCache";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { ZoomPanView } from "./ZoomPanView";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
 interface SlideDeckViewerProps {
   documentTitle: string;
@@ -45,16 +50,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
 
   const pdfBase64Ref = useRef<string>("");
 
-  // No backend URL — show Coming Soon immediately
-  if (!pdfUrl) {
-    return (
-      <ContentComingSoon
-        icon="easel-outline"
-        title="Slide Deck Coming Soon"
-        message="The slide deck for this chapter is being prepared. Check back soon!"
-      />
-    );
-  }
+
 
   const handleLoadEnd = () => {
     const injectTheme = `if (typeof setTheme === 'function') { setTheme("${theme}", ${isDark}); }`;
@@ -232,7 +228,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
     );
   };
 
-  const renderDeckContent = (inFullscreen = false) => {
+  const renderDeckContent = (width: number, height: number, inFullscreen = false) => {
     if (Platform.OS === "web") {
       const srcUri = pdfUrl || Asset.fromModule(require("../../../chapter/Slidedeck.pdf")).uri;
       return (
@@ -252,20 +248,30 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
         {renderError()}
 
         {(loadState === "ready" || loadState === "rendering") && (
-          <View style={{ flex: 1, transform: [{ scale: zoomScale }, { rotate: `${rotation}deg` }] }}>
-            <WebView
-              allowFileAccess
-              allowUniversalAccessFromFileURLs
-              mixedContentMode="always"
-              onMessage={handleMessage}
-              originWhitelist={["*"]}
-              ref={webViewRef}
-              scalesPageToFit={true}
-              source={{ uri: slidedeckHtmlPath }}
-              style={[styles.webView, loadState === "rendering" && { opacity: 0 }]}
-              onLoadEnd={handleLoadEnd}
-            />
-          </View>
+          <ZoomPanView
+            width={width}
+            height={height}
+            zoomScale={zoomScale}
+            setZoomScale={setZoomScale}
+            rotation={rotation}
+          >
+            {({ width: w, height: h }) => (
+              <WebView
+                allowFileAccess
+                allowUniversalAccessFromFileURLs
+                mixedContentMode="always"
+                onMessage={handleMessage}
+                originWhitelist={["*"]}
+                ref={webViewRef}
+                scalesPageToFit={true}
+                setBuiltInZoomControls={true}
+                setDisplayZoomControls={false}
+                source={{ uri: slidedeckHtmlPath }}
+                style={[styles.webView, { width: w, height: h }, loadState === "rendering" && { opacity: 0 }]}
+                onLoadEnd={handleLoadEnd}
+              />
+            )}
+          </ZoomPanView>
         )}
       </View>
     );
@@ -326,7 +332,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
       />
 
       {/* Presentation View Area - Render only if NOT in fullscreen */}
-      {!isFullscreen ? renderDeckContent(false) : <View style={styles.pdfContainer} />}
+      {!isFullscreen ? renderDeckContent(CARD_WIDTH, 320, false) : <View style={styles.pdfContainer} />}
 
       {/* Slide Navigation */}
       {renderSlideNav()}
@@ -363,7 +369,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
 
           {/* Fullscreen view area - Render only in fullscreen */}
           <View style={styles.fullscreenBody}>
-            {isFullscreen ? renderDeckContent(true) : null}
+            {isFullscreen ? renderDeckContent(SCREEN_WIDTH, Dimensions.get("window").height - 120, true) : null}
           </View>
 
           {/* Fullscreen Bottom Navigation */}

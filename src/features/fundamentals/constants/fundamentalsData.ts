@@ -3,6 +3,7 @@ import { SubjectItem } from "../types";
 export const MOCK_FUNDAMENTALS_SUBJECTS: SubjectItem[] = [
   {
     id: "subj-science",
+    subjectSlug: "science",
     title: "General Science",
     description: "Master foundational concepts in Physics, Chemistry, and Biology through interactive modules.",
     iconName: "flask-outline",
@@ -13,6 +14,7 @@ export const MOCK_FUNDAMENTALS_SUBJECTS: SubjectItem[] = [
   },
   {
     id: "subj-hindi",
+    subjectSlug: "hindi",
     title: "Hindi",
     description: "Comprehensive grammar, literature, and vocabulary practice for Karnataka Board curriculum.",
     iconName: "book-outline",
@@ -23,6 +25,7 @@ export const MOCK_FUNDAMENTALS_SUBJECTS: SubjectItem[] = [
   },
   {
     id: "subj-kannada",
+    subjectSlug: "kannada",
     title: "Kannada",
     description: "State curriculum Kannada language, prose, poetry, and grammar tracks.",
     iconName: "language-outline",
@@ -33,6 +36,7 @@ export const MOCK_FUNDAMENTALS_SUBJECTS: SubjectItem[] = [
   },
   {
     id: "subj-maths",
+    subjectSlug: "maths",
     title: "Mathematics",
     description: "Core arithmetic, algebra, geometry, mensuration, and formula application tracks.",
     iconName: "calculator-outline",
@@ -43,6 +47,7 @@ export const MOCK_FUNDAMENTALS_SUBJECTS: SubjectItem[] = [
   },
   {
     id: "subj-social",
+    subjectSlug: "social",
     title: "Social Studies",
     description: "History, Civics, Geography, and Economics foundational study sets and quizzes.",
     iconName: "earth-outline",

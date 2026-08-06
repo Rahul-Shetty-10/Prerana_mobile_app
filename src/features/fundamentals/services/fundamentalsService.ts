@@ -68,6 +68,19 @@ function getColorVariantForSubject(subjectCode?: string, index: number = 0): Sta
   return variants[index % variants.length];
 }
 
+interface BackendCatalogSubject {
+  id?: string;
+  subjectName?: string;
+  subjectSlug?: string;
+  subjectCode?: string;
+  description?: string;
+  trackCount?: number;
+}
+
+interface CatalogApiResponse {
+  subjects?: BackendCatalogSubject[];
+}
+
 export async function fetchFundamentalsData(getToken?: GetToken): Promise<FundamentalsDataPayload> {
   const fallbackPayload: FundamentalsDataPayload = {
     subjectCount: MOCK_FUNDAMENTALS_HEADER.subjectCount,
@@ -80,31 +93,70 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
   }
 
   try {
-    const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
+    const rawData = await mobileApi<any>("/student/fundamentals/catalog", {
       getToken,
       tenantSlug: appConfig.tenantSlug,
     });
 
-    if (!rawData || !rawData.subjects || !Array.isArray(rawData.subjects) || rawData.subjects.length === 0) {
+    console.log("[FUNDAMENTALS][DEBUG] /student/fundamentals/catalog response keys:", rawData ? Object.keys(rawData) : "null");
+    console.log("[FUNDAMENTALS][DEBUG] /student/fundamentals/catalog response stringified:", JSON.stringify(rawData));
+
+    let rawSubjects: any[] = [];
+    
+    function findSubjectsArray(obj: any): any[] | null {
+      if (!obj || typeof obj !== "object") return null;
+      if (Array.isArray(obj)) return obj;
+      
+      const keys = Object.keys(obj);
+      const preferredKeys = ["subjects", "catalog", "data", "snapshot", "tracks"];
+      const sortedKeys = [...keys].sort((a, b) => {
+        const idxA = preferredKeys.indexOf(a);
+        const idxB = preferredKeys.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+
+      for (const key of sortedKeys) {
+        const val = obj[key];
+        if (Array.isArray(val)) {
+          return val;
+        }
+        if (val && typeof val === "object") {
+          const found = findSubjectsArray(val);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    const foundArray = findSubjectsArray(rawData);
+    if (foundArray) {
+      rawSubjects = foundArray;
+    }
+
+    if (!rawSubjects || rawSubjects.length === 0) {
+      console.warn("[FUNDAMENTALS][SERVICE] No subjects found in fundamentals catalog, returning fallback.");
       return fallbackPayload;
     }
 
-    const rawSubjects = rawData.subjects;
     const totalSubjectCount = rawSubjects.length;
 
     let totalTrackCount = 0;
     const mappedSubjects: SubjectItem[] = rawSubjects.map((item, idx) => {
-      const subjectTrackCount = item.chapters ? item.chapters.length : 0;
+      const subjectTrackCount = item.trackCount || 4;
       totalTrackCount += subjectTrackCount;
 
       return {
-        id: item.id,
+        id: item.id || item.subjectSlug || `subj-${idx}`,
+        subjectSlug: item.subjectSlug || item.slug || item.subjectCode || item.id || "",
         title: item.subjectName || "Subject",
         description: item.description || `Master foundational concepts in ${item.subjectName}.`,
         iconName: getIconForSubject(item.subjectCode, item.subjectName),
         previewBadgeText: getBadgeForSubject(item.subjectCode, item.subjectName),
         trackCount: subjectTrackCount,
-        questionCount: subjectTrackCount > 0 ? subjectTrackCount * 30 : 150,
+        questionCount: subjectTrackCount > 0 ? subjectTrackCount * 30 : 120,
         colorVariant: getColorVariantForSubject(item.subjectCode, idx),
       };
     });
@@ -112,9 +164,10 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
     return {
       subjectCount: totalSubjectCount,
       trackCount: totalTrackCount > 0 ? totalTrackCount : MOCK_FUNDAMENTALS_HEADER.trackCount,
-      subjects: mappedSubjects.length > 0 ? mappedSubjects : MOCK_FUNDAMENTALS_SUBJECTS,
+      subjects: mappedSubjects,
     };
   } catch (error) {
+    console.error("[FUNDAMENTALS][fetchFundamentalsData] Failed:", error);
     return fallbackPayload;
   }
 }

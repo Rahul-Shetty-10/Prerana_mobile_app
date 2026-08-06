@@ -154,3 +154,100 @@ export async function fetchQuizAttemptReview(
   }
 }
 
+export async function fetchFundamentalsTrack(
+  subjectSlug: string,
+  trackSlug: string,
+  getToken?: GetToken
+): Promise<ExerciseSessionPayload> {
+  if (!getToken) {
+    return {
+      ...MOCK_EXERCISE_EXPLORER,
+      trackType: trackSlug as TrackType,
+    };
+  }
+
+  try {
+    const data = await mobileApi<any>(
+      `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
+      {
+        getToken,
+        tenantSlug: appConfig.tenantSlug,
+      }
+    );
+
+    console.log("[EXERCISE][DEBUG] /student/fundamentals/track response keys:", data ? Object.keys(data) : "null");
+    console.log("[EXERCISE][DEBUG] /student/fundamentals/track response stringified:", JSON.stringify(data));
+
+    let questionsList: any[] = [];
+
+    function findQuestionsArray(obj: any): any[] | null {
+      if (!obj || typeof obj !== "object") return null;
+      if (Array.isArray(obj)) return obj;
+      
+      const keys = Object.keys(obj);
+      const preferredKeys = ["questions", "data", "snapshot", "track"];
+      const sortedKeys = [...keys].sort((a, b) => {
+        const idxA = preferredKeys.indexOf(a);
+        const idxB = preferredKeys.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+
+      for (const key of sortedKeys) {
+        const val = obj[key];
+        if (Array.isArray(val)) {
+          return val;
+        }
+        if (val && typeof val === "object") {
+          const found = findQuestionsArray(val);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    const foundArray = findQuestionsArray(data);
+    if (foundArray) {
+      questionsList = foundArray;
+    }
+
+    if (!questionsList || questionsList.length === 0) {
+      console.warn("[EXERCISE][SERVICE] No questions found in fundamentals track, returning fallback.");
+      return {
+        ...MOCK_EXERCISE_EXPLORER,
+        trackType: trackSlug as TrackType,
+      };
+    }
+
+    const mappedQuestions: QuestionItem[] = questionsList.map((q, idx) => ({
+      id: q.id || `q-${idx + 1}`,
+      number: q.number || idx + 1,
+      type: q.type || "mcq",
+      prompt: q.prompt || "Question prompt",
+      instructions: q.instructions || "Select or answer the following:",
+      mcqOptions: q.mcqOptions,
+      matchPairs: q.matchPairs,
+      fillBlankPlaceholder: q.fillBlankPlaceholder,
+      reorderItems: (q as any).reorderItems,
+    }));
+
+    return {
+      id: data.id || `ex-${trackSlug}-${subjectSlug}`,
+      subjectName: data.subjectName || "Subject",
+      trackName: data.trackName || `${trackSlug.toUpperCase()} TRACK`,
+      trackType: data.trackType || (trackSlug as TrackType),
+      title: data.title || "Fundamentals Practice Session",
+      totalQuestions: mappedQuestions.length,
+      questions: mappedQuestions,
+    };
+  } catch (error) {
+    console.error(`[EXERCISE][fetchFundamentalsTrack] Failed for subjectSlug="${subjectSlug}", trackSlug="${trackSlug}":`, error);
+    return {
+      ...MOCK_EXERCISE_EXPLORER,
+      trackType: trackSlug as TrackType,
+    };
+  }
+}
+

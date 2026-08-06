@@ -38,7 +38,7 @@ export async function writeTextbookHtml() {
   const html = `<!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=4.0, user-scalable=yes">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -246,7 +246,7 @@ export async function writeSlidedeckHtml() {
   const html = `<!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=4.0, user-scalable=yes">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {

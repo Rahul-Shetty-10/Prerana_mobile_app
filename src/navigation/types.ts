@@ -20,9 +20,9 @@ export type RootStackParamList = {
 export type FundamentalsStackParamList = {
   FundamentalsHome: undefined;
   SubjectDetail: { subject: SubjectItem };
-  Exercise: { trackType: TrackType; subjectId?: string; title?: string };
-  ExerciseResult: { resultData?: ExerciseResultData; trackType: TrackType; subjectId?: string };
-  Review: { trackType: TrackType; subjectId?: string };
+  Exercise: { trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; title?: string };
+  ExerciseResult: { resultData?: ExerciseResultData; trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; attemptId?: string };
+  Review: { trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; attemptId?: string };
 };
 
 export type SubjectsStackParamList = {

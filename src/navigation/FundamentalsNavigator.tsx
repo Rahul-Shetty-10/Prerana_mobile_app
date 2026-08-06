@@ -47,6 +47,8 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
               navigation.navigate("Exercise", {
                 trackType,
                 subjectId: route.params.subject.id,
+                subjectSlug: route.params.subject.subjectSlug,
+                trackSlug: trackType,
                 title: `${route.params.subject.title} - ${trackType.toUpperCase()} TRACK`,
               });
             }}
@@ -64,9 +66,16 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
               navigation.navigate("ExerciseResult", {
                 trackType: route.params.trackType,
                 subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
               });
             }}
             trackType={route.params.trackType}
+            subjectId={route.params.subjectId}
+            chapterId={route.params.chapterId}
+            subjectSlug={route.params.subjectSlug}
+            trackSlug={route.params.trackSlug}
           />
         )}
       </Stack.Screen>
@@ -81,12 +90,18 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
               navigation.navigate("Exercise", {
                 trackType: route.params.trackType,
                 subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
               });
             }}
             onReviewAnswers={() => {
               navigation.navigate("Review", {
                 trackType: route.params.trackType,
                 subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
               });
             }}
             resultData={route.params.resultData}
@@ -97,10 +112,14 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
       <Stack.Screen name="Review">
         {({ route, navigation }) => (
           <ReviewScreen
+            getToken={getToken}
             onBackToResult={() => {
               navigation.navigate("ExerciseResult", {
                 trackType: route.params.trackType,
                 subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
               });
             }}
             onBackToSubject={() => {
@@ -110,6 +129,9 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
               navigation.navigate("Exercise", {
                 trackType: route.params.trackType,
                 subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
               });
             }}
           />
