@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchExerciseSession, fetchFundamentalsTrack } from "../services";
 import { ExerciseSessionPayload, TrackType } from "../types";
-import { MOCK_EXERCISE_EXPLORER } from "../constants";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
+
+const EMPTY_SESSION: ExerciseSessionPayload = {
+  id: "",
+  subjectName: "",
+  trackName: "",
+  trackType: "explorer",
+  title: "",
+  totalQuestions: 0,
+  questions: [],
+};
 
 export function useExerciseSession(
   trackType: TrackType = "explorer",
@@ -14,7 +23,7 @@ export function useExerciseSession(
   trackSlug?: string
 ) {
   const [session, setSession] = useState<ExerciseSessionPayload>({
-    ...MOCK_EXERCISE_EXPLORER,
+    ...EMPTY_SESSION,
     trackType,
   });
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -22,9 +31,11 @@ export function useExerciseSession(
   const [flaggedIndices, setFlaggedIndices] = useState<number[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSession = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const payload = subjectSlug && trackSlug
         ? await fetchFundamentalsTrack(subjectSlug, trackSlug, getToken)
@@ -35,10 +46,9 @@ export function useExerciseSession(
       setFlaggedIndices([]);
       setIsSubmitted(false);
     } catch (err) {
-      setSession({
-        ...MOCK_EXERCISE_EXPLORER,
-        trackType,
-      });
+      console.error("[EXERCISE][useExerciseSession] Failed to load session:", err);
+      setError(err instanceof Error ? err.message : "Failed to load exercise session.");
+      setSession({ ...EMPTY_SESSION, trackType });
     } finally {
       setIsLoading(false);
     }
@@ -99,6 +109,7 @@ export function useExerciseSession(
     flaggedIndices,
     isSubmitted,
     isLoading,
+    error,
     setAnswer,
     toggleFlagIndex,
     goToNextQuestion,

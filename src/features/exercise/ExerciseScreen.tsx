@@ -53,6 +53,7 @@ export function ExerciseScreen({
     flaggedIndices,
     isSubmitted,
     isLoading,
+    error,
     setAnswer,
     toggleFlagIndex,
     goToNextQuestion,
@@ -154,6 +155,14 @@ export function ExerciseScreen({
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.primary.main} size="large" />
             <Text style={styles.loadingText}>Loading Exercise Session...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, { color: "#EF4444", textAlign: "center" }]}>{error}</Text>
+          </View>
+        ) : totalQuestions === 0 ? (
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, { textAlign: "center" }]}>No questions available for this session yet.</Text>
           </View>
         ) : (
           <>

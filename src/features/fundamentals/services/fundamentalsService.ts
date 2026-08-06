@@ -168,7 +168,7 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
     };
   } catch (error) {
     console.error("[FUNDAMENTALS][fetchFundamentalsData] Failed:", error);
-    return fallbackPayload;
+    throw error;
   }
 }
 

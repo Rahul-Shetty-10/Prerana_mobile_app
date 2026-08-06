@@ -1,7 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { ExerciseSessionPayload, QuestionItem, ReviewPayload, TrackType } from "../types";
-import { MOCK_EXERCISE_EXPLORER, MOCK_REVIEW_DATA } from "../constants";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -48,55 +47,42 @@ export async function fetchExerciseSession(
   getToken?: GetToken
 ): Promise<ExerciseSessionPayload> {
   if (!getToken) {
-    return {
-      ...MOCK_EXERCISE_EXPLORER,
-      trackType,
-    };
+    throw new Error("Authentication required. Please sign in.");
   }
 
-  try {
-    const data = await mobileApi<RawChapterResourceResponse>(
-      `/student/chapter-resources?subjectId=${encodeURIComponent(subjectId)}&chapterId=${encodeURIComponent(chapterId)}&track=${encodeURIComponent(trackType)}`,
-      {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
-      }
-    );
-
-    if (!data || !data.questions || data.questions.length === 0) {
-      return {
-        ...MOCK_EXERCISE_EXPLORER,
-        trackType,
-      };
+  const data = await mobileApi<RawChapterResourceResponse>(
+    `/student/chapter-resources?subjectId=${encodeURIComponent(subjectId)}&chapterId=${encodeURIComponent(chapterId)}&track=${encodeURIComponent(trackType)}`,
+    {
+      getToken,
+      tenantSlug: appConfig.tenantSlug,
     }
+  );
 
-    const mappedQuestions: QuestionItem[] = data.questions.map((q, idx) => ({
-      id: q.id || `q-${idx + 1}`,
-      number: q.number || idx + 1,
-      type: q.type || "mcq",
-      prompt: q.prompt || "Question prompt",
-      instructions: q.instructions || "Select or answer the following:",
-      mcqOptions: q.mcqOptions,
-      matchPairs: q.matchPairs,
-      fillBlankPlaceholder: q.fillBlankPlaceholder,
-      reorderItems: (q as any).reorderItems,
-    }));
-
-    return {
-      id: data.id || `ex-${trackType}-${chapterId}`,
-      subjectName: data.subjectName || "General Science",
-      trackName: data.trackName || `${trackType.toUpperCase()} TRACK`,
-      trackType: data.trackType || trackType,
-      title: data.title || "Interactive Practice Session",
-      totalQuestions: mappedQuestions.length,
-      questions: mappedQuestions,
-    };
-  } catch (error) {
-    return {
-      ...MOCK_EXERCISE_EXPLORER,
-      trackType,
-    };
+  if (!data || !data.questions || data.questions.length === 0) {
+    throw new Error("No questions found for this chapter.");
   }
+
+  const mappedQuestions: QuestionItem[] = data.questions.map((q, idx) => ({
+    id: q.id || `q-${idx + 1}`,
+    number: q.number || idx + 1,
+    type: q.type || "mcq",
+    prompt: q.prompt || "Question prompt",
+    instructions: q.instructions || "Select or answer the following:",
+    mcqOptions: q.mcqOptions,
+    matchPairs: q.matchPairs,
+    fillBlankPlaceholder: q.fillBlankPlaceholder,
+    reorderItems: (q as any).reorderItems,
+  }));
+
+  return {
+    id: data.id || `ex-${trackType}-${chapterId}`,
+    subjectName: data.subjectName || "General Science",
+    trackName: data.trackName || `${trackType.toUpperCase()} TRACK`,
+    trackType: data.trackType || trackType,
+    title: data.title || "Interactive Practice Session",
+    totalQuestions: mappedQuestions.length,
+    questions: mappedQuestions,
+  };
 }
 
 export async function fetchQuizAttemptReview(
@@ -104,54 +90,50 @@ export async function fetchQuizAttemptReview(
   getToken?: GetToken
 ): Promise<ReviewPayload> {
   if (!getToken) {
-    return MOCK_REVIEW_DATA;
+    throw new Error("Authentication required. Please sign in.");
   }
 
-  try {
-    const rawData = await mobileApi<RawQuizAttemptResponse>(
-      `/student/quiz-attempts?attemptId=${encodeURIComponent(attemptId)}`,
-      {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
-      }
-    );
-
-    if (!rawData || !rawData.questions || rawData.questions.length === 0) {
-      return MOCK_REVIEW_DATA;
+  const rawData = await mobileApi<RawQuizAttemptResponse>(
+    `/student/quiz-attempts?attemptId=${encodeURIComponent(attemptId)}`,
+    {
+      getToken,
+      tenantSlug: appConfig.tenantSlug,
     }
+  );
 
-    const mappedQuestions = rawData.questions.map((q, idx) => ({
-      id: q.id || `rq-${idx + 1}`,
-      number: q.number || idx + 1,
-      prompt: q.prompt || "Question prompt",
-      typeLabel: q.typeLabel || "Multiple Choice",
-      status: q.status || "skipped",
-      studentAnswer: q.studentAnswer || "Not answered",
-      correctAnswer: q.correctAnswer || "A",
-      explanation: q.explanation || "No explanation provided.",
-    }));
-
-    const correctCount = mappedQuestions.filter((q) => q.status === "correct").length;
-    const incorrectCount = mappedQuestions.filter((q) => q.status === "incorrect").length;
-    const skippedCount = mappedQuestions.filter((q) => q.status === "skipped").length;
-    const totalQuestions = mappedQuestions.length;
-    const accuracyPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-
-    return {
-      subjectName: rawData.subjectName || "General Science",
-      trackName: rawData.trackName || "Practice Set",
-      trackType: rawData.trackType || "explorer",
-      title: rawData.title || "Practice Review Session",
-      totalQuestions,
-      correctCount,
-      incorrectCount,
-      skippedCount,
-      accuracyPercent,
-      questions: mappedQuestions,
-    };
-  } catch (error) {
-    return MOCK_REVIEW_DATA;
+  if (!rawData || !rawData.questions || rawData.questions.length === 0) {
+    throw new Error("No review data found for this quiz attempt.");
   }
+
+  const mappedQuestions = rawData.questions.map((q, idx) => ({
+    id: q.id || `rq-${idx + 1}`,
+    number: q.number || idx + 1,
+    prompt: q.prompt || "Question prompt",
+    typeLabel: q.typeLabel || "Multiple Choice",
+    status: q.status || "skipped",
+    studentAnswer: q.studentAnswer || "Not answered",
+    correctAnswer: q.correctAnswer || "A",
+    explanation: q.explanation || "No explanation provided.",
+  }));
+
+  const correctCount = mappedQuestions.filter((q) => q.status === "correct").length;
+  const incorrectCount = mappedQuestions.filter((q) => q.status === "incorrect").length;
+  const skippedCount = mappedQuestions.filter((q) => q.status === "skipped").length;
+  const totalQuestions = mappedQuestions.length;
+  const accuracyPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+  return {
+    subjectName: rawData.subjectName || "General Science",
+    trackName: rawData.trackName || "Practice Set",
+    trackType: rawData.trackType || "explorer",
+    title: rawData.title || "Practice Review Session",
+    totalQuestions,
+    correctCount,
+    incorrectCount,
+    skippedCount,
+    accuracyPercent,
+    questions: mappedQuestions,
+  };
 }
 
 export async function fetchFundamentalsTrack(
@@ -160,94 +142,77 @@ export async function fetchFundamentalsTrack(
   getToken?: GetToken
 ): Promise<ExerciseSessionPayload> {
   if (!getToken) {
-    return {
-      ...MOCK_EXERCISE_EXPLORER,
-      trackType: trackSlug as TrackType,
-    };
+    throw new Error("Authentication required. Please sign in.");
   }
 
-  try {
-    const data = await mobileApi<any>(
-      `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
-      {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
+  const data = await mobileApi<any>(
+    `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
+    {
+      getToken,
+      tenantSlug: appConfig.tenantSlug,
+    }
+  );
+
+  console.log("[EXERCISE][DEBUG] /student/fundamentals/track response keys:", data ? Object.keys(data) : "null");
+
+  let questionsList: any[] = [];
+
+  function findQuestionsArray(obj: any): any[] | null {
+    if (!obj || typeof obj !== "object") return null;
+    if (Array.isArray(obj)) return obj;
+
+    const keys = Object.keys(obj);
+    const preferredKeys = ["questions", "data", "snapshot", "track"];
+    const sortedKeys = [...keys].sort((a, b) => {
+      const idxA = preferredKeys.indexOf(a);
+      const idxB = preferredKeys.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+
+    for (const key of sortedKeys) {
+      const val = obj[key];
+      if (Array.isArray(val)) {
+        return val;
       }
-    );
-
-    console.log("[EXERCISE][DEBUG] /student/fundamentals/track response keys:", data ? Object.keys(data) : "null");
-    console.log("[EXERCISE][DEBUG] /student/fundamentals/track response stringified:", JSON.stringify(data));
-
-    let questionsList: any[] = [];
-
-    function findQuestionsArray(obj: any): any[] | null {
-      if (!obj || typeof obj !== "object") return null;
-      if (Array.isArray(obj)) return obj;
-      
-      const keys = Object.keys(obj);
-      const preferredKeys = ["questions", "data", "snapshot", "track"];
-      const sortedKeys = [...keys].sort((a, b) => {
-        const idxA = preferredKeys.indexOf(a);
-        const idxB = preferredKeys.indexOf(b);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return 0;
-      });
-
-      for (const key of sortedKeys) {
-        const val = obj[key];
-        if (Array.isArray(val)) {
-          return val;
-        }
-        if (val && typeof val === "object") {
-          const found = findQuestionsArray(val);
-          if (found) return found;
-        }
+      if (val && typeof val === "object") {
+        const found = findQuestionsArray(val);
+        if (found) return found;
       }
-      return null;
     }
-
-    const foundArray = findQuestionsArray(data);
-    if (foundArray) {
-      questionsList = foundArray;
-    }
-
-    if (!questionsList || questionsList.length === 0) {
-      console.warn("[EXERCISE][SERVICE] No questions found in fundamentals track, returning fallback.");
-      return {
-        ...MOCK_EXERCISE_EXPLORER,
-        trackType: trackSlug as TrackType,
-      };
-    }
-
-    const mappedQuestions: QuestionItem[] = questionsList.map((q, idx) => ({
-      id: q.id || `q-${idx + 1}`,
-      number: q.number || idx + 1,
-      type: q.type || "mcq",
-      prompt: q.prompt || "Question prompt",
-      instructions: q.instructions || "Select or answer the following:",
-      mcqOptions: q.mcqOptions,
-      matchPairs: q.matchPairs,
-      fillBlankPlaceholder: q.fillBlankPlaceholder,
-      reorderItems: (q as any).reorderItems,
-    }));
-
-    return {
-      id: data.id || `ex-${trackSlug}-${subjectSlug}`,
-      subjectName: data.subjectName || "Subject",
-      trackName: data.trackName || `${trackSlug.toUpperCase()} TRACK`,
-      trackType: data.trackType || (trackSlug as TrackType),
-      title: data.title || "Fundamentals Practice Session",
-      totalQuestions: mappedQuestions.length,
-      questions: mappedQuestions,
-    };
-  } catch (error) {
-    console.error(`[EXERCISE][fetchFundamentalsTrack] Failed for subjectSlug="${subjectSlug}", trackSlug="${trackSlug}":`, error);
-    return {
-      ...MOCK_EXERCISE_EXPLORER,
-      trackType: trackSlug as TrackType,
-    };
+    return null;
   }
+
+  const foundArray = findQuestionsArray(data);
+  if (foundArray) {
+    questionsList = foundArray;
+  }
+
+  if (!questionsList || questionsList.length === 0) {
+    throw new Error("No questions found for this fundamentals track. The backend may not have uploaded content yet.");
+  }
+
+  const mappedQuestions: QuestionItem[] = questionsList.map((q, idx) => ({
+    id: q.id || `q-${idx + 1}`,
+    number: q.number || idx + 1,
+    type: q.type || "mcq",
+    prompt: q.prompt || "Question prompt",
+    instructions: q.instructions || "Select or answer the following:",
+    mcqOptions: q.mcqOptions,
+    matchPairs: q.matchPairs,
+    fillBlankPlaceholder: q.fillBlankPlaceholder,
+    reorderItems: (q as any).reorderItems,
+  }));
+
+  return {
+    id: data.id || `ex-${trackSlug}-${subjectSlug}`,
+    subjectName: data.subjectName || "Subject",
+    trackName: data.trackName || `${trackSlug.toUpperCase()} TRACK`,
+    trackType: data.trackType || (trackSlug as TrackType),
+    title: data.title || "Fundamentals Practice Session",
+    totalQuestions: mappedQuestions.length,
+    questions: mappedQuestions,
+  };
 }
-

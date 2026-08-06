@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchFundamentalsData } from "../services";
 import { FundamentalsDataPayload } from "../types";
-import { MOCK_FUNDAMENTALS_HEADER, MOCK_FUNDAMENTALS_SUBJECTS } from "../constants";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
+const EMPTY_FUNDAMENTALS: FundamentalsDataPayload = {
+  subjectCount: 0,
+  trackCount: 0,
+  subjects: [],
+};
+
 export function useFundamentalsData(getToken?: GetToken) {
-  const [data, setData] = useState<FundamentalsDataPayload>({
-    subjectCount: MOCK_FUNDAMENTALS_HEADER.subjectCount,
-    trackCount: MOCK_FUNDAMENTALS_HEADER.trackCount,
-    subjects: MOCK_FUNDAMENTALS_SUBJECTS,
-  });
+  const [data, setData] = useState<FundamentalsDataPayload>(EMPTY_FUNDAMENTALS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
