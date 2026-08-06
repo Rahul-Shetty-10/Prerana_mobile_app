@@ -106,8 +106,7 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
       tenantSlug: appConfig.tenantSlug,
     });
 
-    console.log("[FUNDAMENTALS][DEBUG] /student/fundamentals/catalog response keys:", rawData ? Object.keys(rawData) : "null");
-    console.log("[FUNDAMENTALS][DEBUG] /student/fundamentals/catalog response stringified:", JSON.stringify(rawData));
+    console.log("[FUNDAMENTALS][DEBUG] Full catalog response:", JSON.stringify(rawData, null, 2));
 
     let rawSubjects: any[] = [];
     

@@ -46,7 +46,7 @@ export function useExerciseSession(
       setFlaggedIndices([]);
       setIsSubmitted(false);
     } catch (err) {
-      console.error("[EXERCISE][useExerciseSession] Failed to load session:", err);
+      console.warn("[EXERCISE][useExerciseSession] Track not loaded:", err instanceof Error ? err.message : String(err));
       setError(err instanceof Error ? err.message : "Failed to load exercise session.");
       setSession({ ...EMPTY_SESSION, trackType });
     } finally {
