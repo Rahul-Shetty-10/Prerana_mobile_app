@@ -1,6 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import { ExerciseSessionPayload, QuestionItem, QuestionType, ReviewPayload, TrackType } from "../types";
+import { ExerciseSessionPayload, MCQOption, QuestionItem, QuestionType, ReviewPayload, TrackType } from "../types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -145,16 +145,11 @@ export async function fetchFundamentalsTrack(
     throw new Error("Authentication required. Please sign in.");
   }
 
-  console.log(`[EXERCISE][fetchFundamentalsTrack] Fetching: subjectSlug="${subjectSlug}", trackSlug="${trackSlug}"`);
-
   let data: any;
   try {
     data = await mobileApi<any>(
       `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
-      {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
-      }
+      { getToken, tenantSlug: appConfig.tenantSlug }
     );
   } catch (httpErr) {
     const msg = httpErr instanceof Error ? httpErr.message : String(httpErr);
@@ -162,107 +157,118 @@ export async function fetchFundamentalsTrack(
     throw new Error(`Questions for this track are not available yet. (${msg})`);
   }
 
-  console.log("[EXERCISE][DEBUG] /student/fundamentals/track full response:", JSON.stringify(data, null, 2));
+  // ── Step 1: Extract raw pack-questions from data.track.packs[].questions[] ──
+  // Backend shape: { track: { packs: [{ packType, questions: [{ order, question: { id, questionText, questionType, options, correctAnswer } }] }] } }
+  const trackObj = data?.track ?? data;
+  const packs: any[] = Array.isArray(trackObj?.packs) ? trackObj.packs : [];
 
-  // ── Step 1: Collect all raw questions ──────────────────────────────────────
-  // Backend may return questions nested inside exercisePacks[] or at top level.
-  let rawQuestions: any[] = [];
+  interface RawPackQuestion {
+    order: number;
+    marks: number;
+    packType: string;
+    question: any;
+  }
 
-  function extractQuestions(obj: any): void {
-    if (!obj || typeof obj !== "object") return;
-
-    // If obj has an exercisePacks array, flatten questions from each pack
-    if (Array.isArray(obj.exercisePacks)) {
-      for (const pack of obj.exercisePacks) {
-        if (Array.isArray(pack.questions)) {
-          rawQuestions.push(...pack.questions);
-        } else {
-          // pack itself might have nested structure
-          extractQuestions(pack);
-        }
-      }
-      return;
-    }
-
-    // Direct questions array
-    if (Array.isArray(obj.questions) && obj.questions.length > 0) {
-      rawQuestions.push(...obj.questions);
-      return;
-    }
-
-    // Recurse into known wrapper keys
-    const wrapperKeys = ["track", "data", "result", "payload", "session"];
-    for (const key of wrapperKeys) {
-      if (obj[key] && typeof obj[key] === "object") {
-        extractQuestions(obj[key]);
-        if (rawQuestions.length > 0) return;
+  const rawPackQuestions: RawPackQuestion[] = [];
+  for (const pack of packs) {
+    const packType: string = pack.packType || pack.packKey || "mcq";
+    if (Array.isArray(pack.questions)) {
+      for (const pq of pack.questions) {
+        rawPackQuestions.push({
+          order: pq.order ?? rawPackQuestions.length + 1,
+          marks: pq.marks ?? 1,
+          packType,
+          question: pq.question ?? pq,
+        });
       }
     }
   }
 
-  extractQuestions(data);
+  // Sort by order
+  rawPackQuestions.sort((a, b) => a.order - b.order);
+  console.log(`[EXERCISE][DEBUG] Extracted ${rawPackQuestions.length} questions from ${packs.length} packs`);
 
-  console.log(`[EXERCISE][DEBUG] Extracted ${rawQuestions.length} raw questions`);
-  if (rawQuestions.length > 0) {
-    console.log("[EXERCISE][DEBUG] First raw question sample:", JSON.stringify(rawQuestions[0], null, 2));
-  }
-
-  if (rawQuestions.length === 0) {
+  if (rawPackQuestions.length === 0) {
     throw new Error("No questions are available for this track yet. Check back soon!");
   }
 
-  // ── Step 2: Normalise backend field names to our QuestionItem schema ────────
-  const normalizeType = (raw: any): QuestionType => {
-    const kind = (raw.type || raw.exerciseKind || raw.kind || "").toLowerCase().replace(/[_\s-]/g, "");
+  // ── Step 2: Normalize question type ──────────────────────────────────────────
+  const normalizeType = (packType: string, qType: string): QuestionType => {
+    const kind = (packType + " " + (qType || "")).toLowerCase().replace(/[_\s-]/g, "");
     if (kind.includes("match")) return "match";
     if (kind.includes("fill") || kind.includes("blank")) return "fill_blank";
-    if (kind.includes("sort") || kind.includes("reorder") || kind.includes("order")) return "reorder";
-    if (kind.includes("truefalse") || kind.includes("true")) return "true_false";
+    if (kind.includes("sort") || kind.includes("reorder")) return "reorder";
+    if (kind.includes("truefalse")) return "true_false";
     return "mcq";
   };
 
-  const normalizeOptions = (raw: any): any[] | undefined => {
-    // Common backend field names for MCQ options
-    const opts = raw.mcqOptions || raw.options || raw.choices || raw.answers;
-    if (!Array.isArray(opts)) return undefined;
-    return opts.map((o: any, i: number) => ({
-      id: o.id || o._id || `opt-${i}`,
-      label: o.label || o.text || o.value || o.option || o.content || `Option ${i + 1}`,
-      isCorrect: o.isCorrect ?? o.correct ?? false,
-    }));
-  };
+  // ── Step 3: Map each question to QuestionItem ─────────────────────────────────
+  const mappedQuestions: QuestionItem[] = rawPackQuestions.map(({ order, packType, question: q }) => {
+    const qType = normalizeType(packType, q.questionType || "");
 
-  const normalizeMatchPairs = (raw: any): any[] | undefined => {
-    const pairs = raw.matchPairs || raw.pairs || raw.matchItems || raw.matches;
-    if (!Array.isArray(pairs)) return undefined;
-    return pairs.map((p: any, i: number) => ({
-      id: p.id || `pair-${i}`,
-      left: p.left || p.term || p.question || p.a || `Item ${i + 1}`,
-      right: p.right || p.definition || p.answer || p.b || `Match ${i + 1}`,
-    }));
-  };
+    // ── MCQ options ─────────────────────────────────────────────────────────
+    let mcqOptions: MCQOption[] | undefined;
+    if (qType === "mcq" && q.options?.choices) {
+      const correctChoiceId: string = q.correctAnswer?.choiceId ?? "";
+      mcqOptions = (q.options.choices as any[]).map((c: any, i: number) => ({
+        id: c.id,
+        label: String.fromCharCode(65 + i), // A, B, C, D
+        text: c.text || `Option ${i + 1}`,
+        isCorrect: c.id === correctChoiceId,
+      }));
+    }
 
-  const mappedQuestions: QuestionItem[] = rawQuestions.map((q: any, idx: number) => ({
-    id: q.id || q._id || `q-${idx + 1}`,
-    number: q.number || q.questionNumber || q.order || idx + 1,
-    type: normalizeType(q),
-    // Common field names for question text
-    prompt: q.prompt || q.stem || q.questionText || q.text || q.body || q.question || `Question ${idx + 1}`,
-    instructions: q.instructions || q.hint || q.helpText || "Select or answer the following:",
-    mcqOptions: normalizeOptions(q),
-    matchPairs: normalizeMatchPairs(q),
-    fillBlankPlaceholder: q.fillBlankPlaceholder || q.placeholder || q.blank,
-    reorderItems: q.reorderItems || q.items || q.sortItems,
-  }));
+    // ── Match pairs ─────────────────────────────────────────────────────────
+    // Backend: options.leftItems[] + options.rightItems[] + correctAnswer.pairs[{leftId,rightId}]
+    // Component expects: MatchPair[] { id, leftText, rightText }
+    // We map each leftItem to its correct rightItem using correctAnswer.pairs
+    let matchPairs: any[] | undefined;
+    if (qType === "match" && q.options?.leftItems && q.options?.rightItems) {
+      const leftItems: any[] = q.options.leftItems;
+      const rightItems: any[] = q.options.rightItems;
+      const correctPairs: Array<{ leftId: string; rightId: string }> = q.correctAnswer?.pairs ?? [];
 
-  // ── Step 3: Build session metadata ─────────────────────────────────────────
-  const trackMeta = data.track || data.level || data;
+      // Build a lookup: leftId → rightId (from correct answer)
+      const correctMap = new Map<string, string>();
+      for (const pair of correctPairs) {
+        correctMap.set(pair.leftId, pair.rightId);
+      }
+
+      matchPairs = leftItems.map((left: any) => {
+        const correctRightId = correctMap.get(left.id);
+        const right = rightItems.find((r: any) => r.id === correctRightId);
+        return {
+          id: left.id,
+          leftText: left.text || left.id,
+          rightText: right?.text || correctRightId || left.id,
+        };
+      });
+    }
+
+    return {
+      id: q.id || `q-${order}`,
+      number: order,
+      type: qType,
+      prompt: q.questionText || q.prompt || q.stem || q.text || `Question ${order}`,
+      instructions: qType === "match"
+        ? "Match each item in Column A with its correct pair in Column B."
+        : "Select the correct answer.",
+      mcqOptions,
+      matchPairs,
+      fillBlankPlaceholder: q.placeholder || q.blank || undefined,
+      reorderItems: q.reorderItems || q.items || undefined,
+    };
+  });
+
+  // ── Step 4: Session metadata ─────────────────────────────────────────────────
+  const trackMeta = trackObj?.track ?? trackObj ?? {};
+  const subjectMeta = trackObj?.subject ?? {};
   return {
-    id: trackMeta.id || trackMeta.trackId || `ex-${trackSlug}-${subjectSlug}`,
-    subjectName: trackMeta.subjectName || data.subjectName || "Subject",
-    trackName: trackMeta.trackName || trackMeta.title || trackMeta.name || `${trackSlug.toUpperCase()} TRACK`,
-    trackType: trackMeta.trackType || (trackSlug as TrackType),
-    title: trackMeta.title || trackMeta.trackName || "Fundamentals Practice Session",
+    id: trackMeta.trackId || `ex-${trackSlug}-${subjectSlug}`,
+    subjectName: subjectMeta.subjectName || "Subject",
+    trackName: trackMeta.title || trackMeta.name || trackSlug.toUpperCase(),
+    trackType: "explorer" as TrackType, // frontend display only
+    title: `${subjectMeta.subjectName || "Fundamentals"} — ${trackMeta.title || trackSlug}`,
     totalQuestions: mappedQuestions.length,
     questions: mappedQuestions,
   };
