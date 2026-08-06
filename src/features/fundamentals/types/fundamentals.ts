@@ -6,6 +6,8 @@ export interface SubjectTrack {
   name: string;
   questionCount?: number;
   level?: string;
+  levelOrder?: number;
+  trackId?: string;
 }
 
 export interface SubjectItem {

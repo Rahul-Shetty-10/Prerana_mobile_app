@@ -68,21 +68,27 @@ function getColorVariantForSubject(subjectCode?: string, index: number = 0): Sta
   return variants[index % variants.length];
 }
 
+interface BackendLevel {
+  slug?: string;
+  title?: string;
+  description?: string;
+  levelOrder?: number;
+  levelKey?: string;
+  trackId?: string;
+  questionCount?: number;
+  exerciseKinds?: string[];
+  exercisePackCount?: number;
+}
+
 interface BackendCatalogSubject {
   id?: string;
+  subjectId?: string;
   subjectName?: string;
   subjectSlug?: string;
   subjectCode?: string;
   description?: string;
   trackCount?: number;
-  tracks?: Array<{
-    slug?: string;
-    trackSlug?: string;
-    name?: string;
-    trackName?: string;
-    questionCount?: number;
-    level?: string;
-  }>;
+  levels?: BackendLevel[];
 }
 
 interface CatalogApiResponse {
@@ -152,30 +158,39 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
 
     let totalTrackCount = 0;
     const mappedSubjects: SubjectItem[] = rawSubjects.map((item, idx) => {
-      const subjectTrackCount = item.trackCount || (item.tracks ? item.tracks.length : 4);
+      // Backend returns levels[] with the actual slugs to use for each track
+      const levels: BackendLevel[] = (item.levels || []).sort(
+        (a: BackendLevel, b: BackendLevel) => (a.levelOrder ?? 0) - (b.levelOrder ?? 0)
+      );
+
+      const subjectTrackCount = levels.length || item.trackCount || 4;
       totalTrackCount += subjectTrackCount;
 
-      // Map backend tracks if available
-      const mappedTracks: SubjectTrack[] | undefined = item.tracks && item.tracks.length > 0
-        ? item.tracks.map((t: any) => ({
-            slug: t.slug || t.trackSlug || "",
-            name: t.name || t.trackName || t.slug || "",
-            questionCount: t.questionCount,
-            level: t.level,
-          })).filter((t: SubjectTrack) => t.slug)
-        : undefined;
+      // Map backend levels into SubjectTrack (slug is what we pass as trackSlug to the API)
+      const mappedTracks: SubjectTrack[] = levels
+        .filter((l) => l.slug)
+        .map((l) => ({
+          slug: l.slug!,
+          name: l.title || l.description || l.slug!,
+          questionCount: l.questionCount,
+          levelOrder: l.levelOrder,
+          trackId: l.trackId,
+          level: l.levelKey,
+        }));
+
+      const totalQuestions = levels.reduce((sum, l) => sum + (l.questionCount || 0), 0);
 
       return {
-        id: item.id || item.subjectSlug || `subj-${idx}`,
-        subjectSlug: item.subjectSlug || item.slug || item.subjectCode || item.id || "",
+        id: item.subjectId || item.id || item.subjectSlug || `subj-${idx}`,
+        subjectSlug: item.subjectSlug || item.subjectCode || item.id || "",
         title: item.subjectName || "Subject",
         description: item.description || `Master foundational concepts in ${item.subjectName}.`,
         iconName: getIconForSubject(item.subjectCode, item.subjectName),
         previewBadgeText: getBadgeForSubject(item.subjectCode, item.subjectName),
         trackCount: subjectTrackCount,
-        questionCount: subjectTrackCount > 0 ? subjectTrackCount * 30 : 120,
+        questionCount: totalQuestions > 0 ? totalQuestions : subjectTrackCount * 30,
         colorVariant: getColorVariantForSubject(item.subjectCode, idx),
-        tracks: mappedTracks,
+        tracks: mappedTracks.length > 0 ? mappedTracks : undefined,
       };
     });
 

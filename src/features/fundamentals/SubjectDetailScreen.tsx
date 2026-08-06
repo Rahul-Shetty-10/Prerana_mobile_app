@@ -116,24 +116,27 @@ export function SubjectDetailScreen({
 
         {/* 4 Learning Tracks List */}
         <View style={styles.tracksList}>
-          {LEARNING_TRACKS.map((track) => {
+          {LEARNING_TRACKS.map((track, idx) => {
             const trackAccents = colors.accents[track.variant] || colors.accents.coral;
+            // Use backend level at matching index position (levelOrder 1 = explorer card, etc.)
+            const backendLevel = subject.tracks?.[idx];
+            const resolvedSlug = backendLevel?.slug || track.type;
+            const resolvedTitle = backendLevel?.name || track.title;
+            const resolvedQuestionCount = backendLevel?.questionCount ?? track.questionCount;
+            // Skip rendering if backend has fewer levels than LEARNING_TRACKS has cards
+            if (subject.tracks && subject.tracks.length > 0 && !backendLevel) return null;
 
             return (
               <Pressable
                 key={track.type}
                 accessibilityRole="button"
                 onPress={() => {
-                  // Use backend track slug if available, fall back to frontend TrackType
-                  const backendTrack = subject.tracks?.find(
-                    (t) => t.slug === track.type || t.name?.toLowerCase().includes(track.type)
-                  );
-                  const resolvedSlug = backendTrack?.slug || track.type;
+                  console.log(`[FUNDAMENTALS] Navigating with subjectSlug="${subject.subjectSlug}", trackSlug="${resolvedSlug}"`);
                   onSelectTrack(track.type, resolvedSlug);
                 }}
                 style={({ pressed }) => [styles.trackCard, pressed && styles.pressed]}
               >
-                <View style={track.type === "explorer" ? styles.trackTopRow : styles.trackTopRow}>
+                <View style={styles.trackTopRow}>
                   <View
                     style={[
                       styles.trackIconShell,
@@ -149,12 +152,12 @@ export function SubjectDetailScreen({
                   <Badge label={track.badgeLabel} variant="primary" />
                 </View>
 
-                <Text style={styles.trackTitle}>{track.title}</Text>
+                <Text style={styles.trackTitle}>{resolvedTitle}</Text>
                 <Text style={styles.trackDescription}>{track.description}</Text>
 
                 <View style={styles.trackFooterRow}>
                   <Text style={[styles.startTrackText, { color: colors.primary.main }]}>
-                    Start Track ({track.questionCount} Questions)
+                    Start Track ({resolvedQuestionCount} Questions)
                   </Text>
                   <AppIcon color={colors.primary.main} name="arrow-forward-outline" size={14} />
                 </View>
