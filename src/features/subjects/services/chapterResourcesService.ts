@@ -28,6 +28,7 @@ export interface ChapterResourcesPayload {
   slidedeckUrl?: string;
   slidedeckPages?: PDFPageItem[];
   textbookNotesUrl?: string;
+  textbookUrl?: string;
   textbookPages?: PDFPageItem[];
   flashcards?: FlashcardItem[];
   tableTitle?: string;
@@ -110,6 +111,7 @@ export async function fetchChapterResources(
       subjectId,
       chapterId,
       chapterTitle: data.chapterTitle || "Chapter Resources",
+      textbookNotesUrl: getAbsoluteUrl(data.textbookUrl),
       authToken: token,
       tenantSlug: appConfig.tenantSlug,
     };
@@ -130,6 +132,8 @@ export async function fetchChapterResources(
           result.mindmapRoot = item.payload?.root || item.payload || undefined;
         } else if (type === "slide") {
           result.slidedeckUrl = assetUrl;
+        } else if (type === "pdf") {
+          result.textbookNotesUrl = assetUrl;
         } else if (type === "flashcards") {
           if (typeof item.payload === "string") {
             const lines = item.payload.split("\n").filter((l: string) => l.trim().length > 0);
