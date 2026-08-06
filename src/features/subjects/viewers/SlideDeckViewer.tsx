@@ -104,31 +104,21 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
       setLoadingProgress(0.6);
 
       let localPdfUri = "";
-      let downloadFailed = false;
       if (pdfUrl && pdfUrl.startsWith("http")) {
-        try {
-          const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
-          const tempPath = `${FileSystem.documentDirectory}${filename}`;
-          console.log(`[SUBJECTS][SlideDeckViewer] Downloading slidedeck from backend: ${pdfUrl}`);
-          const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
-          if (downloadResult.status !== 200 && downloadResult.status !== 201) {
-            throw new Error(`HTTP status ${downloadResult.status}`);
-          }
-          localPdfUri = downloadResult.uri;
-        } catch (err) {
-          console.warn("[SUBJECTS][SlideDeckViewer] Remote download failed, falling back to local slidedeck asset:", err);
-          downloadFailed = true;
+        const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
+        const tempPath = `${FileSystem.documentDirectory}${filename}`;
+        console.log(`[SUBJECTS][SlideDeckViewer] Downloading slidedeck from backend: ${pdfUrl}`);
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+          throw new Error(`HTTP status ${downloadResult.status}`);
         }
-      }
-
-      if (!pdfUrl || !pdfUrl.startsWith("http") || downloadFailed) {
-        const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
-        await asset.downloadAsync();
-        localPdfUri = asset.localUri || "";
+        localPdfUri = downloadResult.uri;
+      } else {
+        throw new Error("Slide deck URL is not available.");
       }
 
       if (!localPdfUri) {
-        throw new Error("Unable to resolve local Slidedeck PDF URI.");
+        throw new Error("Unable to resolve Slidedeck PDF URI.");
       }
 
       const base64 = await FileSystem.readAsStringAsync(localPdfUri, {
@@ -317,7 +307,14 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
     );
   };
 
-  // ── Return ────────────────────────────────────────────────────────────────
+  if (!pdfUrl) {
+    return (
+      <ContentComingSoon
+        title="Slide Deck Coming Soon"
+        message="Interactive slides for this chapter are currently being compiled by the backend team."
+      />
+    );
+  }
 
   return (
     <View style={styles.card}>

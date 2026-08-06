@@ -89,31 +89,21 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
       setLoadingProgress(0.6);
 
       let localPdfUri = "";
-      let downloadFailed = false;
       if (pdfUrl && pdfUrl.startsWith("http")) {
-        try {
-          const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
-          const tempPath = `${FileSystem.documentDirectory}${filename}`;
-          console.log(`[SUBJECTS][PDFViewer] Downloading textbook notes from backend: ${pdfUrl}`);
-          const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
-          if (downloadResult.status !== 200 && downloadResult.status !== 201) {
-            throw new Error(`HTTP status ${downloadResult.status}`);
-          }
-          localPdfUri = downloadResult.uri;
-        } catch (err) {
-          console.warn("[SUBJECTS][PDFViewer] Remote download failed, falling back to local textbook asset:", err);
-          downloadFailed = true;
+        const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
+        const tempPath = `${FileSystem.documentDirectory}${filename}`;
+        console.log(`[SUBJECTS][PDFViewer] Downloading textbook notes from backend: ${pdfUrl}`);
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+          throw new Error(`HTTP status ${downloadResult.status}`);
         }
-      }
-
-      if (!pdfUrl || !pdfUrl.startsWith("http") || downloadFailed) {
-        const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
-        await asset.downloadAsync();
-        localPdfUri = asset.localUri || "";
+        localPdfUri = downloadResult.uri;
+      } else {
+        throw new Error("Textbook URL is not available.");
       }
 
       if (!localPdfUri) {
-        throw new Error("Unable to resolve local Textbook PDF URI.");
+        throw new Error("Unable to resolve Textbook PDF URI.");
       }
 
       const base64 = await FileSystem.readAsStringAsync(localPdfUri, {
@@ -366,6 +356,15 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
   );
 
   // ── Main inline render ────────────────────────────────────────────────────
+
+  if (!pdfUrl) {
+    return (
+      <ContentComingSoon
+        title="Textbook Coming Soon"
+        message="Textbook materials for this chapter are currently being compiled by the backend team."
+      />
+    );
+  }
 
   return (
     <View style={styles.card}>
