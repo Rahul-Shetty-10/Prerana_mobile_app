@@ -1,6 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import { ExerciseSessionPayload, QuestionItem, ReviewPayload, TrackType } from "../types";
+import { ExerciseSessionPayload, QuestionItem, QuestionType, ReviewPayload, TrackType } from "../types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -157,71 +157,112 @@ export async function fetchFundamentalsTrack(
       }
     );
   } catch (httpErr) {
-    // The backend returned a non-ok response (e.g. 404, 500). Surface a clean message.
     const msg = httpErr instanceof Error ? httpErr.message : String(httpErr);
     console.warn(`[EXERCISE][fetchFundamentalsTrack] HTTP error for subjectSlug="${subjectSlug}", trackSlug="${trackSlug}":`, msg);
     throw new Error(`Questions for this track are not available yet. (${msg})`);
   }
 
-  console.log("[EXERCISE][DEBUG] /student/fundamentals/track response:", JSON.stringify(data));
+  console.log("[EXERCISE][DEBUG] /student/fundamentals/track full response:", JSON.stringify(data, null, 2));
 
-  let questionsList: any[] = [];
+  // ── Step 1: Collect all raw questions ──────────────────────────────────────
+  // Backend may return questions nested inside exercisePacks[] or at top level.
+  let rawQuestions: any[] = [];
 
-  function findQuestionsArray(obj: any): any[] | null {
-    if (!obj || typeof obj !== "object") return null;
-    if (Array.isArray(obj)) return obj;
+  function extractQuestions(obj: any): void {
+    if (!obj || typeof obj !== "object") return;
 
-    const keys = Object.keys(obj);
-    const preferredKeys = ["questions", "data", "snapshot", "track"];
-    const sortedKeys = [...keys].sort((a, b) => {
-      const idxA = preferredKeys.indexOf(a);
-      const idxB = preferredKeys.indexOf(b);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return 0;
-    });
-
-    for (const key of sortedKeys) {
-      const val = obj[key];
-      if (Array.isArray(val)) {
-        return val;
+    // If obj has an exercisePacks array, flatten questions from each pack
+    if (Array.isArray(obj.exercisePacks)) {
+      for (const pack of obj.exercisePacks) {
+        if (Array.isArray(pack.questions)) {
+          rawQuestions.push(...pack.questions);
+        } else {
+          // pack itself might have nested structure
+          extractQuestions(pack);
+        }
       }
-      if (val && typeof val === "object") {
-        const found = findQuestionsArray(val);
-        if (found) return found;
+      return;
+    }
+
+    // Direct questions array
+    if (Array.isArray(obj.questions) && obj.questions.length > 0) {
+      rawQuestions.push(...obj.questions);
+      return;
+    }
+
+    // Recurse into known wrapper keys
+    const wrapperKeys = ["track", "data", "result", "payload", "session"];
+    for (const key of wrapperKeys) {
+      if (obj[key] && typeof obj[key] === "object") {
+        extractQuestions(obj[key]);
+        if (rawQuestions.length > 0) return;
       }
     }
-    return null;
   }
 
-  const foundArray = findQuestionsArray(data);
-  if (foundArray) {
-    questionsList = foundArray;
+  extractQuestions(data);
+
+  console.log(`[EXERCISE][DEBUG] Extracted ${rawQuestions.length} raw questions`);
+  if (rawQuestions.length > 0) {
+    console.log("[EXERCISE][DEBUG] First raw question sample:", JSON.stringify(rawQuestions[0], null, 2));
   }
 
-  if (!questionsList || questionsList.length === 0) {
+  if (rawQuestions.length === 0) {
     throw new Error("No questions are available for this track yet. Check back soon!");
   }
 
-  const mappedQuestions: QuestionItem[] = questionsList.map((q, idx) => ({
-    id: q.id || `q-${idx + 1}`,
-    number: q.number || idx + 1,
-    type: q.type || "mcq",
-    prompt: q.prompt || "Question prompt",
-    instructions: q.instructions || "Select or answer the following:",
-    mcqOptions: q.mcqOptions,
-    matchPairs: q.matchPairs,
-    fillBlankPlaceholder: q.fillBlankPlaceholder,
-    reorderItems: (q as any).reorderItems,
+  // ── Step 2: Normalise backend field names to our QuestionItem schema ────────
+  const normalizeType = (raw: any): QuestionType => {
+    const kind = (raw.type || raw.exerciseKind || raw.kind || "").toLowerCase().replace(/[_\s-]/g, "");
+    if (kind.includes("match")) return "match";
+    if (kind.includes("fill") || kind.includes("blank")) return "fill_blank";
+    if (kind.includes("sort") || kind.includes("reorder") || kind.includes("order")) return "reorder";
+    if (kind.includes("truefalse") || kind.includes("true")) return "true_false";
+    return "mcq";
+  };
+
+  const normalizeOptions = (raw: any): any[] | undefined => {
+    // Common backend field names for MCQ options
+    const opts = raw.mcqOptions || raw.options || raw.choices || raw.answers;
+    if (!Array.isArray(opts)) return undefined;
+    return opts.map((o: any, i: number) => ({
+      id: o.id || o._id || `opt-${i}`,
+      label: o.label || o.text || o.value || o.option || o.content || `Option ${i + 1}`,
+      isCorrect: o.isCorrect ?? o.correct ?? false,
+    }));
+  };
+
+  const normalizeMatchPairs = (raw: any): any[] | undefined => {
+    const pairs = raw.matchPairs || raw.pairs || raw.matchItems || raw.matches;
+    if (!Array.isArray(pairs)) return undefined;
+    return pairs.map((p: any, i: number) => ({
+      id: p.id || `pair-${i}`,
+      left: p.left || p.term || p.question || p.a || `Item ${i + 1}`,
+      right: p.right || p.definition || p.answer || p.b || `Match ${i + 1}`,
+    }));
+  };
+
+  const mappedQuestions: QuestionItem[] = rawQuestions.map((q: any, idx: number) => ({
+    id: q.id || q._id || `q-${idx + 1}`,
+    number: q.number || q.questionNumber || q.order || idx + 1,
+    type: normalizeType(q),
+    // Common field names for question text
+    prompt: q.prompt || q.stem || q.questionText || q.text || q.body || q.question || `Question ${idx + 1}`,
+    instructions: q.instructions || q.hint || q.helpText || "Select or answer the following:",
+    mcqOptions: normalizeOptions(q),
+    matchPairs: normalizeMatchPairs(q),
+    fillBlankPlaceholder: q.fillBlankPlaceholder || q.placeholder || q.blank,
+    reorderItems: q.reorderItems || q.items || q.sortItems,
   }));
 
+  // ── Step 3: Build session metadata ─────────────────────────────────────────
+  const trackMeta = data.track || data.level || data;
   return {
-    id: data.id || `ex-${trackSlug}-${subjectSlug}`,
-    subjectName: data.subjectName || "Subject",
-    trackName: data.trackName || `${trackSlug.toUpperCase()} TRACK`,
-    trackType: data.trackType || (trackSlug as TrackType),
-    title: data.title || "Fundamentals Practice Session",
+    id: trackMeta.id || trackMeta.trackId || `ex-${trackSlug}-${subjectSlug}`,
+    subjectName: trackMeta.subjectName || data.subjectName || "Subject",
+    trackName: trackMeta.trackName || trackMeta.title || trackMeta.name || `${trackSlug.toUpperCase()} TRACK`,
+    trackType: trackMeta.trackType || (trackSlug as TrackType),
+    title: trackMeta.title || trackMeta.trackName || "Fundamentals Practice Session",
     totalQuestions: mappedQuestions.length,
     questions: mappedQuestions,
   };
