@@ -26,14 +26,6 @@ export function ResultActionButtons({
         title="Retry Exercise"
         variant="secondary"
       />
-
-      <Button
-        iconName="arrow-back-outline"
-        onPress={onBackToSubject}
-        style={styles.button}
-        title="Back to Subject"
-        variant="outline"
-      />
     </View>
   );
 }

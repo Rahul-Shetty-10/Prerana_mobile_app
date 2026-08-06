@@ -52,10 +52,6 @@ export function ExerciseResultScreen({
             <Badge label={data.trackName} variant="primary" />
           </View>
         </View>
-
-        <Text numberOfLines={2} style={styles.title}>
-          {data.title}
-        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -108,8 +104,7 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: themeColors.border,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    gap: spacing.xs,
+    paddingVertical: spacing.sm,
   },
   headerTopRow: {
     flexDirection: "row",

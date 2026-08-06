@@ -251,10 +251,11 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
   itemCard: {
     borderRadius: radius.md,
     borderWidth: 1,
-    padding: spacing.sm,
-    gap: 4,
-    minHeight: 84,
-    justifyContent: "space-between",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    gap: 2,
+    minHeight: 48,
+    justifyContent: "center",
   },
   unselectedCard: {
     backgroundColor: themeColors.surfaceSecondary,

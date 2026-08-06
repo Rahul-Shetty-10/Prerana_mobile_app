@@ -1,5 +1,5 @@
 import { SubjectItem } from "../features/fundamentals/types";
-import { ExerciseResultData, TrackType } from "../features/exercise/types";
+import { ExerciseResultData, ReviewPayload, TrackType } from "../features/exercise/types";
 import { ChapterItem, ResourceTabType, SubjectMeta } from "../features/subjects/types";
 
 export type RootTabParamList = {
@@ -21,8 +21,8 @@ export type FundamentalsStackParamList = {
   FundamentalsHome: undefined;
   SubjectDetail: { subject: SubjectItem };
   Exercise: { trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; title?: string };
-  ExerciseResult: { resultData?: ExerciseResultData; trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; attemptId?: string };
-  Review: { trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; attemptId?: string };
+  ExerciseResult: { resultData?: ExerciseResultData; reviewData?: ReviewPayload; trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; attemptId?: string };
+  Review: { resultData?: ExerciseResultData; reviewData?: ReviewPayload; trackType: TrackType; subjectId?: string; chapterId?: string; subjectSlug?: string; trackSlug?: string; attemptId?: string };
 };
 
 export type SubjectsStackParamList = {

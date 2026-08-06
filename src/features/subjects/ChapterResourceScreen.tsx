@@ -8,6 +8,8 @@ import { useChapterResources } from "./hooks";
 import { ChapterItem, ResourceTabType } from "./types";
 import { colors, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { saveLearningState } from "../../shared/services/learningStateService";
+import { markMilestoneSeen } from "../../shared/services/chapterProgressService";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface ChapterResourceScreenProps {
@@ -27,16 +29,15 @@ export function ChapterResourceScreen({
   initialTab,
   onBackPress,
 }: ChapterResourceScreenProps) {
-  const { theme  } = useTheme();
+  const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
-
-
-
 
   const [activeTab, setActiveTab] = useState<ResourceTabType>(initialTab || "infographic");
   const [slidedeckPageIndex, setSlidedeckPageIndex] = useState(0);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [showComingSoon, setShowComingSoon] = useState(false);
+
   const { resources, isLoading, error, refresh } = useChapterResources(
     subjectId || chapter.id,
     chapter.id,
@@ -49,6 +50,41 @@ export function ChapterResourceScreen({
     }
   }, [initialTab]);
 
+  useEffect(() => {
+    if (chapter && subjectName) {
+      void saveLearningState({
+        selectedSubjectId: subjectId || subjectName,
+        lastSubjectName: subjectName,
+        lastChapterId: chapter.id,
+        lastChapterTitle: `Chapter ${chapter.number}: ${chapter.title}`,
+        lastResourceTab: activeTab,
+      });
+    }
+  }, [chapter, subjectName, subjectId, activeTab]);
+
+  // Track milestones (Infographic, Mindmap, Audio seen)
+  useEffect(() => {
+    if (chapter && subjectId && (activeTab === "infographic" || activeTab === "mindmap" || activeTab === "audio")) {
+      void markMilestoneSeen(chapter.id, subjectId, activeTab);
+    }
+  }, [chapter, subjectId, activeTab]);
+
+  // Show "Coming Soon" after 5 seconds if still loading and no resources have arrived
+  useEffect(() => {
+    let timer: any;
+    if (isLoading) {
+      setShowComingSoon(false);
+      timer = setTimeout(() => {
+        setShowComingSoon(true);
+      }, 5000); // 5 seconds
+    } else {
+      setShowComingSoon(true);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isLoading]);
+
   const handleTabSelect = (tab: ResourceTabType) => {
     setActiveTab(tab);
   };
@@ -56,7 +92,7 @@ export function ChapterResourceScreen({
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
       <Header
-        title="Chapter Resources"
+        title={`Chapter ${chapter.number}: ${chapter.title}`}
         onBackPress={onBackPress}
       />
 
@@ -89,30 +125,30 @@ export function ChapterResourceScreen({
           <Text style={styles.chapterTitleText}>{chapter.title}</Text>
         </View>
 
-        {/* Loading Indicator */}
-        {isLoading && !resources ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={colors.primary.main} size="large" />
-            <Text style={styles.loadingText}>Fetching Chapter Resources...</Text>
-          </View>
-        ) : null}
-
         {/* Error Banner */}
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
 
-        <ResourceContainer
-          activeTab={activeTab}
-          chapterTitle={chapter.title}
-          resources={resources}
-          slidedeckPageIndex={slidedeckPageIndex}
-          onSlidedeckPageChange={setSlidedeckPageIndex}
-          flashcardIndex={flashcardIndex}
-          onFlashcardIndexChange={setFlashcardIndex}
-        />
+        {/* Loading Indicator */}
+        {isLoading && !resources && !showComingSoon ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={colors.primary.main} size="large" />
+            <Text style={styles.loadingText}>Fetching Chapter Resources...</Text>
+          </View>
+        ) : (
+          <ResourceContainer
+            activeTab={activeTab}
+            chapterTitle={chapter.title}
+            resources={resources || (!isLoading ? {} as any : undefined)}
+            slidedeckPageIndex={slidedeckPageIndex}
+            onSlidedeckPageChange={setSlidedeckPageIndex}
+            flashcardIndex={flashcardIndex}
+            onFlashcardIndexChange={setFlashcardIndex}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

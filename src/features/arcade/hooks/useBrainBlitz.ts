@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { fetchBrainBlitzQuestions } from "../services";
 import { BrainBlitzQuestion, BrainBlitzSessionResult, QuizCategory } from "../types";
 import { useGameEngine } from "./useGameEngine";
@@ -12,74 +12,88 @@ export function useBrainBlitz() {
   const [isAnswered, setIsAnswered] = useState(false);
   const [sessionResult, setSessionResult] = useState<BrainBlitzSessionResult | null>(null);
 
-  // Time up handler for current question
-  const handleTimeUp = useCallback(() => {
-    if (engine.status !== "playing" || isAnswered) return;
-    setIsAnswered(true);
-    engine.registerWrong();
+  // Stable refs to avoid infinite re-renders from object reference changes
+  const engineRef = useRef(engine);
+  const timerRef = useRef<ReturnType<typeof useTimer> | null>(null);
+  const isAnsweredRef = useRef(isAnswered);
+  const questionsRef = useRef(questions);
+  const currentIndexRef = useRef(currentIndex);
 
+  // Keep refs up to date each render (no effects needed)
+  engineRef.current = engine;
+  isAnsweredRef.current = isAnswered;
+  questionsRef.current = questions;
+  currentIndexRef.current = currentIndex;
+
+  const finalizeSession = useCallback(() => {
+    const eng = engineRef.current;
+    const tmr = timerRef.current;
+    tmr?.pause();
+    const qs = questionsRef.current;
+    const totalAns = eng.correctAnswers + eng.wrongAnswers;
+    const accuracy = totalAns > 0 ? Math.round((eng.correctAnswers / totalAns) * 100) : 0;
+    const xpEarned = eng.score + eng.correctAnswers * 5;
+    const coinsEarned = Math.floor(eng.score / 10);
+    const isVictory = eng.lives > 0;
+    const categoryCount: Record<string, number> = {};
+    qs.forEach((q) => {
+      categoryCount[q.category] = (categoryCount[q.category] || 0) + 1;
+    });
+    const bestCat = (Object.keys(categoryCount)[0] || "General Knowledge") as QuizCategory;
+    const result: BrainBlitzSessionResult = {
+      score: eng.score,
+      totalQuestions: qs.length,
+      correctCount: eng.correctAnswers,
+      wrongCount: eng.wrongAnswers,
+      accuracy,
+      xpEarned,
+      coinsEarned,
+      highestCombo: eng.maxCombo,
+      bestCategory: bestCat,
+      victory: isVictory,
+    };
+    setSessionResult(result);
+    if (isVictory) {
+      eng.finishGame();
+    } else {
+      eng.setStatus("game_over");
+    }
+  }, []);
+
+  const advanceNextQuestion = useCallback(() => {
+    setSelectedIndex(null);
+    setIsAnswered(false);
+    setCurrentIndex((prevIdx) => {
+      const nextIdx = prevIdx + 1;
+      const qs = questionsRef.current;
+      const eng = engineRef.current;
+      if (nextIdx >= qs.length || eng.lives <= 0) {
+        finalizeSession();
+        return prevIdx;
+      }
+      timerRef.current?.restart(15);
+      return nextIdx;
+    });
+  }, [finalizeSession]);
+
+  // Time up handler - stable, reads from refs
+  const handleTimeUp = useCallback(() => {
+    const eng = engineRef.current;
+    if (eng.status !== "playing" || isAnsweredRef.current) return;
+    setIsAnswered(true);
+    eng.registerWrong();
     setTimeout(() => {
       advanceNextQuestion();
     }, 1200);
-  }, [engine, isAnswered]);
+  }, [advanceNextQuestion]);
 
   const timer = useTimer({
     initialSeconds: 15,
     autoStart: false,
     onTimeUp: handleTimeUp,
   });
-
-  const advanceNextQuestion = () => {
-    setSelectedIndex(null);
-    setIsAnswered(false);
-
-    setCurrentIndex((prevIdx) => {
-      const nextIdx = prevIdx + 1;
-      if (nextIdx >= questions.length || engine.lives <= 0) {
-        // Game Over or Completed
-        finalizeSession();
-        return prevIdx;
-      }
-      timer.restart(15);
-      return nextIdx;
-    });
-  };
-
-  const finalizeSession = () => {
-    timer.pause();
-    const totalAns = engine.correctAnswers + engine.wrongAnswers;
-    const accuracy = totalAns > 0 ? Math.round((engine.correctAnswers / totalAns) * 100) : 0;
-    const xpEarned = engine.score + engine.correctAnswers * 5;
-    const coinsEarned = Math.floor(engine.score / 10);
-    const isVictory = engine.lives > 0;
-
-    // Determine best category based on active questions
-    const categoryCount: Record<string, number> = {};
-    questions.forEach((q) => {
-      categoryCount[q.category] = (categoryCount[q.category] || 0) + 1;
-    });
-    const bestCat = (Object.keys(categoryCount)[0] || "General Knowledge") as QuizCategory;
-
-    const result: BrainBlitzSessionResult = {
-      score: engine.score,
-      totalQuestions: questions.length,
-      correctCount: engine.correctAnswers,
-      wrongCount: engine.wrongAnswers,
-      accuracy,
-      xpEarned,
-      coinsEarned,
-      highestCombo: engine.maxCombo,
-      bestCategory: bestCat,
-      victory: isVictory,
-    };
-
-    setSessionResult(result);
-    if (isVictory) {
-      engine.finishGame();
-    } else {
-      engine.setStatus("game_over");
-    }
-  };
+  // Update timer ref every render
+  timerRef.current = timer;
 
   const startSession = useCallback(() => {
     const fetched = fetchBrainBlitzQuestions(10);
@@ -88,69 +102,70 @@ export function useBrainBlitz() {
     setSelectedIndex(null);
     setIsAnswered(false);
     setSessionResult(null);
-    engine.startGame();
-    timer.restart(15);
-  }, [engine, timer]);
+    engineRef.current.startGame();
+    timerRef.current?.restart(15);
+  }, []);
 
   const selectAnswer = useCallback(
     (optionIndex: number) => {
-      if (isAnswered || engine.status !== "playing") return;
-      timer.pause();
+      const eng = engineRef.current;
+      const tmr = timerRef.current;
+      const qs = questionsRef.current;
+      const idx = currentIndexRef.current;
+      if (isAnsweredRef.current || eng.status !== "playing") return;
+      tmr?.pause();
       setSelectedIndex(optionIndex);
       setIsAnswered(true);
 
-      const currentQ = questions[currentIndex];
+      const currentQ = qs[idx];
       const isCorrect = currentQ && optionIndex === currentQ.correctIndex;
 
       if (isCorrect) {
-        engine.registerCorrect();
+        eng.registerCorrect();
       } else {
-        engine.registerWrong();
+        eng.registerWrong();
       }
 
       setTimeout(() => {
-        const nextIdx = currentIndex + 1;
-        const currentLives = isCorrect ? engine.lives : engine.lives - 1;
+        const nextIdx = idx + 1;
+        const currentLives = isCorrect ? eng.lives : eng.lives - 1;
 
-        if (nextIdx >= questions.length || currentLives <= 0) {
-          // Finalize session
-          const totalAns = (isCorrect ? engine.correctAnswers + 1 : engine.correctAnswers) +
-            (!isCorrect ? engine.wrongAnswers + 1 : engine.wrongAnswers);
-          const finalCorrect = isCorrect ? engine.correctAnswers + 1 : engine.correctAnswers;
+        if (nextIdx >= qs.length || currentLives <= 0) {
+          const totalAns = (isCorrect ? eng.correctAnswers + 1 : eng.correctAnswers) +
+            (!isCorrect ? eng.wrongAnswers + 1 : eng.wrongAnswers);
+          const finalCorrect = isCorrect ? eng.correctAnswers + 1 : eng.correctAnswers;
           const accuracy = totalAns > 0 ? Math.round((finalCorrect / totalAns) * 100) : 0;
-          const finalScore = isCorrect ? engine.score + (10 * Math.min(engine.combo + 1, 5)) : engine.score;
+          const finalScore = isCorrect ? eng.score + (10 * Math.min(eng.combo + 1, 5)) : eng.score;
           const xpEarned = finalScore + finalCorrect * 5;
           const coinsEarned = Math.floor(finalScore / 10);
           const victory = currentLives > 0;
-
           const result: BrainBlitzSessionResult = {
             score: finalScore,
-            totalQuestions: questions.length,
+            totalQuestions: qs.length,
             correctCount: finalCorrect,
-            wrongCount: !isCorrect ? engine.wrongAnswers + 1 : engine.wrongAnswers,
+            wrongCount: !isCorrect ? eng.wrongAnswers + 1 : eng.wrongAnswers,
             accuracy,
             xpEarned,
             coinsEarned,
-            highestCombo: Math.max(engine.maxCombo, isCorrect ? engine.combo + 1 : engine.combo),
+            highestCombo: Math.max(eng.maxCombo, isCorrect ? eng.combo + 1 : eng.combo),
             bestCategory: currentQ ? currentQ.category : "General Knowledge",
             victory,
           };
-
           setSessionResult(result);
           if (victory) {
-            engine.finishGame();
+            eng.finishGame();
           } else {
-            engine.setStatus("game_over");
+            eng.setStatus("game_over");
           }
         } else {
           setSelectedIndex(null);
           setIsAnswered(false);
           setCurrentIndex(nextIdx);
-          timer.restart(15);
+          tmr?.restart(15);
         }
       }, 1200);
     },
-    [isAnswered, engine, questions, currentIndex, timer]
+    []
   );
 
   return {

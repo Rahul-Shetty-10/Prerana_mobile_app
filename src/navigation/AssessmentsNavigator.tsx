@@ -33,6 +33,7 @@ export function AssessmentsNavigator({ getToken }: AssessmentsNavigatorProps) {
               if (parent) {
                 (parent as any).navigate("SubjectsTab", {
                   screen: "SubjectSelection",
+                  params: { fromTab: "AssessmentsTab" },
                 });
               }
             }}
@@ -70,6 +71,7 @@ export function AssessmentsNavigator({ getToken }: AssessmentsNavigatorProps) {
               if (parent) {
                 (parent as any).navigate("SubjectsTab", {
                   screen: "SubjectSelection",
+                  params: { fromTab: "AssessmentsTab" },
                 });
               }
             }}

@@ -68,6 +68,7 @@ export function LibraryNavigator({ getToken }: LibraryNavigatorProps) {
               if (parent) {
                 (parent as any).navigate("SubjectsTab", {
                   screen: "SubjectSelection",
+                  params: { fromTab: "LibraryTab" },
                 });
               }
             }}

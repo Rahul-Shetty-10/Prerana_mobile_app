@@ -81,33 +81,6 @@ export function SubjectDetailScreen({
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Subject Overview Card */}
-        <View style={styles.overviewCard}>
-          <View style={styles.overviewTopRow}>
-            <View
-              style={[
-                styles.iconShell,
-                {
-                  backgroundColor: accentColors.darkBg,
-                  borderColor: accentColors.darkBorder,
-                },
-              ]}
-            >
-              <AppIcon color={accentColors.darkText} name={subject.iconName} size={28} />
-            </View>
-            <Badge label={subject.previewBadgeText} variant="primary" />
-          </View>
-
-          <Text style={styles.subjectTitle}>{subject.title}</Text>
-          <Text style={styles.subjectDescription}>{subject.description}</Text>
-
-          <View style={styles.statsBar}>
-            <Text style={styles.statsText}>
-              {subject.trackCount} Learning Tracks • {subject.questionCount} Total Practice Questions
-            </Text>
-          </View>
-        </View>
-
         {/* Learning Tracks Section Header */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Available Learning Tracks</Text>

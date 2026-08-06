@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { ChapterResourcesPayload, fetchChapterResources, ChapterResourcesError } from "../services";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -12,14 +12,20 @@ export function useChapterResources(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadResources = useCallback(async () => {
-    if (!getToken) {
+    const activeGetToken = getTokenRef.current;
+    if (!activeGetToken) {
       return;
     }
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchChapterResources(subjectId, chapterId, getToken);
+      const result = await fetchChapterResources(subjectId, chapterId, activeGetToken);
       setResources(result);
     } catch (err) {
       console.error("[SUBJECTS][HOOK] useChapterResources caught error:", err);
@@ -39,7 +45,7 @@ export function useChapterResources(
     } finally {
       setIsLoading(false);
     }
-  }, [subjectId, chapterId, getToken]);
+  }, [subjectId, chapterId]);
 
   useEffect(() => {
     void loadResources();

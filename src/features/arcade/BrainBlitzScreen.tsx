@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -40,12 +40,17 @@ export function BrainBlitzScreen({
 
   useEffect(() => {
     startSession();
-  }, [startSession]);
+  }, []);
+
+  const recordGameResultRef = useRef(recordGameResult);
+  useEffect(() => {
+    recordGameResultRef.current = recordGameResult;
+  }, [recordGameResult]);
 
   // Persist session profile stats on completion
   useEffect(() => {
     if (sessionResult) {
-      recordGameResult({
+      recordGameResultRef.current({
         xpEarned: sessionResult.xpEarned,
         coinsEarned: sessionResult.coinsEarned,
         correctAnswers: sessionResult.correctCount,
@@ -53,7 +58,7 @@ export function BrainBlitzScreen({
         score: sessionResult.score,
       });
     }
-  }, [sessionResult, recordGameResult]);
+  }, [sessionResult]);
 
   const totalQuestions = questions.length || 10;
   const progress = (currentIndex + 1) / totalQuestions;

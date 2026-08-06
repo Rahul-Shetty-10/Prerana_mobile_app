@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   fetchAssessmentHistoryData,
   fetchQuizLandingData,
@@ -22,18 +22,24 @@ export function useQuizzesHomeData(getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchQuizzesHomeData(getToken);
+      const result = await fetchQuizzesHomeData(activeGetToken);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load quizzes home data");
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -47,18 +53,24 @@ export function useAssessmentHistoryData(getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchAssessmentHistoryData(getToken);
+      const result = await fetchAssessmentHistoryData(activeGetToken);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load assessment history data");
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -72,18 +84,24 @@ export function useQuizLandingData(subjectId?: string, chapterId?: string, getTo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchQuizLandingData(subjectId, chapterId, getToken);
+      const result = await fetchQuizLandingData(subjectId, chapterId, activeGetToken);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load quiz landing data");
     } finally {
       setIsLoading(false);
     }
-  }, [subjectId, chapterId, getToken]);
+  }, [subjectId, chapterId]);
 
   useEffect(() => {
     void loadData();

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { useAuth } from "@clerk/clerk-expo";
 import { fetchAchievements, fetchProfileData, performStudentSignOut } from "../services";
 import { AchievementItem, LearningStats, StudentInfo, SubjectProgressItem } from "../types";
 import { useArcadeProfile } from "../../arcade/hooks";
@@ -6,7 +7,10 @@ import { getSavedThemeMode, saveThemeMode, ThemeMode } from "../../../shared/the
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
-export function useProfile(getToken?: GetToken) {
+export function useProfile(passedGetToken?: GetToken) {
+  const { getToken: clerkGetToken } = useAuth();
+  const getToken = passedGetToken || clerkGetToken;
+
   const { profile: arcadeProfile } = useArcadeProfile();
   const [info, setInfo] = useState<StudentInfo | null>(null);
   const [learningStats, setLearningStats] = useState<LearningStats | null>(null);
@@ -15,11 +19,17 @@ export function useProfile(getToken?: GetToken) {
   const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   const [isLoading, setIsLoading] = useState(true);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     try {
-      const data = await fetchProfileData(getToken);
-      const achs = await fetchAchievements(getToken);
+      const data = await fetchProfileData(activeGetToken);
+      const achs = await fetchAchievements(activeGetToken);
       const savedTheme = await getSavedThemeMode();
 
       setInfo(data.info);
@@ -32,7 +42,7 @@ export function useProfile(getToken?: GetToken) {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   const toggleThemeMode = useCallback(async () => {
     const nextMode: ThemeMode = themeMode === "dark" ? "light" : "dark";

@@ -12,6 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
   type GestureResponderEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -51,6 +52,7 @@ export function ImageViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
   const lastTap = useRef<number>(0);
 
   // No backend URL at all — show Coming Soon screen (do NOT show local mock)
@@ -127,32 +129,43 @@ export function ImageViewer({
   };
 
   const renderScrollableImage = (height: number) => (
-    <ZoomPanView
-      width={CARD_WIDTH}
-      height={height}
-      zoomScale={zoomScale}
-      setZoomScale={setZoomScale}
-      rotation={rotation}
-    >
-      {({ width: w, height: h }) => (
-        <Pressable onPress={handleDoubleTap}>
-          <Image
-            resizeMode="contain"
-            source={activeImage}
-            onError={() => {
-              if (imageUrl) {
-                console.warn("[SUBJECTS][ImageViewer] Failed to load remote inline image, using local fallback.");
-                setImageError(true);
-              }
-            }}
-            style={{
-              width: w,
-              height: h,
-            }}
-          />
-        </Pressable>
+    <View style={{ width: CARD_WIDTH, height, justifyContent: "center", alignItems: "center" }}>
+      {isImageLoading && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 10, justifyContent: "center", alignItems: "center", backgroundColor: themeColors.surface }]}>
+          <ActivityIndicator color={colors.primary.main} size="large" />
+          <Text style={{ marginTop: spacing.sm, color: themeColors.textMuted, fontSize: typography.fontSize.xs }}>Loading infographic...</Text>
+        </View>
       )}
-    </ZoomPanView>
+      <ZoomPanView
+        width={CARD_WIDTH}
+        height={height}
+        zoomScale={zoomScale}
+        setZoomScale={setZoomScale}
+        rotation={rotation}
+      >
+        {({ width: w, height: h }) => (
+          <Pressable onPress={handleDoubleTap}>
+            <Image
+              resizeMode="contain"
+              source={activeImage}
+              onLoadStart={() => setIsImageLoading(true)}
+              onLoadEnd={() => setIsImageLoading(false)}
+              onError={() => {
+                setIsImageLoading(false);
+                if (imageUrl) {
+                  console.warn("[SUBJECTS][ImageViewer] Failed to load remote inline image, using local fallback.");
+                  setImageError(true);
+                }
+              }}
+              style={{
+                width: w,
+                height: h,
+              }}
+            />
+          </Pressable>
+        )}
+      </ZoomPanView>
+    </View>
   );
 
   // ── Fullscreen Modal ───────────────────────────────────────────────────────
@@ -189,6 +202,12 @@ export function ImageViewer({
 
         {/* Full-screen image */}
         <View style={styles.modalBody}>
+          {isImageLoading && (
+            <View style={[StyleSheet.absoluteFill, { zIndex: 10, justifyContent: "center", alignItems: "center", backgroundColor: "#000000" }]}>
+              <ActivityIndicator color={colors.primary.main} size="large" />
+              <Text style={{ marginTop: spacing.sm, color: "#AAAAAA", fontSize: typography.fontSize.xs }}>Loading infographic...</Text>
+            </View>
+          )}
           <ZoomPanView
             width={SCREEN_WIDTH}
             height={Dimensions.get("window").height - 160}
@@ -201,7 +220,10 @@ export function ImageViewer({
                 <Image
                   resizeMode="contain"
                   source={activeImage}
+                  onLoadStart={() => setIsImageLoading(true)}
+                  onLoadEnd={() => setIsImageLoading(false)}
                   onError={() => {
+                    setIsImageLoading(false);
                     if (imageUrl) {
                       console.warn("[SUBJECTS][ImageViewer] Failed to load remote fullscreen image, using local fallback.");
                       setImageError(true);

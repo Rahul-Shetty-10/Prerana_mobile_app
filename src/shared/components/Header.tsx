@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTheme } from "../theme/ThemeContext";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useClerk } from "@clerk/clerk-expo";
 import { AppIcon } from "../icons";
 import { colors, radius, spacing, typography } from "../theme";
+import { performStudentSignOut } from "../../features/profile/services/profileService";
 
 export interface HeaderProps {
   title?: string;
@@ -25,11 +27,14 @@ export function Header({
   avatarUrl,
 }: HeaderProps) {
   const navigation = useNavigation<any>();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { signOut } = useClerk();
+  const { theme, toggleTheme, isDark, isToggling } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
   const canGoBack = navigation.canGoBack();
   const shouldShowBack = showBackButton ?? canGoBack;
+
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const handleBack = () => {
     if (onBackPress) {
@@ -40,7 +45,7 @@ export function Header({
   };
 
   const handleProfilePress = () => {
-    navigation.navigate("Profile");
+    setMenuVisible(true);
   };
 
   return (
@@ -68,12 +73,21 @@ export function Header({
             {title}
           </Text>
         ) : (
-          <Image
-            accessibilityLabel="Prerana Logo"
-            resizeMode="contain"
-            source={isDark ? require("../../../Logo.webp") : require("../../../Logo_light.webp")}
-            style={styles.brandLogo}
-          />
+          <Pressable
+            accessibilityLabel="Home Dashboard"
+            accessibilityRole="button"
+            onPress={() => {
+              navigation.navigate("DashboardTab");
+            }}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <Image
+              accessibilityLabel="Prerana Logo"
+              resizeMode="contain"
+              source={isDark ? require("../../../Logo.webp") : require("../../../Logo_light.webp")}
+              style={styles.brandLogo}
+            />
+          </Pressable>
         )}
       </View>
 
@@ -93,11 +107,15 @@ export function Header({
               pressed && styles.pressedScale,
             ]}
           >
-            <AppIcon
-              color={isDark ? colors.secondary.main : colors.primary.main}
-              name={isDark ? "sunny-outline" : "moon-outline"}
-              size={20}
-            />
+            {isToggling ? (
+              <ActivityIndicator color={isDark ? colors.secondary.main : colors.primary.main} size={16} />
+            ) : (
+              <AppIcon
+                color={isDark ? colors.secondary.main : colors.primary.main}
+                name={isDark ? "sunny-outline" : "moon-outline"}
+                size={20}
+              />
+            )}
           </Pressable>
         ) : null}
 
@@ -123,6 +141,42 @@ export function Header({
           </Pressable>
         ) : null}
       </View>
+
+      {/* Dropdown Menu Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setMenuVisible(false)}>
+          <View style={styles.menuContainer}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                navigation.navigate("Profile");
+              }}
+            >
+              <AppIcon color={themeColors.textPrimary} name="person-outline" size={18} />
+              <Text style={styles.menuItemText}>My Profile</Text>
+            </Pressable>
+            <View style={styles.menuDivider} />
+            <Pressable
+              style={styles.menuItem}
+              onPress={async () => {
+                setMenuVisible(false);
+                await performStudentSignOut(async () => {
+                  await signOut();
+                });
+              }}
+            >
+              <AppIcon color={colors.status.error} name="log-out-outline" size={18} />
+              <Text style={[styles.menuItemText, { color: colors.status.error }]}>Log Out</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -191,5 +245,44 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
   pressedScale: {
     transform: [{ scale: 0.94 }],
     opacity: 0.85,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+  },
+  menuContainer: {
+    marginTop: 65,
+    marginRight: spacing.md,
+    width: 170,
+    backgroundColor: themeColors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    padding: spacing.xs,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm - 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+  },
+  menuItemText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    color: themeColors.textPrimary,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: themeColors.borderSubtle,
+    marginVertical: 4,
   },
 });

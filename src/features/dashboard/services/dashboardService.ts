@@ -61,6 +61,35 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
       throw new DashboardError('EMPTY_DATA', 'No data returned from the server');
     }
 
+    let realSubjects: string[] = [];
+    try {
+      const rawSnapshot = await mobileApi<any>("/student/learning-snapshot", {
+        getToken,
+        tenantSlug: appConfig.tenantSlug,
+      });
+      if (rawSnapshot) {
+        let subjects: any[] = [];
+        if (rawSnapshot.snapshot && Array.isArray(rawSnapshot.snapshot.subjects)) {
+          subjects = rawSnapshot.snapshot.subjects;
+        } else if (Array.isArray(rawSnapshot.subjects)) {
+          subjects = rawSnapshot.subjects;
+        } else if (rawSnapshot.snapshot && Array.isArray(rawSnapshot.snapshot)) {
+          subjects = rawSnapshot.snapshot;
+        }
+        if (subjects.length > 0) {
+          realSubjects = subjects.map((s: any) => s.subjectName || s.name || "").filter(Boolean);
+        }
+      }
+    } catch (e) {
+      console.warn("[DASHBOARD] Could not fetch real subjects list for dashboard:", e);
+    }
+
+    const welcomeCardSubjects = realSubjects.length > 0 
+      ? realSubjects 
+      : (rawData.welcomeCard?.subjects && rawData.welcomeCard.subjects.length > 0 
+          ? rawData.welcomeCard.subjects 
+          : ["Physics", "Chemistry", "Mathematics", "Biology"]);
+
     return {
       student: {
         userName: rawData.student?.userName || "",
@@ -69,11 +98,11 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
         avatarUrl: rawData.student?.avatarUrl,
       },
       welcomeCard: {
-        badgeText: rawData.welcomeCard?.badgeText || "",
-        title: rawData.welcomeCard?.title || "",
-        description: rawData.welcomeCard?.description || "",
-        subjects: rawData.welcomeCard?.subjects || [],
-        selectedSubject: rawData.welcomeCard?.selectedSubject || rawData.welcomeCard?.subjects?.[0] || "",
+        badgeText: rawData.welcomeCard?.badgeText || "STUDENT DASHBOARD",
+        title: rawData.welcomeCard?.title || (rawData.student?.userName ? `Welcome Back, ${rawData.student.userName}!` : "Welcome Back!"),
+        description: rawData.welcomeCard?.description || "Ready to excel in your exams? Pick up where you left off or dive into targeted study modules.",
+        subjects: welcomeCardSubjects,
+        selectedSubject: rawData.welcomeCard?.selectedSubject || welcomeCardSubjects[0] || "Physics",
       },
       stats: rawData.stats || [],
       focusNow: {

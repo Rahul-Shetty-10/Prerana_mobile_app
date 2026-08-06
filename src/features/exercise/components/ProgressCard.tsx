@@ -1,6 +1,6 @@
 import React from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ProgressCardProps } from "../types";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
@@ -10,6 +10,7 @@ export function ProgressCard({
   totalQuestions,
   answeredCount,
   flaggedCount,
+  onQuestionNavPress,
 }: ProgressCardProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
@@ -19,13 +20,16 @@ export function ProgressCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.statBox}>
+      <Pressable onPress={onQuestionNavPress} style={styles.statBox}>
         <AppIcon color={colors.primary.light} name="help-circle-outline" size={18} />
-        <Text style={styles.statValue}>
-          {currentQuestionIndex + 1}/{totalQuestions}
-        </Text>
+        <View style={styles.valueRow}>
+          <Text style={styles.statValue}>
+            {currentQuestionIndex + 1}/{totalQuestions}
+          </Text>
+          <AppIcon color={themeColors.textMuted} name="chevron-down-outline" size={14} />
+        </View>
         <Text style={styles.statLabel}>Question</Text>
-      </View>
+      </Pressable>
 
       <View style={styles.divider} />
 
@@ -63,6 +67,11 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
   },
   statBox: {
     flex: 1,
+    alignItems: "center",
+    gap: 2,
+  },
+  valueRow: {
+    flexDirection: "row",
     alignItems: "center",
     gap: 2,
   },

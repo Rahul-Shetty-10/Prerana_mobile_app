@@ -29,6 +29,7 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
               if (parent) {
                 (parent as any).navigate("SubjectsTab", {
                   screen: "SubjectSelection",
+                  params: { fromTab: "FundamentalsTab" },
                 });
               }
             }}
@@ -62,8 +63,10 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
           <ExerciseScreen
             getToken={getToken}
             onBackPress={() => navigation.goBack()}
-            onSubmitSuccess={() => {
+            onSubmitSuccess={(resData, revData) => {
               navigation.navigate("ExerciseResult", {
+                resultData: resData,
+                reviewData: revData,
                 trackType: route.params.trackType,
                 subjectId: route.params.subjectId,
                 chapterId: route.params.chapterId,
@@ -102,6 +105,8 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
                 chapterId: route.params.chapterId,
                 subjectSlug: route.params.subjectSlug,
                 trackSlug: route.params.trackSlug,
+                resultData: route.params.resultData,
+                reviewData: route.params.reviewData,
               });
             }}
             resultData={route.params.resultData}
@@ -120,6 +125,8 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
                 chapterId: route.params.chapterId,
                 subjectSlug: route.params.subjectSlug,
                 trackSlug: route.params.trackSlug,
+                resultData: route.params.resultData,
+                reviewData: route.params.reviewData,
               });
             }}
             onBackToSubject={() => {
@@ -134,6 +141,7 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
                 trackSlug: route.params.trackSlug,
               });
             }}
+            reviewData={route.params.reviewData}
           />
         )}
       </Stack.Screen>

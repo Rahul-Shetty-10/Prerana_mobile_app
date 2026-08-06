@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { DashboardDataPayload, fetchDashboardData, DashboardError } from "../services";
 
 const DEFAULT_EMPTY_DATA: DashboardDataPayload = {
@@ -36,15 +36,21 @@ export function useDashboardData(getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
-    if (!getToken) {
+    const activeGetToken = getTokenRef.current;
+    if (!activeGetToken) {
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchDashboardData(getToken);
+      const result = await fetchDashboardData(activeGetToken);
       setData(result);
     } catch (err) {
       console.error("[SUBJECTS][DASHBOARD] loadData hook caught error:", err);
@@ -62,7 +68,7 @@ export function useDashboardData(getToken?: GetToken) {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     void loadData();

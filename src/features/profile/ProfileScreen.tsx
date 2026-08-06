@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import {
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -11,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useClerk } from "@clerk/clerk-expo";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import {
   AccountTile,
   AchievementCard,
@@ -22,9 +21,12 @@ import {
 } from "./components";
 import { MOCK_ACCOUNT_OPTIONS } from "./constants";
 import { useProfile } from "./hooks";
+import { SubjectProgressItem } from "./types";
 import { AppIcon } from "../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { getCalculatedStats, mergeSubjectProgressWithLocal } from "../../shared/services/chapterProgressService";
+
 export interface ProfileScreenProps {
   onBackPress?: () => void;
 }
@@ -32,7 +34,8 @@ export interface ProfileScreenProps {
 export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   const { signOut } = useClerk();
   const navigation = useNavigation<any>();
-  const { theme, toggleTheme  } = useTheme();
+  const isFocused = useIsFocused();
+  const { theme } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
 
@@ -46,25 +49,44 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   } = useProfile();
 
   const [dialogInfo, setDialogInfo] = useState<{ title: string; message: string } | null>(null);
+  const [localStats, setLocalStats] = useState<any>(null);
+  const [mergedProgress, setMergedProgress] = useState<SubjectProgressItem[]>([]);
+
+  useEffect(() => {
+    if (isFocused) {
+      (async () => {
+        const stats = await getCalculatedStats();
+        setLocalStats(stats);
+        if (subjectProgress && subjectProgress.length > 0) {
+          const merged = await mergeSubjectProgressWithLocal(subjectProgress);
+          setMergedProgress(merged);
+        }
+      })();
+    }
+  }, [isFocused, subjectProgress]);
+
+  const mergedLearningStats = learningStats
+    ? {
+        ...learningStats,
+        overallAccuracy: localStats && localStats.overallAccuracy > 0
+          ? localStats.overallAccuracy
+          : learningStats.overallAccuracy,
+        questionsSolved: learningStats.questionsSolved + (localStats?.questionsSolved ?? 0),
+        completedChapters: learningStats.completedChapters + (localStats?.completedChaptersCount ?? 0),
+      }
+    : null;
+
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
   const onLogoutPress = () => {
-    Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to sign out of Prerana App?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            await handleSignOut(async () => {
-              await signOut();
-            });
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    setLogoutConfirmVisible(true);
+  };
+
+  const confirmLogout = async () => {
+    setLogoutConfirmVisible(false);
+    await handleSignOut(async () => {
+      await signOut();
+    });
   };
 
   const handleAccountOptionPress = (id: string) => {
@@ -99,20 +121,14 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
         {info ? <StudentInfoCard info={info} /> : null}
 
         {/* Section 2: Learning Statistics */}
-        {learningStats ? <LearningStatsCard stats={learningStats} /> : null}
+        {mergedLearningStats ? <LearningStatsCard stats={mergedLearningStats} /> : null}
 
         {/* Section 3: App Preferences & Games */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>⚙️ Preferences & Games</Text>
-
-          <PreferenceTile
-            iconName={theme === "dark" ? "moon-outline" : "sunny-outline"}
-            isToggle
-            onToggle={toggleTheme}
-            subtitle={theme === "dark" ? "Dark Mode active" : "Light Mode active"}
-            title="App Theme"
-            toggleValue={theme === "dark"}
-          />
+          <View style={styles.sectionHeaderRow}>
+            <AppIcon color={themeColors.textPrimary} name="settings-outline" size={18} />
+            <Text style={styles.sectionHeading}>Preferences & Games</Text>
+          </View>
 
           <PreferenceTile
             iconName="clipboard-outline"
@@ -123,29 +139,35 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
 
           <PreferenceTile
             iconName="language-outline"
-            isComingSoon
+            onPress={() => {
+              setDialogInfo({
+                title: "Language Settings",
+                message: "Select your preferred learning language:\n\n• English (Active)\n• Hindi\n• Kannada\n\nMore languages will be available in future releases.",
+              });
+            }}
             subtitle="English (Default)"
             title="Language"
           />
 
           <PreferenceTile
             iconName="notifications-outline"
-            isComingSoon
+            onPress={() => {
+              setDialogInfo({
+                title: "Notifications Info",
+                message: "Manage push notifications, announcements, and study reminder schedules.\n\nAll notification defaults are currently active.",
+              });
+            }}
             subtitle="Push notifications & study reminders"
             title="Notifications"
           />
         </View>
 
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>📚 Subject Completion</Text>
-          {subjectProgress.map((item) => (
-            <SubjectProgressTile key={item.id} item={item} />
-          ))}
-        </View>
-
         {/* Section 4: Arcade Statistics */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>🎮 Arcade Summary</Text>
+          <View style={styles.sectionHeaderRow}>
+            <AppIcon color={themeColors.textPrimary} name="game-controller-outline" size={18} />
+            <Text style={styles.sectionHeading}>Arcade Summary</Text>
+          </View>
           <View style={styles.arcadeSummaryCard}>
             <View style={styles.arcadeStatRow}>
               <View style={styles.arcadeStatBox}>
@@ -174,15 +196,30 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
             </View>
           </View>
 
-          <Text style={styles.subHeading}>🏆 Achievements</Text>
-          {achievements.map((ach) => (
-            <AchievementCard key={ach.id} achievement={ach} />
-          ))}
+          <View style={styles.subHeaderRow}>
+            <AppIcon color={themeColors.textPrimary} name="trophy-outline" size={18} />
+            <Text style={styles.subHeading}>Achievements</Text>
+          </View>
+          {achievements.length > 0 ? (
+            achievements.map((ach) => (
+              <AchievementCard key={ach.id} achievement={ach} />
+            ))
+          ) : (
+            <View style={{ alignItems: "center", paddingVertical: 16, gap: 4 }}>
+              <AppIcon color={themeColors.textMuted} name="ribbon-outline" size={28} />
+              <Text style={{ fontSize: 13, color: themeColors.textMuted, textAlign: "center" }}>
+                No achievements yet. Keep playing to unlock them!
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Section 5: Account & Support */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>ℹ️ Account & Legal</Text>
+          <View style={styles.sectionHeaderRow}>
+            <AppIcon color={themeColors.textPrimary} name="information-circle-outline" size={18} />
+            <Text style={styles.sectionHeading}>Account & Legal</Text>
+          </View>
           {MOCK_ACCOUNT_OPTIONS.map((item) => (
             <AccountTile key={item.id} item={item} onPress={handleAccountOptionPress} />
           ))}
@@ -194,6 +231,23 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
           <Text style={styles.logoutText}>Sign Out from App</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Logout Confirm Modal */}
+      <Modal transparent animationType="fade" visible={logoutConfirmVisible}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.dialogCard}>
+            <AppIcon color={colors.status.error} name="log-out-outline" size={28} />
+            <Text style={styles.dialogTitle}>Sign Out</Text>
+            <Text style={styles.dialogMessage}>Are you sure you want to sign out of the Prerana App?</Text>
+            <Pressable onPress={confirmLogout} style={[styles.dialogCloseBtn, { backgroundColor: colors.status.error }]}>
+              <Text style={styles.dialogCloseText}>Sign Out</Text>
+            </Pressable>
+            <Pressable onPress={() => setLogoutConfirmVisible(false)} style={[styles.dialogCloseBtn, { backgroundColor: themeColors.surfaceSecondary }]}>
+              <Text style={[styles.dialogCloseText, { color: themeColors.textPrimary }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Info Dialog Modal */}
       {dialogInfo ? (
@@ -226,18 +280,28 @@ const getStyles = (themeColors: any) => StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.lg,
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2,
+    marginBottom: spacing.sm + 2,
+  },
   sectionHeading: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.heavy,
     color: themeColors.textPrimary,
-    marginBottom: spacing.sm + 2,
+  },
+  subHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   subHeading: {
     fontSize: typography.fontSize.sm + 1,
     fontWeight: typography.fontWeight.bold,
     color: themeColors.textPrimary,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
   },
   arcadeSummaryCard: {
     backgroundColor: themeColors.surface,
@@ -250,6 +314,7 @@ const getStyles = (themeColors: any) => StyleSheet.create({
   arcadeStatRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: spacing.sm,
   },
   arcadeStatBox: {
     flex: 1,

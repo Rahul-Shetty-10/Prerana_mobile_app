@@ -37,6 +37,7 @@ export function SubjectProgressTile({
 
       <Text style={styles.subText}>
         {item.completedChapters} of {item.totalChapters} chapters completed
+        {item.seenChapters !== undefined && item.seenChapters > 0 ? ` • ${item.seenChapters} visited` : ""}
       </Text>
     </View>
   );

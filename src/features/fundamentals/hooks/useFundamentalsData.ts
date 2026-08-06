@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { fetchFundamentalsData } from "../services";
 import { FundamentalsDataPayload } from "../types";
 
@@ -15,18 +15,24 @@ export function useFundamentalsData(getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchFundamentalsData(getToken);
+      const result = await fetchFundamentalsData(activeGetToken);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load fundamentals data");
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     void loadData();

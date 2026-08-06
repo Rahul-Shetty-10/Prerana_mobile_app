@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { SubjectList } from "./components";
 import { useSubjectsList } from "./hooks";
 import { SubjectMeta } from "./types";
@@ -20,11 +20,22 @@ export function SubjectSelectionScreen({
   onSelectSubject,
 }: SubjectSelectionScreenProps) {
   const navigation = useNavigation<any>();
-  const { theme } = useTheme();
+  const route = useRoute<any>();
+  const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const { subjects, isLoading, error, refresh } = useSubjectsList(getToken);
   const [selectedId, setSelectedId] = useState<string | undefined>();
+
+  const fromTab = route.params?.fromTab;
+
+  const handleBack = () => {
+    if (fromTab) {
+      navigation.navigate(fromTab);
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
 
   const handleSelect = (subject: SubjectMeta) => {
     setSelectedId(subject.id);
@@ -33,7 +44,11 @@ export function SubjectSelectionScreen({
 
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
-      <Header />
+      <Header
+        title="Subject Selection"
+        onBackPress={handleBack}
+        showBackButton={!!fromTab || navigation.canGoBack()}
+      />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -48,6 +63,7 @@ export function SubjectSelectionScreen({
         }
         showsVerticalScrollIndicator={false}
       >
+
         {/* Header Block */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Subject Selection</Text>
@@ -66,7 +82,7 @@ export function SubjectSelectionScreen({
 
         {/* Error Banner */}
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}

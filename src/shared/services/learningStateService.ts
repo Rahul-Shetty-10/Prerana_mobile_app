@@ -6,6 +6,8 @@ export const LEARNING_STATE_STORAGE_KEY = "@prerana_learning_state";
 export interface LearningState {
   selectedSubjectId: string;
   lastChapterId?: string;
+  lastSubjectName?: string;
+  lastChapterTitle?: string;
   lastResourceId?: string;
   lastResourceTab?: ResourceTabType;
   lastWorkspaceTab?: string;

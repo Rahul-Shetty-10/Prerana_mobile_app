@@ -1,18 +1,18 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, TextInput, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  ChapterCard,
   QuickActionsCard,
-  SubjectOverviewCard,
   SubjectStatisticsCard,
 } from "./components";
 import { Header } from "../../shared/components/Header";
 import { useSubjectWorkspace } from "./hooks";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { ChapterItem, SubjectMeta } from "./types";
-import { colors, spacing, typography } from "../../shared/theme";
+import { colors, spacing, typography, radius, shadows } from "../../shared/theme";
+import { AppIcon } from "../../shared/icons";
+import { getCompletedChaptersCount, isChapterCompleted } from "../../shared/services/chapterProgressService";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -31,11 +31,51 @@ export function SubjectWorkspaceScreen({
   onSelectChapter,
   onOpenFundamentals,
 }: SubjectWorkspaceScreenProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const { workspace, isLoading, error, refresh } = useSubjectWorkspace(subject.id, getToken);
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [completedCount, setCompletedCount] = useState<number>(0);
+  const [completedChapterIds, setCompletedChapterIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isFocused || !workspace) return;
+
+    const loadChapterStats = async () => {
+      const count = await getCompletedChaptersCount(workspace.subject.id || subject.id);
+      setCompletedCount(count);
+
+      const completedIds: string[] = [];
+      for (const ch of workspace.chapters) {
+        const isComp = await isChapterCompleted(ch.id);
+        if (isComp) {
+          completedIds.push(ch.id);
+        }
+      }
+      setCompletedChapterIds(completedIds);
+    };
+
+    void loadChapterStats();
+  }, [isFocused, workspace, subject.id]);
+
+  const filteredChapters = workspace
+    ? [...workspace.chapters]
+        .filter((chapter) =>
+          chapter.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .sort((a, b) => {
+          if (searchQuery.trim().length > 0) {
+            const indexA = a.title.toLowerCase().indexOf(searchQuery.toLowerCase());
+            const indexB = b.title.toLowerCase().indexOf(searchQuery.toLowerCase());
+            return indexA - indexB;
+          }
+          return 0;
+        })
+    : [];
 
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
@@ -68,19 +108,41 @@ export function SubjectWorkspaceScreen({
 
         {/* Error Banner */}
         {error ? (
-          <View style={styles.errorBanner}>
+          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
 
         {workspace ? (
           <>
-            {/* Subject Overview Card */}
-            <SubjectOverviewCard
-              subjectName={workspace.subject.name || subject.name}
-              totalChapters={workspace.subject.chapterCount || subject.chapterCount}
-              totalParts={workspace.subject.partCount || subject.partCount}
+            {/* Top Subject Banner */}
+            <View style={styles.subjectBanner}>
+              <Text style={styles.subjectNameText}>{workspace.subject.name || subject.name}</Text>
+            </View>
+
+            {/* Subject Statistics Card (Relocated to the Top) */}
+            <SubjectStatisticsCard
+              completedChapters={completedCount}
+              totalChapters={workspace.subject.chapterCount || workspace.chapters.length || subject.chapterCount}
             />
+
+            {/* Search Input Bar */}
+            <View style={styles.searchBarContainer}>
+              <AppIcon color={themeColors.textMuted} name="search-outline" size={18} />
+              <TextInput
+                clearButtonMode="never"
+                onChangeText={setSearchQuery}
+                placeholder="Search chapters..."
+                placeholderTextColor={themeColors.textMuted}
+                style={styles.searchInput}
+                value={searchQuery}
+              />
+              {searchQuery.length > 0 ? (
+                <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+                  <AppIcon color={themeColors.textMuted} name="close-circle" size={18} />
+                </Pressable>
+              ) : null}
+            </View>
 
             {/* Chapter Selection section */}
             <View style={styles.sectionHeaderRow}>
@@ -90,21 +152,41 @@ export function SubjectWorkspaceScreen({
               </Text>
             </View>
 
-            <View style={styles.chaptersList}>
-              {workspace.chapters.map((chapter) => (
-                <ChapterCard
-                  chapter={chapter}
-                  key={chapter.id}
-                  onPress={() => onSelectChapter?.(chapter)}
-                />
-              ))}
+            {/* Space-Efficient Chapter Table List */}
+            <View style={styles.tableContainer}>
+              {filteredChapters.length === 0 ? (
+                <View style={styles.emptySearchContainer}>
+                  <Text style={styles.emptySearchText}>No chapters found matching "{searchQuery}"</Text>
+                </View>
+              ) : (
+                filteredChapters.map((chapter) => {
+                  const isCompleted = completedChapterIds.includes(chapter.id);
+                  return (
+                    <Pressable
+                      key={chapter.id}
+                      onPress={() => onSelectChapter?.(chapter)}
+                      style={({ pressed }) => [
+                        styles.tableRow,
+                        pressed && styles.rowPressed,
+                      ]}
+                    >
+                      <View style={styles.chapterNumBox}>
+                        <Text style={styles.chapterNumText}>{chapter.number}</Text>
+                      </View>
+                      <Text numberOfLines={1} style={styles.chapterTitleText}>
+                        {chapter.title}
+                      </Text>
+                      <View style={styles.rowRightGroup}>
+                        {isCompleted ? (
+                          <AppIcon color={colors.status.success} name="checkmark-circle" size={16} />
+                        ) : null}
+                        <AppIcon color={themeColors.textMuted} name="chevron-forward-outline" size={16} />
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
             </View>
-
-            {/* Subject Statistics Card */}
-            <SubjectStatisticsCard
-              completedChapters={workspace.stats.completedChapters}
-              totalChapters={workspace.stats.totalChapters}
-            />
 
             {/* Quick Actions Card */}
             <QuickActionsCard
@@ -178,7 +260,81 @@ const getStyles = (themeColors: any) => StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: themeColors.textSecondary,
   },
-  chaptersList: {
+  searchBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: themeColors.surface,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    borderRadius: radius.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    height: 40,
+    gap: spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    color: themeColors.textPrimary,
+    paddingVertical: 0,
+  },
+  tableContainer: {
+    marginHorizontal: spacing.md,
     marginTop: spacing.xs,
+    backgroundColor: themeColors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    overflow: "hidden",
+  },
+  tableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+    borderColor: themeColors.borderSubtle,
+    height: 48,
+    gap: spacing.sm,
+  },
+  rowPressed: {
+    backgroundColor: themeColors.surfaceSecondary,
+    opacity: 0.9,
+  },
+  chapterNumBox: {
+    backgroundColor: themeColors.surfaceSecondary,
+    width: 26,
+    height: 26,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: themeColors.borderSubtle,
+  },
+  chapterNumText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    color: themeColors.textPrimary,
+  },
+  chapterTitleText: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: themeColors.textPrimary,
+  },
+  rowRightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  emptySearchContainer: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptySearchText: {
+    fontSize: typography.fontSize.xs + 1,
+    color: themeColors.textMuted,
   },
 });

@@ -55,7 +55,7 @@ export function SubjectCard({
 
       {/* Footer Meta Chips: Track count & Question count */}
       <View style={styles.footerChipsRow}>
-        <Chip iconName="git-branch-outline" label={`${subject.trackCount} Tracks`} selected />
+        <Chip iconName="git-branch-outline" label={`${subject.trackCount} Tracks`} />
         <Chip iconName="help-circle-outline" label={`${subject.questionCount} Questions`} />
       </View>
     </Pressable>

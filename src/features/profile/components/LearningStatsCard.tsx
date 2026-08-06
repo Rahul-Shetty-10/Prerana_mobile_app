@@ -14,7 +14,10 @@ export function LearningStatsCard({
 
   return (
     <View style={styles.cardContainer}>
-      <Text style={styles.sectionTitle}>📈 Your Learning Statistics</Text>
+      <View style={styles.sectionTitleRow}>
+        <AppIcon color={themeColors.textPrimary} name="stats-chart-outline" size={18} />
+        <Text style={styles.sectionTitle}>Your Learning Statistics</Text>
+      </View>
 
       <View style={styles.statsGrid}>
         <View style={styles.statBox}>
@@ -56,11 +59,16 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.sm,
   },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2,
+    marginBottom: spacing.sm + 2,
+  },
   sectionTitle: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.heavy,
     color: themeColors.textPrimary,
-    marginBottom: spacing.sm + 2,
   },
   statsGrid: {
     flexDirection: "row",

@@ -1,8 +1,37 @@
 import { ArcadeUserProfile } from "../types";
 import { MOCK_ARCADE_PROFILE } from "../constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const ARCADE_PROFILE_STORAGE_KEY = "@arcade_profile_data";
 
 // In-memory profile state for the local session
 let currentProfile: ArcadeUserProfile = { ...MOCK_ARCADE_PROFILE };
+
+let isLoaded = false;
+
+export async function loadArcadeProfileFromStorage(): Promise<ArcadeUserProfile> {
+  if (isLoaded) {
+    return { ...currentProfile };
+  }
+  try {
+    const raw = await AsyncStorage.getItem(ARCADE_PROFILE_STORAGE_KEY);
+    if (raw) {
+      currentProfile = JSON.parse(raw);
+    }
+    isLoaded = true;
+  } catch (e) {
+    // Ignore error
+  }
+  return { ...currentProfile };
+}
+
+export async function saveArcadeProfileToStorage(profile: ArcadeUserProfile): Promise<void> {
+  try {
+    await AsyncStorage.setItem(ARCADE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  } catch (e) {
+    // Ignore error
+  }
+}
 
 export function getArcadeProfile(): ArcadeUserProfile {
   return { ...currentProfile };
@@ -36,5 +65,6 @@ export function updateArcadeProfileOnGameEnd(params: {
     highestAccuracy: newHighestAccuracy,
   };
 
+  void saveArcadeProfileToStorage(currentProfile);
   return { ...currentProfile };
 }

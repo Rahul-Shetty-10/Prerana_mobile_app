@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { getArcadeProfile, updateArcadeProfileOnGameEnd } from "../services";
+import { getArcadeProfile, updateArcadeProfileOnGameEnd, loadArcadeProfileFromStorage } from "../services";
 import { ArcadeUserProfile } from "../types";
+import { useIsFocused } from "@react-navigation/native";
 
 export function useArcadeProfile() {
   const [profile, setProfile] = useState<ArcadeUserProfile>(getArcadeProfile());
+  const isFocused = useIsFocused();
 
-  const refreshProfile = useCallback(() => {
-    setProfile(getArcadeProfile());
+  const refreshProfile = useCallback(async () => {
+    const loaded = await loadArcadeProfileFromStorage();
+    setProfile(loaded);
   }, []);
 
   const recordGameResult = useCallback(
@@ -25,8 +28,10 @@ export function useArcadeProfile() {
   );
 
   useEffect(() => {
-    refreshProfile();
-  }, [refreshProfile]);
+    if (isFocused) {
+      void refreshProfile();
+    }
+  }, [isFocused, refreshProfile]);
 
   return {
     profile,

@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View, Modal, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   FillBlankQuestion,
@@ -12,8 +12,10 @@ import {
   TrueFalseQuestion,
 } from "./components";
 import { useExerciseSession } from "./hooks";
-import { QuestionItem, TrackType } from "./types";
+import { ExerciseResultData, QuestionItem, ReviewPayload, TrackType } from "./types";
 import { Button } from "../../shared/components";
+import { gradeExercise } from "./services";
+import { markQuizCompleted } from "../../shared/services/chapterProgressService";
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
 import { AppIcon } from "../../shared/icons";
@@ -27,7 +29,7 @@ export interface ExerciseScreenProps {
   trackSlug?: string;
   getToken?: GetToken;
   onBackPress?: () => void;
-  onSubmitSuccess?: () => void;
+  onSubmitSuccess?: (resultData: ExerciseResultData, reviewData: ReviewPayload) => void;
 }
 
 export function ExerciseScreen({
@@ -43,6 +45,22 @@ export function ExerciseScreen({
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
+  const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: "",
+    message: "",
+    confirmText: "",
+    cancelText: "",
+    onConfirm: () => {},
+  });
 
   const {
     session,
@@ -68,21 +86,24 @@ export function ExerciseScreen({
   const currentAnswer = currentQuestion ? userAnswers[currentQuestion.id] : undefined;
 
   const handleSubmit = () => {
-    Alert.alert(
-      "Submit Exercise",
-      `You have answered ${answeredIndices.length} of ${totalQuestions} questions. Are you ready to finish?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Submit",
-          style: "default",
-          onPress: () => {
-            submitSession();
-            onSubmitSuccess?.();
-          },
-        },
-      ]
-    );
+    setConfirmModal({
+      visible: true,
+      title: "Submit Exercise",
+      message: `You have answered ${answeredIndices.length} of ${totalQuestions} questions. Are you ready to finish?`,
+      confirmText: "Submit",
+      cancelText: "Cancel",
+      onConfirm: () => {
+        submitSession();
+        const { resultData, reviewData } = gradeExercise(session, userAnswers);
+        void markQuizCompleted(
+          chapterId,
+          subjectId,
+          resultData.percentage,
+          resultData.attemptedCount
+        );
+        onSubmitSuccess?.(resultData, reviewData);
+      },
+    });
   };
 
   const renderQuestionBody = (question: QuestionItem) => {
@@ -143,12 +164,27 @@ export function ExerciseScreen({
     }
   };
 
+  const handleBackPress = () => {
+    setConfirmModal({
+      visible: true,
+      title: "Are you sure to exit?",
+      message: "If you exit, the test will be complete.",
+      confirmText: "Yes, exit",
+      cancelText: "No, continue",
+      onConfirm: () => {
+        if (onBackPress) {
+          onBackPress();
+        }
+      },
+    });
+  };
+
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
       {/* 1. Sticky Header */}
       <Header
         title="Quiz"
-        onBackPress={onBackPress}
+        onBackPress={handleBackPress}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -161,26 +197,39 @@ export function ExerciseScreen({
           <View style={styles.emptyStateContainer}>
             <View style={[styles.emptyStateCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               <View style={[styles.emptyStateIconCircle, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}>
-                <AppIcon name="time-outline" size={36} color={colors.primary.main} />
+                <AppIcon name="alert-circle-outline" size={36} color={colors.status.error} />
               </View>
-              <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>Questions Coming Soon</Text>
+              <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>Questions Not Available</Text>
               <Text style={[styles.emptyStateMessage, { color: themeColors.textMuted }]}>{error}</Text>
-              <View style={[styles.emptyStatePill, { backgroundColor: colors.primary.main + "18" }]}>
-                <AppIcon name="construct-outline" size={13} color={colors.primary.main} />
-                <Text style={[styles.emptyStatePillText, { color: colors.primary.main }]}>Being prepared by our team</Text>
-              </View>
+              <Pressable
+                onPress={onBackPress}
+                style={({ pressed }) => [{ backgroundColor: colors.primary.main, paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8, marginTop: 8, opacity: pressed ? 0.8 : 1 }]}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
+              </Pressable>
             </View>
           </View>
         ) : totalQuestions === 0 ? (
           <View style={styles.emptyStateContainer}>
-            <Text style={[styles.loadingText, { textAlign: "center" }]}>No questions available for this session yet.</Text>
+            <View style={[styles.emptyStateCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <View style={[styles.emptyStateIconCircle, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }]}>
+                <AppIcon name="time-outline" size={36} color={colors.primary.main} />
+              </View>
+              <Text style={[styles.emptyStateTitle, { color: themeColors.textPrimary }]}>No Questions Yet</Text>
+              <Text style={[styles.emptyStateMessage, { color: themeColors.textMuted }]}>Questions for this chapter are being prepared by our team.</Text>
+              <Pressable
+                onPress={onBackPress}
+                style={({ pressed }) => [{ backgroundColor: colors.primary.main, paddingVertical: 10, paddingHorizontal: 24, borderRadius: 8, marginTop: 8, opacity: pressed ? 0.8 : 1 }]}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
+              </Pressable>
+            </View>
           </View>
         ) : (
           <>
             {/* Session Meta Info Banner */}
             <View style={styles.sessionMetaBanner}>
               <Text style={styles.subjectText}>{session.subjectName} • {session.trackName}</Text>
-              <Text style={styles.sessionTitleText}>{session.title}</Text>
             </View>
 
             {/* 2. Progress Summary Card */}
@@ -189,6 +238,7 @@ export function ExerciseScreen({
               currentQuestionIndex={currentQuestionIndex}
               flaggedCount={flaggedIndices.length}
               totalQuestions={totalQuestions}
+              onQuestionNavPress={() => setIsNavDrawerOpen(true)}
             />
 
             {/* 3. Question Card Area */}
@@ -239,18 +289,108 @@ export function ExerciseScreen({
                 />
               )}
             </View>
-
-            {/* 5. Question Grid Navigator */}
-            <QuestionNavigator
-              answeredIndices={answeredIndices}
-              currentIndex={currentQuestionIndex}
-              flaggedIndices={flaggedIndices}
-              onSelectQuestion={jumpToQuestion}
-              totalQuestions={totalQuestions}
-            />
           </>
         )}
       </ScrollView>
+
+      {/* Navigation Drawer Modal */}
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setIsNavDrawerOpen(false)}
+        transparent
+        visible={isNavDrawerOpen}
+      >
+        <Pressable
+          onPress={() => setIsNavDrawerOpen(false)}
+          style={styles.drawerOverlay}
+        >
+          <View
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={(e) => e.stopPropagation()}
+            style={styles.drawerContainer}
+          >
+            <View style={styles.drawerHeader}>
+              <Text style={styles.drawerTitle}>Select Question</Text>
+              <Pressable
+                onPress={() => setIsNavDrawerOpen(false)}
+                style={styles.drawerCloseBtn}
+              >
+                <AppIcon color={themeColors.textPrimary} name="close-outline" size={24} />
+              </Pressable>
+            </View>
+
+            <View style={styles.drawerGrid}>
+              {Array.from({ length: totalQuestions }).map((_, index) => {
+                const isAttempted = answeredIndices.includes(index);
+                const isActive = index === currentQuestionIndex;
+                return (
+                  <Pressable
+                    key={index}
+                    onPress={() => {
+                      jumpToQuestion(index);
+                      setIsNavDrawerOpen(false);
+                    }}
+                    style={[
+                      styles.drawerItem,
+                      isAttempted ? styles.drawerItemAttempted : styles.drawerItemMissed,
+                      isActive && styles.drawerItemActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.drawerItemText,
+                        isAttempted ? styles.drawerItemTextAttempted : styles.drawerItemTextMissed,
+                        isActive && styles.drawerItemTextActive,
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Custom Confirmation Modal */}
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+        transparent
+        visible={confirmModal.visible}
+      >
+        <Pressable
+          onPress={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+          style={styles.confirmOverlay}
+        >
+          <View
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={(e) => e.stopPropagation()}
+            style={styles.confirmContainer}
+          >
+            <Text style={styles.confirmTitle}>{confirmModal.title}</Text>
+            <Text style={styles.confirmMessage}>{confirmModal.message}</Text>
+            <View style={styles.confirmButtonsRow}>
+              <Button
+                onPress={() => setConfirmModal((prev) => ({ ...prev, visible: false }))}
+                style={styles.confirmBtn}
+                title={confirmModal.cancelText}
+                variant="outline"
+              />
+              <Button
+                onPress={() => {
+                  setConfirmModal((prev) => ({ ...prev, visible: false }));
+                  confirmModal.onConfirm();
+                }}
+                style={styles.confirmBtn}
+                title={confirmModal.confirmText}
+                variant="primary"
+              />
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -372,5 +512,106 @@ const getStyles = (themeColors: any) => StyleSheet.create({
   emptyStatePillText: {
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
+  },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  drawerContainer: {
+    backgroundColor: themeColors.surface,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  drawerTitle: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.heavy,
+    color: themeColors.textPrimary,
+  },
+  drawerCloseBtn: {
+    padding: spacing.xs,
+  },
+  drawerGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  drawerItem: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  drawerItemAttempted: {
+    backgroundColor: "#2E7D32", // Green
+  },
+  drawerItemMissed: {
+    backgroundColor: "#F57F17", // Yellow / Gold
+  },
+  drawerItemActive: {
+    borderColor: colors.primary.main,
+    transform: [{ scale: 1.05 }],
+  },
+  drawerItemText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.heavy,
+  },
+  drawerItemTextAttempted: {
+    color: "#FFFFFF",
+  },
+  drawerItemTextMissed: {
+    color: "#FFFFFF",
+  },
+  drawerItemTextActive: {
+    fontWeight: typography.fontWeight.heavy,
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  confirmContainer: {
+    width: "84%",
+    backgroundColor: themeColors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: themeColors.border,
+    padding: spacing.lg,
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  confirmTitle: {
+    fontSize: typography.fontSize.md + 1,
+    fontWeight: typography.fontWeight.heavy,
+    color: themeColors.textPrimary,
+  },
+  confirmMessage: {
+    fontSize: typography.fontSize.sm,
+    color: themeColors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  confirmButtonsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    width: "100%",
+  },
+  confirmBtn: {
+    flex: 1,
   },
 });

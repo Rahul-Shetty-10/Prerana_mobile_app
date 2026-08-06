@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { fetchSubjectsList, fetchSubjectWorkspace, SubjectsError } from "../services";
 import { SubjectMeta, SubjectWorkspacePayload } from "../types";
 
@@ -9,19 +9,25 @@ export function useSubjectsList(getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   // Log subjects.length, loading, error, and every state update
   useEffect(() => {
     console.log(`[SUBJECTS][HOOK] useSubjectsList() - subjects.length: ${subjects.length}, loading: ${isLoading}, error: ${error}`);
   }, [subjects, isLoading, error]);
 
   const loadData = useCallback(async () => {
-    if (!getToken) {
+    const activeGetToken = getTokenRef.current;
+    if (!activeGetToken) {
       return;
     }
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchSubjectsList(getToken);
+      const data = await fetchSubjectsList(activeGetToken);
       setSubjects(data);
     } catch (err) {
       console.error("[SUBJECTS][HOOK] useSubjectsList caught error:", err);
@@ -39,7 +45,7 @@ export function useSubjectsList(getToken?: GetToken) {
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -53,11 +59,17 @@ export function useSubjectWorkspace(subjectId: string, getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadWorkspace = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchSubjectWorkspace(subjectId, getToken);
+      const activeGetToken = getTokenRef.current;
+      const data = await fetchSubjectWorkspace(subjectId, activeGetToken);
       setWorkspace(data);
     } catch (err) {
       console.error("[SUBJECTS][HOOK] useSubjectWorkspace caught error:", err);
@@ -75,7 +87,7 @@ export function useSubjectWorkspace(subjectId: string, getToken?: GetToken) {
     } finally {
       setIsLoading(false);
     }
-  }, [subjectId, getToken]);
+  }, [subjectId]);
 
   useEffect(() => {
     void loadWorkspace();

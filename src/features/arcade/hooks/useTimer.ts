@@ -10,6 +10,11 @@ export function useTimer({ initialSeconds, onTimeUp, autoStart = true }: UseTime
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(autoStart);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onTimeUpRef = useRef(onTimeUp);
+
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
 
   const start = useCallback(() => {
     setIsRunning(true);
@@ -35,27 +40,41 @@ export function useTimer({ initialSeconds, onTimeUp, autoStart = true }: UseTime
     [initialSeconds]
   );
 
+  // 1. Tick Interval Effect
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            setIsRunning(false);
-            if (onTimeUp) onTimeUp();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [isRunning, onTimeUp]);
+  }, [isRunning]);
+
+  // 2. Trigger onTimeUp when timeLeft hits 0
+  useEffect(() => {
+    if (isRunning && timeLeft === 0) {
+      setIsRunning(false);
+      if (onTimeUpRef.current) {
+        onTimeUpRef.current();
+      }
+    }
+  }, [timeLeft, isRunning]);
 
   return {
     timeLeft,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { fetchLibraryData } from "../services";
 import { LibraryPayload } from "../types";
 import { MOCK_LIBRARY_DATA } from "../constants";
@@ -10,18 +10,24 @@ export function useLibraryData(getToken?: GetToken) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadData = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchLibraryData(getToken);
+      const result = await fetchLibraryData(activeGetToken);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load library data");
     } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     void loadData();

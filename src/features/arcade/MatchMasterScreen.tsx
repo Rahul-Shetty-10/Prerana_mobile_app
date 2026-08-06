@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -46,10 +46,13 @@ export function MatchMasterScreen({
     setShowDifficultyModal(true);
   }, []);
 
+  const recordGameResultRef = useRef(recordGameResult);
+  useEffect(() => { recordGameResultRef.current = recordGameResult; }, [recordGameResult]);
+
   // Persist game results to profile on victory
   useEffect(() => {
     if (sessionResult && sessionResult.victory) {
-      recordGameResult({
+      recordGameResultRef.current({
         xpEarned: sessionResult.xpEarned,
         coinsEarned: sessionResult.coinsEarned,
         correctAnswers: sessionResult.matchedPairs,
@@ -57,7 +60,7 @@ export function MatchMasterScreen({
         score: sessionResult.score,
       });
     }
-  }, [sessionResult, recordGameResult]);
+  }, [sessionResult]);
 
   const handleSelectDifficulty = (selectedDifficulty: MatchDifficulty) => {
     setShowDifficultyModal(false);

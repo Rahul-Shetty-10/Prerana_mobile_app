@@ -1,6 +1,16 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import { ExerciseSessionPayload, MCQOption, QuestionItem, QuestionType, ReviewPayload, TrackType } from "../types";
+import {
+  ExerciseResultData,
+  ExerciseSessionPayload,
+  MCQOption,
+  QuestionItem,
+  QuestionType,
+  ReviewPayload,
+  ReviewQuestionItem,
+  ReviewStatus,
+  TrackType,
+} from "../types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -62,7 +72,7 @@ export async function fetchExerciseSession(
     throw new Error("No questions found for this chapter.");
   }
 
-  const mappedQuestions: QuestionItem[] = data.questions.map((q, idx) => ({
+  const mappedQuestions: QuestionItem[] = data.questions.map((q: any, idx: number) => ({
     id: q.id || `q-${idx + 1}`,
     number: q.number || idx + 1,
     type: q.type || "mcq",
@@ -72,6 +82,8 @@ export async function fetchExerciseSession(
     matchPairs: q.matchPairs,
     fillBlankPlaceholder: q.fillBlankPlaceholder,
     reorderItems: (q as any).reorderItems,
+    correctAnswer: (q as any).correctAnswer,
+    explanation: (q as any).explanation,
   }));
 
   return {
@@ -105,7 +117,7 @@ export async function fetchQuizAttemptReview(
     throw new Error("No review data found for this quiz attempt.");
   }
 
-  const mappedQuestions = rawData.questions.map((q, idx) => ({
+  const mappedQuestions = rawData.questions.map((q: any, idx: number) => ({
     id: q.id || `rq-${idx + 1}`,
     number: q.number || idx + 1,
     prompt: q.prompt || "Question prompt",
@@ -116,9 +128,9 @@ export async function fetchQuizAttemptReview(
     explanation: q.explanation || "No explanation provided.",
   }));
 
-  const correctCount = mappedQuestions.filter((q) => q.status === "correct").length;
-  const incorrectCount = mappedQuestions.filter((q) => q.status === "incorrect").length;
-  const skippedCount = mappedQuestions.filter((q) => q.status === "skipped").length;
+  const correctCount = mappedQuestions.filter((q: any) => q.status === "correct").length;
+  const incorrectCount = mappedQuestions.filter((q: any) => q.status === "incorrect").length;
+  const skippedCount = mappedQuestions.filter((q: any) => q.status === "skipped").length;
   const totalQuestions = mappedQuestions.length;
   const accuracyPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
@@ -257,6 +269,8 @@ export async function fetchFundamentalsTrack(
       matchPairs,
       fillBlankPlaceholder: q.placeholder || q.blank || undefined,
       reorderItems: q.reorderItems || q.items || undefined,
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation || q.helpText || undefined,
     };
   });
 
@@ -272,4 +286,226 @@ export async function fetchFundamentalsTrack(
     totalQuestions: mappedQuestions.length,
     questions: mappedQuestions,
   };
+}
+
+export function gradeExercise(
+  session: ExerciseSessionPayload,
+  userAnswers: Record<string, any>
+): { resultData: ExerciseResultData; reviewData: ReviewPayload } {
+  let correctCount = 0;
+  let incorrectCount = 0;
+  let skippedCount = 0;
+
+  const reviewQuestions: ReviewQuestionItem[] = session.questions.map((q) => {
+    const userAnswer = userAnswers[q.id];
+    let isCorrect = false;
+    let correctAnswerText = "Unknown Answer";
+    let studentAnswerText = "Not answered";
+    let status: ReviewStatus = "skipped";
+
+    if (userAnswer === undefined || userAnswer === null || userAnswer === "") {
+      skippedCount++;
+      // Determine correct answer text for display
+      if (q.type === "mcq" && q.mcqOptions) {
+        const correctOpt = q.mcqOptions.find((opt: any) => opt.isCorrect);
+        if (correctOpt) {
+          correctAnswerText = `(${correctOpt.label}) ${correctOpt.text}`;
+        }
+      } else if (q.type === "true_false") {
+        const correctVal = q.correctAnswer?.value ?? q.correctAnswer;
+        correctAnswerText = typeof correctVal === "boolean" ? (correctVal ? "TRUE" : "FALSE") : String(correctVal || "TRUE");
+      } else if (q.type === "match" && q.matchPairs) {
+        correctAnswerText = q.matchPairs.map(p => `${p.leftText} ➔ ${p.rightText}`).join(", ");
+      } else if (q.type === "fill_blank") {
+        correctAnswerText = String(q.correctAnswer?.value || q.correctAnswer?.text || q.correctAnswer || "Answer");
+      } else if (q.type === "reorder" && q.reorderItems) {
+        correctAnswerText = q.reorderItems.map(item => item.text).join(", ");
+      }
+    } else {
+      status = "incorrect"; // default if answered
+      switch (q.type) {
+        case "mcq": {
+          const correctOpt = q.mcqOptions?.find((opt: any) => opt.isCorrect);
+          const studentOpt = q.mcqOptions?.find(opt => opt.id === userAnswer);
+          if (correctOpt) {
+            correctAnswerText = `(${correctOpt.label}) ${correctOpt.text}`;
+          }
+          if (studentOpt) {
+            studentAnswerText = `(${studentOpt.label}) ${studentOpt.text}`;
+            if (studentOpt.id === correctOpt?.id) {
+              isCorrect = true;
+              status = "correct";
+            }
+          }
+          break;
+        }
+        case "true_false": {
+          const rawCorrect = q.correctAnswer;
+          let correctVal = true;
+          if (typeof rawCorrect === "boolean") {
+            correctVal = rawCorrect;
+          } else if (rawCorrect && typeof rawCorrect === "object") {
+            if (typeof rawCorrect.value === "boolean") {
+              correctVal = rawCorrect.value;
+            } else if (typeof rawCorrect.choiceId === "string") {
+              const cid = rawCorrect.choiceId.toLowerCase();
+              correctVal = cid.includes("true") || cid.includes("yes") || cid.includes("correct");
+            }
+          }
+          correctAnswerText = correctVal ? "TRUE" : "FALSE";
+          studentAnswerText = userAnswer ? "TRUE" : "FALSE";
+          if (userAnswer === correctVal) {
+            isCorrect = true;
+            status = "correct";
+          }
+          break;
+        }
+        case "match": {
+          const pairs = q.matchPairs || [];
+          let matchesCorrect = true;
+          const leftIds = pairs.map(p => p.id);
+
+          correctAnswerText = pairs.map(p => `${p.leftText} ➔ ${p.rightText}`).join(", ");
+
+          const studentMatches: string[] = [];
+          for (const p of pairs) {
+            const matchedRightId = userAnswer[p.id];
+            if (matchedRightId) {
+              const rightPair = pairs.find(rp => rp.id === matchedRightId);
+              studentMatches.push(`${p.leftText} ➔ ${rightPair ? rightPair.rightText : matchedRightId}`);
+              if (matchedRightId !== p.id) {
+                matchesCorrect = false;
+              }
+            } else {
+              matchesCorrect = false;
+            }
+          }
+          studentAnswerText = studentMatches.length > 0 ? studentMatches.join(", ") : "No connections established";
+          if (matchesCorrect && leftIds.length > 0) {
+            isCorrect = true;
+            status = "correct";
+          }
+          break;
+        }
+        case "fill_blank": {
+          const rawCorrect = q.correctAnswer;
+          const possibleCorrect: string[] = [];
+          if (typeof rawCorrect === "string") {
+            possibleCorrect.push(rawCorrect);
+          } else if (rawCorrect && typeof rawCorrect === "object") {
+            const val = rawCorrect.value || rawCorrect.text || rawCorrect.correctText || rawCorrect.choiceId;
+            if (typeof val === "string") possibleCorrect.push(val);
+          }
+
+          correctAnswerText = possibleCorrect[0] || "Answer";
+          studentAnswerText = String(userAnswer);
+
+          const studentClean = String(userAnswer).trim().toLowerCase();
+          const match = possibleCorrect.some(c => studentClean === c.trim().toLowerCase());
+          if (match) {
+            isCorrect = true;
+            status = "correct";
+          }
+          break;
+        }
+        case "reorder": {
+          const rawCorrect = q.correctAnswer;
+          let correctIds: string[] = [];
+          if (Array.isArray(rawCorrect)) {
+            correctIds = rawCorrect;
+          } else if (rawCorrect && typeof rawCorrect === "object") {
+            const val = rawCorrect.orderedIds || rawCorrect.itemIds || rawCorrect.value || rawCorrect.choices;
+            if (Array.isArray(val)) correctIds = val;
+          }
+
+          if (correctIds.length === 0 && q.reorderItems) {
+            correctIds = q.reorderItems.map(item => item.id);
+          }
+
+          const items = q.reorderItems || [];
+          correctAnswerText = correctIds.map(id => items.find(it => it.id === id)?.text || id).join(", ");
+          studentAnswerText = (userAnswer as string[]).map(id => items.find(it => it.id === id)?.text || id).join(", ");
+
+          if (JSON.stringify(userAnswer) === JSON.stringify(correctIds)) {
+            isCorrect = true;
+            status = "correct";
+          }
+          break;
+        }
+        default:
+          break;
+      }
+
+      if (isCorrect) {
+        correctCount++;
+      } else {
+        incorrectCount++;
+      }
+    }
+
+    return {
+      id: q.id,
+      number: q.number,
+      typeLabel: q.type === "mcq" ? "Multiple Choice" : q.type === "true_false" ? "True / False" : q.type === "match" ? "Match the Following" : q.type === "fill_blank" ? "Fill in the Blank" : "Reorder",
+      prompt: q.prompt,
+      status,
+      studentAnswer: studentAnswerText,
+      correctAnswer: correctAnswerText,
+      explanation: q.explanation || "No explanation provided.",
+    };
+  });
+
+  const totalQuestions = session.questions.length;
+  const attemptedCount = totalQuestions - skippedCount;
+  const accuracyPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+  const completionPercent = totalQuestions > 0 ? Math.round((attemptedCount / totalQuestions) * 100) : 0;
+
+  let performanceLevel: "excellent" | "good" | "average" | "needs_improvement" = "average";
+  let performanceMessage = "Good attempt! Keep practicing to improve your understanding of these concepts.";
+
+  if (accuracyPercent >= 85) {
+    performanceLevel = "excellent";
+    performanceMessage = "Outstanding performance! You have demonstrated strong analytical mastery of these concepts.";
+  } else if (accuracyPercent >= 70) {
+    performanceLevel = "good";
+    performanceMessage = "Great job! You have a solid grasp of the subject fundamentals.";
+  } else if (accuracyPercent < 50) {
+    performanceLevel = "needs_improvement";
+    performanceMessage = "Reviewing the chapter materials and attempting the exercise again is highly recommended.";
+  }
+
+  const resultData: ExerciseResultData = {
+    subjectName: session.subjectName,
+    trackName: session.trackName,
+    trackType: session.trackType,
+    title: session.title,
+    totalQuestions,
+    attemptedCount,
+    correctCount,
+    incorrectCount,
+    skippedCount,
+    score: correctCount,
+    maxScore: totalQuestions,
+    percentage: accuracyPercent,
+    accuracyPercent,
+    completionPercent,
+    timeTakenFormatted: "02m 15s", // mock duration
+    performanceLevel,
+    performanceMessage,
+  };
+
+  const reviewData: ReviewPayload = {
+    subjectName: session.subjectName,
+    trackName: session.trackName,
+    trackType: session.trackType,
+    title: session.title,
+    totalQuestions,
+    correctCount,
+    incorrectCount,
+    skippedCount,
+    accuracyPercent,
+    questions: reviewQuestions,
+  };
+
+  return { resultData, reviewData };
 }

@@ -37,6 +37,7 @@ export interface SubjectProgressItem {
   totalChapters: number;
   completedChapters: number;
   progressPercent: number;
+  seenChapters?: number;
 }
 
 export interface AccountOptionItem {

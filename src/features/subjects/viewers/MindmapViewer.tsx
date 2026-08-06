@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
-import { Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import * as FileSystem from "expo-file-system/legacy";
@@ -192,6 +192,7 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isWebViewLoading, setIsWebViewLoading] = useState(true);
 
   // Sync selectedNodeId when activeRoot changes
   useEffect(() => {
@@ -917,6 +918,12 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
 
   const renderCanvas = () => (
     <View style={[styles.canvasContainer, { transform: [{ rotate: `${rotation}deg` }] }]}>
+      {isWebViewLoading && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 10, justifyContent: "center", alignItems: "center", backgroundColor: themeColors.surface }]}>
+          <ActivityIndicator color={colors.primary.main} size="large" />
+          <Text style={{ marginTop: spacing.sm, color: themeColors.textMuted, fontSize: typography.fontSize.xs }}>Loading mind map...</Text>
+        </View>
+      )}
       {Platform.OS === "web" ? (
         <iframe
           ref={iframeRef}
@@ -933,7 +940,11 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
           ref={webViewRef}
           source={{ html: htmlContent }}
           style={styles.webView}
-          onLoadEnd={handleLoadEnd}
+          onLoadStart={() => setIsWebViewLoading(true)}
+          onLoadEnd={() => {
+            setIsWebViewLoading(false);
+            handleLoadEnd();
+          }}
         />
       )}
     </View>

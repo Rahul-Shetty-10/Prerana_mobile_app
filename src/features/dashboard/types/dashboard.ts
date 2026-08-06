@@ -13,6 +13,7 @@ export interface WelcomeCardProps {
   badgeText?: string;
   title?: string;
   description?: string;
+  lastStudiedText?: string;
   subjects?: string[];
   selectedSubject?: string;
   onSubjectSelect?: (subject: string) => void;

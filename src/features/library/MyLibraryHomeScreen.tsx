@@ -30,7 +30,7 @@ export function MyLibraryHomeScreen({
   onOpenFeaturedResource,
 }: MyLibraryHomeScreenProps) {
   const navigation = useNavigation<any>();
-  const { theme  } = useTheme();
+  const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const { data, isLoading, error, refresh } = useLibraryData(getToken);
@@ -60,10 +60,12 @@ export function MyLibraryHomeScreen({
           </View>
         ) : null}
 
-        {/* Error Banner */}
+
+
+        {/* Error Banner - shown above hero content */}
         {error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
+            <Text style={styles.errorText}>⚠ {error}</Text>
           </View>
         ) : null}
 

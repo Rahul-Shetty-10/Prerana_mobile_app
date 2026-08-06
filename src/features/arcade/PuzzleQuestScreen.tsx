@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -48,10 +48,13 @@ export function PuzzleQuestScreen({
     setShowDifficultyModal(true);
   }, []);
 
+  const recordGameResultRef = useRef(recordGameResult);
+  useEffect(() => { recordGameResultRef.current = recordGameResult; }, [recordGameResult]);
+
   // Record profile stats on game completion
   useEffect(() => {
     if (sessionResult) {
-      recordGameResult({
+      recordGameResultRef.current({
         xpEarned: sessionResult.xpEarned,
         coinsEarned: sessionResult.coinsEarned,
         correctAnswers: sessionResult.solvedCount,
@@ -59,7 +62,7 @@ export function PuzzleQuestScreen({
         score: sessionResult.score,
       });
     }
-  }, [sessionResult, recordGameResult]);
+  }, [sessionResult]);
 
   const handleSelectDifficulty = (selectedDifficulty: string) => {
     setShowDifficultyModal(false);

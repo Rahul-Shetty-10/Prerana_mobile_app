@@ -8,6 +8,7 @@ export interface MCQOption {
   id: string;
   label: string; // e.g. "A", "B", "C", "D"
   text: string;
+  isCorrect?: boolean;
 }
 
 export interface MatchPair {
@@ -26,6 +27,8 @@ export interface QuestionItem {
   matchPairs?: MatchPair[];
   fillBlankPlaceholder?: string;
   reorderItems?: Array<{ id: string; text: string }>;
+  correctAnswer?: any;
+  explanation?: string;
 }
 
 export interface ExerciseSessionPayload {
@@ -53,6 +56,7 @@ export interface ProgressCardProps {
   totalQuestions: number;
   answeredCount: number;
   flaggedCount: number;
+  onQuestionNavPress?: () => void;
 }
 
 export interface QuestionNavigatorProps {

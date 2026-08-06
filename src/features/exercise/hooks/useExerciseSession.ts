@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { fetchExerciseSession, fetchFundamentalsTrack } from "../services";
 import { ExerciseSessionPayload, TrackType } from "../types";
 
@@ -33,13 +33,19 @@ export function useExerciseSession(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getTokenRef = useRef(getToken);
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
   const loadSession = useCallback(async () => {
+    const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const payload = subjectSlug && trackSlug
-        ? await fetchFundamentalsTrack(subjectSlug, trackSlug, getToken)
-        : await fetchExerciseSession(trackType, subjectId, chapterId, getToken);
+        ? await fetchFundamentalsTrack(subjectSlug, trackSlug, activeGetToken)
+        : await fetchExerciseSession(trackType, subjectId, chapterId, activeGetToken);
       setSession(payload);
       setCurrentQuestionIndex(0);
       setUserAnswers({});
@@ -52,7 +58,7 @@ export function useExerciseSession(
     } finally {
       setIsLoading(false);
     }
-  }, [trackType, subjectId, chapterId, getToken, subjectSlug, trackSlug]);
+  }, [trackType, subjectId, chapterId, subjectSlug, trackSlug]);
 
   useEffect(() => {
     void loadSession();
