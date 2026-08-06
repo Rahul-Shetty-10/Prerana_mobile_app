@@ -19,12 +19,16 @@ import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ensurePdfJsCached, writeTextbookHtml, textbookHtmlPath } from "../utils/pdfCache";
 import { ViewerToolbar } from "./ViewerToolbar";
+import { ContentComingSoon } from "./ContentComingSoon";
 
 interface PDFViewerProps {
   documentTitle: string;
+  pdfUrl?: string;
+  authToken?: string;
+  tenantSlug?: string;
 }
 
-export function PDFViewer({ documentTitle }: PDFViewerProps) {
+export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -42,6 +46,17 @@ export function PDFViewer({ documentTitle }: PDFViewerProps) {
   const pdfBase64Ref = useRef<string>("");
   const targetPageRef = useRef<number | null>(null);
   const targetPageTimeoutRef = useRef<any>(null);
+
+  // No backend URL — show Coming Soon immediately
+  if (!pdfUrl) {
+    return (
+      <ContentComingSoon
+        icon="document-text-outline"
+        title="Textbook Notes Coming Soon"
+        message="Textbook notes for this chapter are being prepared. Check back soon!"
+      />
+    );
+  }
 
   useEffect(() => {
     return () => {
@@ -77,15 +92,35 @@ export function PDFViewer({ documentTitle }: PDFViewerProps) {
       await writeTextbookHtml();
       setLoadingProgress(0.6);
 
-      const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
-      await asset.downloadAsync();
-      setLoadingProgress(0.8);
+      let localPdfUri = "";
+      let downloadFailed = false;
+      if (pdfUrl && pdfUrl.startsWith("http")) {
+        try {
+          const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
+          const tempPath = `${FileSystem.documentDirectory}${filename}`;
+          console.log(`[SUBJECTS][PDFViewer] Downloading textbook notes from backend: ${pdfUrl}`);
+          const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+          if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+            throw new Error(`HTTP status ${downloadResult.status}`);
+          }
+          localPdfUri = downloadResult.uri;
+        } catch (err) {
+          console.warn("[SUBJECTS][PDFViewer] Remote download failed, falling back to local textbook asset:", err);
+          downloadFailed = true;
+        }
+      }
 
-      if (!asset.localUri) {
+      if (!pdfUrl || !pdfUrl.startsWith("http") || downloadFailed) {
+        const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
+        await asset.downloadAsync();
+        localPdfUri = asset.localUri || "";
+      }
+
+      if (!localPdfUri) {
         throw new Error("Unable to resolve local Textbook PDF URI.");
       }
 
-      const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
+      const base64 = await FileSystem.readAsStringAsync(localPdfUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       pdfBase64Ref.current = base64;
@@ -104,7 +139,7 @@ export function PDFViewer({ documentTitle }: PDFViewerProps) {
       return;
     }
     loadTextbook();
-  }, []);
+  }, [pdfUrl]);
 
   const handleMessage = (event: any) => {
     try {
@@ -150,10 +185,20 @@ export function PDFViewer({ documentTitle }: PDFViewerProps) {
   const handleFitScreen = () => setZoomScale(0.8);
   const handleDownload = async () => {
     try {
-      const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
-      await asset.downloadAsync();
-      if (asset.localUri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(asset.localUri, {
+      let localPdfUri = "";
+      if (pdfUrl && pdfUrl.startsWith("http")) {
+        const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
+        const tempPath = `${FileSystem.documentDirectory}${filename}`;
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        localPdfUri = downloadResult.uri;
+      } else {
+        const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
+        await asset.downloadAsync();
+        localPdfUri = asset.localUri || "";
+      }
+
+      if (localPdfUri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(localPdfUri, {
           mimeType: "application/pdf",
           dialogTitle: "Save Textbook",
         });
@@ -219,10 +264,10 @@ export function PDFViewer({ documentTitle }: PDFViewerProps) {
 
   const renderPDFContent = () => {
     if (Platform.OS === "web") {
-      const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
+      const srcUri = pdfUrl || Asset.fromModule(require("../../../chapter/Textbook.pdf")).uri;
       return (
         <iframe
-          src={asset.uri}
+          src={srcUri}
           style={{ width: "100%", height: "100%", border: "none" }}
           title={documentTitle}
         />

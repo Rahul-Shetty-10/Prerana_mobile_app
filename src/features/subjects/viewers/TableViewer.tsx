@@ -18,7 +18,8 @@ import { TableViewerProps } from "../types";
 import { Badge } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
-export function TableViewer({ title }: TableViewerProps) {
+import { ContentComingSoon } from "./ContentComingSoon";
+export function TableViewer({ title, columns: propsColumns, rows: propsRows }: TableViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -83,78 +84,17 @@ export function TableViewer({ title }: TableViewerProps) {
   };
 
   useEffect(() => {
-    async function loadTable() {
-      try {
-        setIsLoading(true);
-        const asset = Asset.fromModule(require("../../../chapter/Table.xlsx"));
-        await asset.downloadAsync();
-        const localUri = asset.localUri;
-
-        let base64: string;
-        if (localUri) {
-          // Read file directly via expo-file-system (bypasses Android fetch file:// restriction)
-          base64 = await FileSystem.readAsStringAsync(localUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-        } else {
-          // Fallback: fetch from remote CDN URI
-          const response = await fetch(asset.uri);
-          const arrayBuffer = await response.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = "";
-          bytes.forEach((b) => (binary += String.fromCharCode(b)));
-          base64 = btoa(binary);
-        }
-
-        // Decode base64 → binary → Uint8Array for xlsx
-        const binaryStr = atob(base64);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
-        }
-
-        const workbook = XLSX.read(bytes, { type: "array" });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        if (jsonData.length === 0) return;
-
-        const headerCols = jsonData[0].map((colName) => String(colName || "").trim());
-        const mappedColumns = headerCols.map((colName) => {
-          let width = 120;
-          if (
-            colName === "Chemical Equation" ||
-            colName === "Reactants" ||
-            colName === "Observations" ||
-            colName === "Key Findings"
-          ) {
-            width = 200;
-          }
-          return { key: colName, title: colName, width };
-        });
-
-        const mappedRows = jsonData
-          .slice(1)
-          .map((row, rowIdx) => {
-            const rowObj: any = { id: `row-${rowIdx}` };
-            headerCols.forEach((colName, colIdx) => {
-              rowObj[colName] = row[colIdx] !== undefined ? String(row[colIdx]).trim() : "";
-            });
-            return rowObj;
-          })
-          .filter((r) => Object.values(r).some((v) => v !== ""));
-
-        setColumns(mappedColumns);
-        setRows(mappedRows);
-      } catch (err) {
-        // Parse error handled silently
-      } finally {
-        setIsLoading(false);
-      }
+    // If backend provided columns, use them directly. No local XLSX fallback.
+    if (propsColumns !== undefined && propsRows !== undefined && propsColumns.length > 0) {
+      setColumns(propsColumns);
+      setRows(propsRows);
+      setIsLoading(false);
+      return;
     }
-    loadTable();
-  }, []);
+    // No backend data — show Coming Soon state.
+    setIsLoading(false);
+  }, [propsColumns, propsRows]);
+
 
   const handleZoomIn = () => {
     setZoomScale((prev) => Math.min(prev + 0.2, 2.0));
@@ -273,6 +213,16 @@ export function TableViewer({ title }: TableViewerProps) {
       </View>
     </ScrollView>
   );
+
+  if (propsColumns === undefined && !isLoading) {
+    return (
+      <ContentComingSoon
+        icon="grid-outline"
+        title="Data Table Coming Soon"
+        message="The data table for this chapter is being prepared. Check back soon!"
+      />
+    );
+  }
 
   return (
     <View style={styles.card}>

@@ -19,12 +19,16 @@ import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ensurePdfJsCached, writeSlidedeckHtml, slidedeckHtmlPath } from "../utils/pdfCache";
 import { ViewerToolbar } from "./ViewerToolbar";
+import { ContentComingSoon } from "./ContentComingSoon";
 
 interface SlideDeckViewerProps {
   documentTitle: string;
+  pdfUrl?: string;
+  authToken?: string;
+  tenantSlug?: string;
 }
 
-export function SlideDeckViewer({ documentTitle }: SlideDeckViewerProps) {
+export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: SlideDeckViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -41,6 +45,17 @@ export function SlideDeckViewer({ documentTitle }: SlideDeckViewerProps) {
 
   const pdfBase64Ref = useRef<string>("");
 
+  // No backend URL — show Coming Soon immediately
+  if (!pdfUrl) {
+    return (
+      <ContentComingSoon
+        icon="easel-outline"
+        title="Slide Deck Coming Soon"
+        message="The slide deck for this chapter is being prepared. Check back soon!"
+      />
+    );
+  }
+
   const handleLoadEnd = () => {
     const injectTheme = `if (typeof setTheme === 'function') { setTheme("${theme}", ${isDark}); }`;
     let injectPdf = "";
@@ -53,10 +68,20 @@ export function SlideDeckViewer({ documentTitle }: SlideDeckViewerProps) {
 
   const handleDownload = async () => {
     try {
-      const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
-      await asset.downloadAsync();
-      if (asset.localUri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(asset.localUri, {
+      let localPdfUri = "";
+      if (pdfUrl && pdfUrl.startsWith("http")) {
+        const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
+        const tempPath = `${FileSystem.documentDirectory}${filename}`;
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        localPdfUri = downloadResult.uri;
+      } else {
+        const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
+        await asset.downloadAsync();
+        localPdfUri = asset.localUri || "";
+      }
+
+      if (localPdfUri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(localPdfUri, {
           mimeType: "application/pdf",
           dialogTitle: "Save Slide Deck",
         });
@@ -82,15 +107,35 @@ export function SlideDeckViewer({ documentTitle }: SlideDeckViewerProps) {
       await writeSlidedeckHtml();
       setLoadingProgress(0.6);
 
-      const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
-      await asset.downloadAsync();
-      setLoadingProgress(0.8);
+      let localPdfUri = "";
+      let downloadFailed = false;
+      if (pdfUrl && pdfUrl.startsWith("http")) {
+        try {
+          const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
+          const tempPath = `${FileSystem.documentDirectory}${filename}`;
+          console.log(`[SUBJECTS][SlideDeckViewer] Downloading slidedeck from backend: ${pdfUrl}`);
+          const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+          if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+            throw new Error(`HTTP status ${downloadResult.status}`);
+          }
+          localPdfUri = downloadResult.uri;
+        } catch (err) {
+          console.warn("[SUBJECTS][SlideDeckViewer] Remote download failed, falling back to local slidedeck asset:", err);
+          downloadFailed = true;
+        }
+      }
 
-      if (!asset.localUri) {
+      if (!pdfUrl || !pdfUrl.startsWith("http") || downloadFailed) {
+        const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
+        await asset.downloadAsync();
+        localPdfUri = asset.localUri || "";
+      }
+
+      if (!localPdfUri) {
         throw new Error("Unable to resolve local Slidedeck PDF URI.");
       }
 
-      const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
+      const base64 = await FileSystem.readAsStringAsync(localPdfUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       pdfBase64Ref.current = base64;
@@ -110,7 +155,7 @@ export function SlideDeckViewer({ documentTitle }: SlideDeckViewerProps) {
       return;
     }
     loadSlidedeck();
-  }, []);
+  }, [pdfUrl]);
 
   const handleMessage = (event: any) => {
     try {
@@ -189,11 +234,11 @@ export function SlideDeckViewer({ documentTitle }: SlideDeckViewerProps) {
 
   const renderDeckContent = (inFullscreen = false) => {
     if (Platform.OS === "web") {
-      const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
+      const srcUri = pdfUrl || Asset.fromModule(require("../../../chapter/Slidedeck.pdf")).uri;
       return (
         <View style={inFullscreen ? styles.fullscreenPdfContainer : styles.pdfContainer}>
           <iframe
-            src={asset.uri}
+            src={srcUri}
             style={{ width: "100%", height: "100%", border: "none" }}
             title={documentTitle}
           />

@@ -10,6 +10,7 @@ import {
 } from "./components";
 import { Header } from "../../shared/components/Header";
 import { useSubjectWorkspace } from "./hooks";
+import { useNavigation } from "@react-navigation/native";
 import { ChapterItem, SubjectMeta } from "./types";
 import { colors, spacing, typography } from "../../shared/theme";
 
@@ -34,6 +35,7 @@ export function SubjectWorkspaceScreen({
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const { workspace, isLoading, error, refresh } = useSubjectWorkspace(subject.id, getToken);
+  const navigation = useNavigation();
 
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
@@ -56,11 +58,6 @@ export function SubjectWorkspaceScreen({
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Banner with Subject Title */}
-        <View style={styles.subjectBanner}>
-          <Text style={styles.subjectNameText}>{subject.name}</Text>
-        </View>
-
         {/* Loading Indicator */}
         {isLoading && !workspace ? (
           <View style={styles.loadingContainer}>
@@ -85,23 +82,6 @@ export function SubjectWorkspaceScreen({
               totalParts={workspace.subject.partCount || subject.partCount}
             />
 
-            {/* Subject Statistics Card */}
-            <SubjectStatisticsCard
-              completedChapters={workspace.stats.completedChapters}
-              totalChapters={workspace.stats.totalChapters}
-            />
-
-            {/* Quick Actions Card */}
-            <QuickActionsCard
-              onOpenFundamentals={onOpenFundamentals}
-              onStartFirstChapter={() => {
-                if (workspace.chapters[0]) onSelectChapter?.(workspace.chapters[0]);
-              }}
-              onViewQuizzes={() => {
-                (navigation as any).navigate("Games", { screen: "QuizzesHome" });
-              }}
-            />
-
             {/* Chapter Selection section */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Chapter Selection</Text>
@@ -119,6 +99,20 @@ export function SubjectWorkspaceScreen({
                 />
               ))}
             </View>
+
+            {/* Subject Statistics Card */}
+            <SubjectStatisticsCard
+              completedChapters={workspace.stats.completedChapters}
+              totalChapters={workspace.stats.totalChapters}
+            />
+
+            {/* Quick Actions Card */}
+            <QuickActionsCard
+              onOpenFundamentals={onOpenFundamentals}
+              onViewQuizzes={() => {
+                (navigation as any).navigate("Games", { screen: "QuizzesHome" });
+              }}
+            />
           </>
         ) : null}
       </ScrollView>

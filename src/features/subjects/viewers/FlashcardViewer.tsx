@@ -15,6 +15,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Badge, Button } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
+import { ContentComingSoon } from "./ContentComingSoon";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface FlashcardItem {
@@ -26,6 +27,7 @@ interface FlashcardItem {
 export interface FlashcardViewerProps {
   currentIndex: number;
   onIndexChange: (index: number) => void;
+  flashcards?: FlashcardItem[];
 }
 
 // ─── CSV Parser ──────────────────────────────────────────────────────────────
@@ -90,7 +92,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FlashcardViewer({ currentIndex, onIndexChange }: FlashcardViewerProps) {
+export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: FlashcardViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -110,31 +112,18 @@ export function FlashcardViewer({ currentIndex, onIndexChange }: FlashcardViewer
   // ── Load CSV ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    async function loadFlashcards() {
-      try {
-        setIsLoading(true);
-        const asset = Asset.fromModule(require("../../../chapter/Flashcard.csv"));
-        await asset.downloadAsync();
-
-        if (!asset.localUri) {
-          return;
-        }
-
-        const csvText = await FileSystem.readAsStringAsync(asset.localUri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-
-        const cards = parseFlashcardCSV(csvText);
-        setOriginalCards(cards);
-        setDisplayCards(cards);
-      } catch (err) {
-        // Load error handled silently
-      } finally {
-        setIsLoading(false);
-      }
+    // If backend explicitly provided flashcards (even empty array), use them.
+    // If backend provided NO flashcards (undefined), show Coming Soon — do NOT load local mock.
+    if (flashcards !== undefined) {
+      setOriginalCards(flashcards);
+      setDisplayCards(flashcards);
+      setIsLoading(false);
+      return;
     }
-    loadFlashcards();
-  }, []);
+    // flashcards === undefined means backend has no data for this chapter.
+    // Do NOT fall back to local mock CSV — just mark loading done.
+    setIsLoading(false);
+  }, [flashcards]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
@@ -259,6 +248,17 @@ export function FlashcardViewer({ currentIndex, onIndexChange }: FlashcardViewer
   });
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  // Backend provided no data for this resource type
+  if (flashcards === undefined && !isLoading) {
+    return (
+      <ContentComingSoon
+        icon="albums-outline"
+        title="Flashcards Coming Soon"
+        message="Flashcards for this chapter are being prepared. Check back soon!"
+      />
+    );
+  }
 
   return (
     <View style={styles.card}>

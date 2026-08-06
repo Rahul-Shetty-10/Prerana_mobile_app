@@ -6,4 +6,6 @@ export * from "./TableViewer";
 export * from "./AudioViewer";
 export * from "./MindmapViewer";
 export * from "./ViewerToolbar";
+export * from "./ContentComingSoon";
+
 

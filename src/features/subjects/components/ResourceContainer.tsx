@@ -24,7 +24,10 @@ export function ResourceContainer({
       return (
         <ImageViewer
           description={resources?.infographicDescription || "Visual concept flowchart and summary diagram."}
+          imageUrl={resources?.infographicUrl}
           title={resources?.chapterTitle || `${chapterTitle} Infographic`}
+          authToken={resources?.authToken}
+          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -32,6 +35,7 @@ export function ResourceContainer({
       return (
         <MindmapViewer
           title={resources?.chapterTitle || `${chapterTitle} Mindmap`}
+          rootNode={resources?.mindmapRoot}
         />
       );
 
@@ -39,6 +43,9 @@ export function ResourceContainer({
       return (
         <SlideDeckViewer
           documentTitle={resources?.chapterTitle || `${chapterTitle} Slidedeck`}
+          pdfUrl={resources?.slidedeckUrl}
+          authToken={resources?.authToken}
+          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -46,6 +53,9 @@ export function ResourceContainer({
       return (
         <PDFViewer
           documentTitle={resources?.chapterTitle || `${chapterTitle} Textbook Notes`}
+          pdfUrl={resources?.textbookNotesUrl}
+          authToken={resources?.authToken}
+          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -54,6 +64,7 @@ export function ResourceContainer({
         <FlashcardViewer
           currentIndex={flashcardIndex}
           onIndexChange={onFlashcardIndexChange}
+          flashcards={resources?.flashcards}
         />
       );
 
@@ -61,6 +72,8 @@ export function ResourceContainer({
       return (
         <TableViewer
           title={resources?.tableTitle || `${chapterTitle} Key Data Table`}
+          columns={resources?.tableColumns}
+          rows={resources?.tableRows}
         />
       );
 
@@ -68,6 +81,10 @@ export function ResourceContainer({
       return (
         <AudioViewer
           audioTitle={resources?.audioTitle || `${chapterTitle} Audio Explanation`}
+          audioUrl={resources?.audioUrl}
+          durationSeconds={resources?.audioDurationSeconds}
+          authToken={resources?.authToken}
+          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -77,6 +94,8 @@ export function ResourceContainer({
           description={resources?.infographicDescription || "Visual concept flowchart and summary diagram."}
           imageUrl={resources?.infographicUrl}
           title={resources?.chapterTitle || `${chapterTitle} Infographic`}
+          authToken={resources?.authToken}
+          tenantSlug={resources?.tenantSlug}
         />
       );
   }

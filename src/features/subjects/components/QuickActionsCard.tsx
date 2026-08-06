@@ -6,7 +6,6 @@ import { AppIcon, IconName } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 
 export function QuickActionsCard({
-  onStartFirstChapter,
   onOpenFundamentals,
   onViewQuizzes,
 }: QuickActionsCardProps) {
@@ -15,11 +14,6 @@ export function QuickActionsCard({
   const styles = getStyles(themeColors, isDark);
 
   const actions: { label: string; iconName: IconName; onPress?: () => void }[] = [
-    {
-      label: "Start First Chapter",
-      iconName: "play-circle-outline",
-      onPress: onStartFirstChapter,
-    },
     {
       label: "Open Fundamentals",
       iconName: "book-outline",

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import { Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,11 +9,30 @@ import { Badge } from "../../../shared/components/Badge";
 import { Card } from "../../../shared/components/Card";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, spacing, typography } from "../../../shared/theme";
-import { MindmapViewerProps } from "../types";
+import { MindmapNode, MindmapViewerProps } from "../types";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { HTML_TO_IMAGE_SOURCE } from "./htmlToImageSource";
+import { MOCK_MINDMAP_ROOT } from "../constants/viewerData";
+import { ContentComingSoon } from "./ContentComingSoon";
 
-// ─── Complete Detailed Node Content ──────────────────────────────────────────
+interface PositionedNode {
+  id: string;
+  title: string;
+  subtitle: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  isRoot: boolean;
+  className: string;
+  parentId?: string;
+}
+
+interface Connection {
+  from: string;
+  to: string;
+  isSub: boolean;
+}
 
 interface NodeDetail {
   title: string;
@@ -23,177 +42,166 @@ interface NodeDetail {
   relatedConcepts: string[];
 }
 
-const MINDMAP_DATA: Record<string, NodeDetail> = {
-  "node-root": {
-    title: "Chemical Reactions & Equations",
-    explanation: "The central concept of chemistry mapping how chemical transformations occur, how they are represented, balanced, and categorized under conservation laws.",
-    keyPoints: [
-      "Follows the Law of Conservation of Mass.",
-      "Involves breaking of old chemical bonds and forming of new ones.",
-      "Symbolically represented by balanced chemical equations."
-    ],
-    examples: "Reactants (LHS) ──> Products (RHS)",
-    relatedConcepts: ["Reactants", "Products", "Law of Conservation of Mass", "Stochiometry"]
-  },
-  "node-reactions": {
-    title: "Chemical Reactions",
-    explanation: "A process in which one or more starting substances (reactants) react to form new substances (products) with entirely different chemical properties.",
-    keyPoints: [
-      "Accompanied by key observations: gas evolution, color changes, precipitate formation.",
-      "Can be exothermic (release heat) or endothermic (absorb heat).",
-      "Atoms are rearranged, not created or destroyed."
-    ],
-    examples: "Burning of coal: C(s) + O₂(g) ──> CO₂(g) + Heat",
-    relatedConcepts: ["Chemical Change", "Reactants", "Products", "Exothermic Processes"]
-  },
-  "node-equations": {
-    title: "Chemical Equations",
-    explanation: "A concise and symbolic representation of a chemical reaction using symbols and chemical formulas of the reactants and products.",
-    keyPoints: [
-      "Skeletal equations are unbalanced; balanced equations have equal atoms on both sides.",
-      "State symbols enhance the equation's information: (s), (l), (g), (aq).",
-      "Reaction conditions (heat, catalyst, pressure) are written above/below the arrow."
-    ],
-    examples: "Magnesium burning: 2Mg(s) + O₂(g) ──> 2MgO(s)",
-    relatedConcepts: ["Stoichiometry", "Chemical Formulas", "Aqueous Solutions"]
-  },
-  "node-balancing": {
-    title: "Balancing Equations",
-    explanation: "The process of equalizing the number of atoms of each element on both sides of a chemical equation to satisfy the Law of Conservation of Mass.",
-    keyPoints: [
-      "Uses the 'Hit and Trial' method to assign coefficients.",
-      "Coefficients are added in front of formulas, never changing the subscripts.",
-      "Ensures that total mass remains conserved throughout the reaction."
-    ],
-    examples: "Balanced Iron & Water: 3Fe(s) + 4H₂O(g) ──> Fe₃O₄(s) + 4H₂(g)",
-    relatedConcepts: ["Law of Conservation of Mass", "Stoichiometric Coefficients", "Hit & Trial Method"]
-  },
-  "node-types": {
-    title: "Types of Reactions",
-    explanation: "Chemical reactions are structurally categorized based on how atoms and ions are reorganized to form new compounds.",
-    keyPoints: [
-      "Helps predict reaction outcomes based on reactant patterns.",
-      "Divided into combination, decomposition, displacement, and double displacement.",
-      "Many reactions can also be redox or precipitation reactions."
-    ],
-    examples: "Decomposition of limestone vs combination of hydrogen and oxygen.",
-    relatedConcepts: ["Reaction Classification", "Reactivity Series", "Precipitation"]
-  },
-  "node-combination": {
-    title: "Combination Reaction",
-    explanation: "A reaction where two or more simple reactants combine together to form a single product.",
-    keyPoints: [
-      "Usually highly exothermic, releasing heat energy.",
-      "Often involves burning or combustion of elements in oxygen.",
-      "Key to synthesizing larger chemical structures."
-    ],
-    examples: "Quicklime and water: CaO(s) + H₂O(l) ──> Ca(OH)₂(aq) + Heat",
-    relatedConcepts: ["Synthesis", "Exothermic Reactions", "Quicklime & Slaked Lime"]
-  },
-  "node-decomposition": {
-    title: "Decomposition Reaction",
-    explanation: "A reaction in which a single compound breaks down into two or more simpler substances.",
-    keyPoints: [
-      "Endothermic process requiring energy to break bonds.",
-      "Types: Thermal (heat), Electrolytic (electricity), and Photolytic (light).",
-      "Opposite of combination reactions."
-    ],
-    examples: "Electrolysis of Water: 2H₂O(l) ──> 2H₂(g) + O₂(g)",
-    relatedConcepts: ["Thermal Decomposition", "Electrolysis", "Photolysis of Silver Chloride"]
-  },
-  "node-displacement": {
-    title: "Displacement Reaction",
-    explanation: "A reaction in which a more reactive element displaces a less reactive element from its salt solution.",
-    keyPoints: [
-      "Governed by the Reactivity Series of metals.",
-      "Typically fast, single replacement ionic reactions.",
-      "Usually accompanied by a visible change in solution color."
-    ],
-    examples: "Iron in copper sulphate: Fe(s) + CuSO₄(aq) ──> FeSO₄(aq) + Cu(s)",
-    relatedConcepts: ["Reactivity Series", "Single Replacement", "Metal Activity"]
-  },
-  "node-double": {
-    title: "Double Displacement",
-    explanation: "A chemical reaction in which two compounds react by exchanging ions to form two new compounds.",
-    keyPoints: [
-      "Often forms an insoluble solid called a precipitate.",
-      "Commonly occurs between aqueous solutions of ionic compounds.",
-      "Also known as neutralization or precipitation reactions."
-    ],
-    examples: "Barium sulfate precipitation: Na₂SO₄(aq) + BaCl₂(aq) ──> BaSO₄(s) + 2NaCl(aq)",
-    relatedConcepts: ["Precipitate Formation", "Ion Exchange", "Neutralization"]
-  },
-  "node-oxidation": {
-    title: "Oxidation",
-    explanation: "A chemical process characterized by the gain of oxygen, loss of hydrogen, or loss of electrons by a substance.",
-    keyPoints: [
-      "Substance gaining oxygen is oxidized.",
-      "Acts as a reducing agent by donating electrons.",
-      "Critical for respiration, combustion, and cellular energy."
-    ],
-    examples: "Copper oxidation: 2Cu(s) + O₂(g) ──> 2CuO(s) (Black coating)",
-    relatedConcepts: ["Oxidizing Agent", "Electron Loss", "Combustion"]
-  },
-  "node-reduction": {
-    title: "Reduction",
-    explanation: "A process involving the loss of oxygen, gain of hydrogen, or gain of electrons by a chemical substance.",
-    keyPoints: [
-      "Substance losing oxygen is reduced.",
-      "Complementary process to oxidation.",
-      "Acts as an oxidizing agent by accepting electrons."
-    ],
-    examples: "Reduction of CuO: CuO(s) + H₂(g) ──> Cu(s) + H₂O(g)",
-    relatedConcepts: ["Redox Reactions", "Reducing Agent", "Electron Gain"]
-  },
-  "node-corrosion": {
-    title: "Corrosion",
-    explanation: "The slow and gradual eating up of metals by the action of air, moisture, or chemical acids on their surface.",
-    keyPoints: [
-      "A natural oxidation process that degrades metal integrity.",
-      "Rusting of iron is the most common example.",
-      "Prevented by oiling, painting, galvanization, or alloying."
-    ],
-    examples: "Rusting of iron: Fe₂O₃·xH₂O (Reddish-brown hydrated oxide)",
-    relatedConcepts: ["Rusting", "Galvanization", "Sacrificial Protection"]
-  },
-  "node-rancidity": {
-    title: "Rancidity",
-    explanation: "The condition produced by the slow oxidation of fats and oils in food materials, resulting in unpleasant odors and taste.",
-    keyPoints: [
-      "Spoils the nutritional value and safety of food products.",
-      "Prevented by storing food in airtight containers.",
-      "Commonly prevented by flushing packaging with inert Nitrogen gas."
-    ],
-    examples: "Spoilage of butter/oil; chips bags flushed with Nitrogen.",
-    relatedConcepts: ["Food Preservation", "Antioxidants", "Slow Oxidation"]
-  },
-  "node-applications": {
-    title: "Applications",
-    explanation: "Understanding chemical reactions allows us to synthesize new materials, generate energy, and control chemical deterioration in real-life applications.",
-    keyPoints: [
-      "Used in metallurgy for extracting pure metals from ores.",
-      "Vital in the pharmaceutical industry to synthesize life-saving drugs.",
-      "Enables the manufacturing of batteries, plastics, and fertilizers."
-    ],
-    examples: "Galvanizing iron to construct long-lasting bridges.",
-    relatedConcepts: ["Industrial Chemistry", "Metallurgy", "Rust Prevention"]
-  }
-};
+function layoutMindmap(rootNode: MindmapNode) {
+  const nodes: PositionedNode[] = [];
+  const connections: Connection[] = [];
+  const details: Record<string, NodeDetail> = {};
 
-export function MindmapViewer({ title }: MindmapViewerProps) {
+  const traverse = (node: MindmapNode) => {
+    const titleVal = node.label || (node as any).title || "";
+    details[node.id] = {
+      title: titleVal,
+      explanation: node.details || "",
+      keyPoints: (node as any).keyPoints || (node.details ? [node.details] : []),
+      examples: (node as any).examples || "",
+      relatedConcepts: (node as any).relatedConcepts || [],
+    };
+  };
+
+  traverse(rootNode);
+
+  // Position Root
+  nodes.push({
+    id: rootNode.id,
+    title: rootNode.label || (rootNode as any).title || "",
+    subtitle: "(Root)",
+    left: 615,
+    top: 363,
+    width: 220,
+    height: 75,
+    isRoot: true,
+    className: "node root",
+  });
+
+  const branches = rootNode.children || [];
+  const half = Math.ceil(branches.length / 2);
+  const leftBranches = branches.slice(0, half);
+  const rightBranches = branches.slice(half);
+
+  // Position Left Branches
+  leftBranches.forEach((branch, idx) => {
+    traverse(branch);
+    const left = 310;
+    const top = leftBranches.length === 1 ? 363 : 100 + idx * (550 / (leftBranches.length - 1));
+    nodes.push({
+      id: branch.id,
+      title: branch.label || (branch as any).title || "",
+      subtitle: "",
+      left,
+      top,
+      width: 170,
+      height: 55,
+      isRoot: false,
+      className: "node",
+      parentId: rootNode.id,
+    });
+    connections.push({ from: rootNode.id, to: branch.id, isSub: false });
+
+    // Sub-children of left branch
+    const subChildren = branch.children || [];
+    subChildren.forEach((sub, sIdx) => {
+      traverse(sub);
+      const subLeft = 50;
+      const subTop = top - (subChildren.length - 1) * 35 + sIdx * 70;
+      nodes.push({
+        id: sub.id,
+        title: sub.label || (sub as any).title || "",
+        subtitle: "",
+        left: subLeft,
+        top: subTop,
+        width: 180,
+        height: 55,
+        isRoot: false,
+        className: `node child-of-${branch.id}`,
+        parentId: branch.id,
+      });
+      connections.push({ from: branch.id, to: sub.id, isSub: true });
+    });
+  });
+
+  // Position Right Branches
+  rightBranches.forEach((branch, idx) => {
+    traverse(branch);
+    const left = 920;
+    const top = rightBranches.length === 1 ? 363 : 100 + idx * (550 / (rightBranches.length - 1));
+    const subChildren = branch.children || [];
+    nodes.push({
+      id: branch.id,
+      title: branch.label || (branch as any).title || "",
+      subtitle: "",
+      left,
+      top,
+      width: 190,
+      height: 60,
+      isRoot: false,
+      className: "node",
+      parentId: rootNode.id,
+    });
+    connections.push({ from: rootNode.id, to: branch.id, isSub: false });
+
+    // Sub-children of right branch
+    subChildren.forEach((sub, sIdx) => {
+      traverse(sub);
+      const subLeft = 1220;
+      const subTop = top - (subChildren.length - 1) * 35 + sIdx * 70;
+      nodes.push({
+        id: sub.id,
+        title: sub.label || (sub as any).title || "",
+        subtitle: "",
+        left: subLeft,
+        top: subTop,
+        width: 180,
+        height: 55,
+        isRoot: false,
+        className: `node child-of-${branch.id}`,
+        parentId: branch.id,
+      });
+      connections.push({ from: branch.id, to: sub.id, isSub: true });
+    });
+  });
+
+  return { nodes, connections, details };
+}
+
+export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
 
+  // No backend data — show Coming Soon
+  if (!rootNode) {
+    return (
+      <ContentComingSoon
+        icon="git-network-outline"
+        title="Mind Map Coming Soon"
+        message="The mind map for this chapter is being prepared. Check back soon!"
+      />
+    );
+  }
+
   const webViewRef = useRef<WebView>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string>("node-root");
+
+  const activeRoot = rootNode;
+  const rootId = activeRoot.id || "node-root";
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string>(rootId);
   const [zoomScale, setZoomScale] = useState<number>(0.45);
   const [panX, setPanX] = useState<number>(140);
   const [panY, setPanY] = useState<number>(50);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Sync selectedNodeId when activeRoot changes
+  useEffect(() => {
+    setSelectedNodeId(activeRoot.id || "node-root");
+  }, [activeRoot]);
+
+  // Compute Layout
+  const { nodes, connections, details } = useMemo(() => {
+    return layoutMindmap(activeRoot);
+  }, [activeRoot]);
 
   const handleLoadEnd = () => {
     const injectTheme = `if (typeof setTheme === 'function') { setTheme("${theme}", ${isDark}); }`;
@@ -218,7 +226,7 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
 
   const handleReset = () => {
     webViewRef.current?.injectJavaScript("if (typeof resetView === 'function') { resetView(); }");
-    setSelectedNodeId("node-root");
+    setSelectedNodeId(rootId);
     setRotation(0);
   };
 
@@ -316,7 +324,25 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
     }
   };
 
-  const selectedNode = MINDMAP_DATA[selectedNodeId] || MINDMAP_DATA["node-root"];
+  const selectedNode = details[selectedNodeId] || details[rootId] || {
+    title: "Concept Node",
+    explanation: "Select a node to view explanation details.",
+    keyPoints: [],
+    examples: "",
+    relatedConcepts: []
+  };
+
+  const renderedNodesHtml = nodes.map(n => {
+    const branchChildrenCount = (activeRoot.children?.find(b => b.id === n.id)?.children || []).length;
+    const hasChildren = n.parentId === activeRoot.id && branchChildrenCount > 0;
+    return `
+      <div class="${n.className}" id="${n.id}" style="left: ${n.left}px; top: ${n.top}px; width: ${n.width}px; height: ${n.height}px;">
+        <div class="title">${n.title}</div>
+        ${n.subtitle ? `<div class="subtitle">${n.subtitle}</div>` : ""}
+        ${hasChildren ? `<button class="toggle-btn" id="toggle-${n.id}">−</button>` : ""}
+      </div>
+    `;
+  }).join("\n");
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -461,80 +487,7 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
         <div id="canvas">
           <svg id="svg-canvas"></svg>
 
-          <!-- ROOT -->
-          <div class="node root selected" id="node-root" style="left: 600px; top: 350px; width: 220px; height: 75px;">
-            <div class="title">Chemical Reactions</div>
-            <div class="subtitle">& Equations (Root)</div>
-          </div>
-
-          <!-- LEFT BRANCHES -->
-          <div class="node" id="node-reactions" style="left: 310px; top: 120px; width: 170px; height: 55px;">
-            <div class="title">Chemical Reactions</div>
-            <div class="subtitle">Basic Concept Map</div>
-          </div>
-
-          <div class="node" id="node-equations" style="left: 310px; top: 220px; width: 170px; height: 55px;">
-            <div class="title">Chemical Equations</div>
-            <div class="subtitle">Symbols & Representation</div>
-          </div>
-
-          <div class="node" id="node-balancing" style="left: 310px; top: 320px; width: 170px; height: 55px;">
-            <div class="title">Balancing Equations</div>
-            <div class="subtitle">Hit & Trial Method</div>
-          </div>
-
-          <div class="node" id="node-applications" style="left: 310px; top: 430px; width: 170px; height: 55px;">
-            <div class="title">Applications</div>
-            <div class="subtitle">Industrial Use Cases</div>
-          </div>
-
-          <div class="node" id="node-oxidation" style="left: 310px; top: 540px; width: 170px; height: 55px;">
-            <div class="title">Oxidation</div>
-            <div class="subtitle">Electron/Oxygen Transfer</div>
-          </div>
-
-          <div class="node" id="node-reduction" style="left: 310px; top: 640px; width: 170px; height: 55px;">
-            <div class="title">Reduction</div>
-            <div class="subtitle">Oxygen Loss / Electron Gain</div>
-          </div>
-
-          <!-- RIGHT BRANCHES -->
-          <div class="node" id="node-types" style="left: 920px; top: 220px; width: 190px; height: 60px;">
-            <div class="title">Types of Reactions</div>
-            <div class="subtitle">Combination, Decomposition...</div>
-            <button class="toggle-btn" id="toggle-types">−</button>
-          </div>
-
-          <div class="node" id="node-corrosion" style="left: 920px; top: 420px; width: 170px; height: 55px;">
-            <div class="title">Corrosion</div>
-            <div class="subtitle">Degradation of Metals</div>
-          </div>
-
-          <div class="node" id="node-rancidity" style="left: 920px; top: 550px; width: 170px; height: 55px;">
-            <div class="title">Rancidity</div>
-            <div class="subtitle">Oxidation of Fats & Oils</div>
-          </div>
-
-          <!-- SUB-BRANCHES of Types (Positioned right) -->
-          <div class="node type-child" id="node-combination" style="left: 1220px; top: 100px; width: 180px; height: 55px;">
-            <div class="title">Combination Reaction</div>
-            <div class="subtitle">A + B ──> AB (Exothermic)</div>
-          </div>
-
-          <div class="node type-child" id="node-decomposition" style="left: 1220px; top: 180px; width: 180px; height: 55px;">
-            <div class="title">Decomposition</div>
-            <div class="subtitle">AB ──> A + B (Endothermic)</div>
-          </div>
-
-          <div class="node type-child" id="node-displacement" style="left: 1220px; top: 260px; width: 180px; height: 55px;">
-            <div class="title">Displacement</div>
-            <div class="subtitle">Metal Reactivity Series</div>
-          </div>
-
-          <div class="node type-child" id="node-double" style="left: 1220px; top: 340px; width: 180px; height: 55px;">
-            <div class="title">Double Displacement</div>
-            <div class="subtitle">Precipitation Formation</div>
-          </div>
+          ${renderedNodesHtml}
 
         </div>
       </div>
@@ -557,29 +510,10 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
           }
         }
 
-        const rootNode = document.getElementById('node-root');
         const svg = document.getElementById('svg-canvas');
 
-        // Connectors structure mapping
-        const connections = [
-          { from: 'node-root', to: 'node-reactions' },
-          { from: 'node-root', to: 'node-equations' },
-          { from: 'node-root', to: 'node-balancing' },
-          { from: 'node-root', to: 'node-applications' },
-          { from: 'node-root', to: 'node-oxidation' },
-          { from: 'node-root', to: 'node-reduction' },
-          
-          { from: 'node-root', to: 'node-types' },
-          { from: 'node-root', to: 'node-corrosion' },
-          { from: 'node-root', to: 'node-rancidity' },
-
-          { from: 'node-types', to: 'node-combination', isSub: true },
-          { from: 'node-types', to: 'node-decomposition', isSub: true },
-          { from: 'node-types', to: 'node-displacement', isSub: true },
-          { from: 'node-types', to: 'node-double', isSub: true }
-        ];
-
-        let typesCollapsed = false;
+        // Dynamic connections list injected from props
+        const connections = ${JSON.stringify(connections)};
 
         function drawConnectors() {
           svg.innerHTML = '';
@@ -589,7 +523,8 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
             if (!fromEl || !toEl) return;
 
             // Skip drawing if child is collapsed
-            if (conn.isSub && typesCollapsed) return;
+            const toNode = toEl;
+            if (toNode.classList.contains('collapsed-child')) return;
 
             const fx = fromEl.offsetLeft + fromEl.offsetWidth / 2;
             const fy = fromEl.offsetTop + fromEl.offsetHeight / 2;
@@ -614,7 +549,7 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
           });
         }
 
-        let selectedId = 'node-root';
+        let selectedId = "${rootId}";
         function selectNode(id) {
           selectedId = id;
           document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
@@ -634,27 +569,29 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
           drawConnectors();
         }
 
-        // Expand/Collapse right branches of Types of Reactions
-        const toggleBtn = document.getElementById('toggle-types');
-        toggleBtn.addEventListener('click', (e) => {
-          typesCollapsed = !typesCollapsed;
-          toggleBtn.innerText = typesCollapsed ? '+' : '−';
-          
-          document.querySelectorAll('.type-child').forEach(child => {
-            if (typesCollapsed) {
-              child.classList.add('collapsed-child');
-            } else {
-              child.classList.remove('collapsed-child');
+        // Generic toggle buttons listener
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const parentId = btn.id.replace('toggle-', '');
+            const isCollapsed = btn.innerText === '−';
+            btn.innerText = isCollapsed ? '+' : '−';
+            
+            document.querySelectorAll('.child-of-' + parentId).forEach(child => {
+              if (isCollapsed) {
+                child.classList.add('collapsed-child');
+              } else {
+                child.classList.remove('collapsed-child');
+              }
+            });
+
+            // Reset selection if selecting a collapsed subnode
+            if (isCollapsed && selectedId.startsWith('child-of-' + parentId)) {
+              selectNode(parentId);
             }
+
+            drawConnectors();
+            e.stopPropagation();
           });
-
-          // Reset selection if selecting a collapsed subnode
-          if (typesCollapsed && ['node-combination', 'node-decomposition', 'node-displacement', 'node-double'].includes(selectedId)) {
-            selectNode('node-types');
-          }
-
-          drawConnectors();
-          e.stopPropagation();
         });
 
         document.querySelectorAll('.node').forEach(node => {
@@ -758,7 +695,7 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
           panX = 140;
           panY = 50;
           updateTransform();
-          selectNode('node-root');
+          selectNode("${rootId}");
         };
 
         window.fitView = function() {
@@ -1013,31 +950,43 @@ export function MindmapViewer({ title }: MindmapViewerProps) {
 
       <Text style={styles.detailDescription}>{selectedNode.explanation}</Text>
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeading}>KEY KNOWLEDGE POINTS</Text>
-      </View>
-      <View style={styles.bulletsList}>
-        {selectedNode.keyPoints.map((point, idx) => (
-          <View key={idx} style={styles.bulletRow}>
-            <Text style={styles.bulletDot}>•</Text>
-            <Text style={styles.bulletText}>{point}</Text>
+      {selectedNode.keyPoints && selectedNode.keyPoints.length > 0 ? (
+        <>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeading}>KEY KNOWLEDGE POINTS</Text>
           </View>
-        ))}
-      </View>
+          <View style={styles.bulletsList}>
+            {selectedNode.keyPoints.map((point, idx) => (
+              <View key={idx} style={styles.bulletRow}>
+                <Text style={styles.bulletDot}>•</Text>
+                <Text style={styles.bulletText}>{point}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeading}>EXAMPLES</Text>
-      </View>
-      <Text style={styles.examplesText}>{selectedNode.examples}</Text>
+      {selectedNode.examples ? (
+        <>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeading}>EXAMPLES</Text>
+          </View>
+          <Text style={styles.examplesText}>{selectedNode.examples}</Text>
+        </>
+      ) : null}
 
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeading}>RELATED CONCEPTS</Text>
-      </View>
-      <View style={styles.relatedRow}>
-        {selectedNode.relatedConcepts.map((concept, idx) => (
-          <Badge key={idx} label={concept} variant="secondary" />
-        ))}
-      </View>
+      {selectedNode.relatedConcepts && selectedNode.relatedConcepts.length > 0 ? (
+        <>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeading}>RELATED CONCEPTS</Text>
+          </View>
+          <View style={styles.relatedRow}>
+            {selectedNode.relatedConcepts.map((concept, idx) => (
+              <Badge key={idx} label={concept} variant="secondary" />
+            ))}
+          </View>
+        </>
+      ) : null}
     </View>
   );
 
