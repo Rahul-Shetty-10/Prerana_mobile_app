@@ -36,14 +36,26 @@ export function QuestionNavigator({
               onPress={() => onSelectQuestion(idx)}
               style={({ pressed }) => [
                 styles.navBox,
-                isActive ? styles.activeBox : isAnswered ? styles.answeredBox : styles.unansweredBox,
+                isActive
+                  ? styles.activeBox
+                  : isFlagged
+                  ? styles.flaggedBox
+                  : isAnswered
+                  ? styles.answeredBox
+                  : styles.unansweredBox,
                 pressed && styles.pressed,
               ]}
             >
               <Text
                 style={[
                   styles.numberText,
-                  isActive ? styles.activeText : isAnswered ? styles.answeredText : styles.unansweredText,
+                  isActive
+                    ? styles.activeText
+                    : isFlagged
+                    ? styles.flaggedText
+                    : isAnswered
+                    ? styles.answeredText
+                    : styles.unansweredText,
                 ]}
               >
                 {idx + 1}
@@ -51,7 +63,7 @@ export function QuestionNavigator({
 
               {isFlagged ? (
                 <View style={styles.flagBadge}>
-                  <AppIcon color={colors.status.warning} name="flag" size={10} />
+                  <AppIcon color={colors.status.error} name="flag" size={10} />
                 </View>
               ) : isAnswered ? (
                 <View style={styles.checkBadge}>
@@ -101,6 +113,10 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
     backgroundColor: themeColors.surfaceHighlighted,
     borderColor: colors.status.success,
   },
+  flaggedBox: {
+    backgroundColor: themeColors.surfaceSecondary,
+    borderColor: colors.status.error,
+  },
   activeBox: {
     backgroundColor: colors.primary.main,
     borderColor: colors.primary.light,
@@ -117,6 +133,9 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
   },
   answeredText: {
     color: colors.status.success,
+  },
+  flaggedText: {
+    color: colors.status.error,
   },
   activeText: {
     color: colors.primary.contrastText,

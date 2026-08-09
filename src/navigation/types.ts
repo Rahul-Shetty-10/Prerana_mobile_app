@@ -34,6 +34,40 @@ export type SubjectsStackParamList = {
     subjectId?: string;
     initialTab?: ResourceTabType;
   };
+  Exercise: {
+    trackType: TrackType;
+    subjectId?: string;
+    chapterId?: string;
+    subjectSlug?: string;
+    trackSlug?: string;
+    title?: string;
+    chapter?: ChapterItem;
+    subjectName?: string;
+  };
+  ExerciseResult: {
+    resultData?: ExerciseResultData;
+    reviewData?: ReviewPayload;
+    trackType: TrackType;
+    subjectId?: string;
+    chapterId?: string;
+    subjectSlug?: string;
+    trackSlug?: string;
+    attemptId?: string;
+    chapter?: ChapterItem;
+    subjectName?: string;
+  };
+  Review: {
+    resultData?: ExerciseResultData;
+    reviewData?: ReviewPayload;
+    trackType: TrackType;
+    subjectId?: string;
+    chapterId?: string;
+    subjectSlug?: string;
+    trackSlug?: string;
+    attemptId?: string;
+    chapter?: ChapterItem;
+    subjectName?: string;
+  };
 };
 
 export type LibraryStackParamList = {

@@ -322,6 +322,7 @@ export function ExerciseScreen({
             <View style={styles.drawerGrid}>
               {Array.from({ length: totalQuestions }).map((_, index) => {
                 const isAttempted = answeredIndices.includes(index);
+                const isFlagged = flaggedIndices.includes(index);
                 const isActive = index === currentQuestionIndex;
                 return (
                   <Pressable
@@ -332,14 +333,22 @@ export function ExerciseScreen({
                     }}
                     style={[
                       styles.drawerItem,
-                      isAttempted ? styles.drawerItemAttempted : styles.drawerItemMissed,
+                      isFlagged
+                        ? styles.drawerItemFlagged
+                        : isAttempted
+                        ? styles.drawerItemAttempted
+                        : styles.drawerItemMissed,
                       isActive && styles.drawerItemActive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.drawerItemText,
-                        isAttempted ? styles.drawerItemTextAttempted : styles.drawerItemTextMissed,
+                        isFlagged
+                          ? styles.drawerItemTextFlagged
+                          : isAttempted
+                          ? styles.drawerItemTextAttempted
+                          : styles.drawerItemTextMissed,
                         isActive && styles.drawerItemTextActive,
                       ]}
                     >
@@ -562,6 +571,9 @@ const getStyles = (themeColors: any) => StyleSheet.create({
   drawerItemMissed: {
     backgroundColor: "#F57F17", // Yellow / Gold
   },
+  drawerItemFlagged: {
+    backgroundColor: colors.status.error, // Red
+  },
   drawerItemActive: {
     borderColor: colors.primary.main,
     transform: [{ scale: 1.05 }],
@@ -574,6 +586,9 @@ const getStyles = (themeColors: any) => StyleSheet.create({
     color: "#FFFFFF",
   },
   drawerItemTextMissed: {
+    color: "#FFFFFF",
+  },
+  drawerItemTextFlagged: {
     color: "#FFFFFF",
   },
   drawerItemTextActive: {

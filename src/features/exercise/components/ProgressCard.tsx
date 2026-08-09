@@ -44,7 +44,7 @@ export function ProgressCard({
       <View style={styles.divider} />
 
       <View style={styles.statBox}>
-        <AppIcon color={colors.status.warning} name="flag-outline" size={18} />
+        <AppIcon color={colors.status.error} name="flag-outline" size={18} />
         <Text style={styles.statValue}>{flaggedCount}</Text>
         <Text style={styles.statLabel}>Flagged</Text>
       </View>

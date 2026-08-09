@@ -44,6 +44,15 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
     getTokenRef.current = getToken;
   }, [getToken]);
 
+  useEffect(() => {
+    const launchTime = (globalThis as any).appLaunchTime;
+    if (launchTime) {
+      const elapsed = Date.now() - launchTime;
+      console.log(`[PERF][NAVIGATION] Dashboard rendered: ${elapsed}ms`);
+      console.log(`[PERF][BOOT] TOTAL TIME TO DASHBOARD: ${elapsed}ms`);
+    }
+  }, []);
+
   // Sync saved subject and last studied progress from LearningState on mount/focus
   useEffect(() => {
     if (!isFocused) return;

@@ -24,6 +24,8 @@ export async function fetchQuizzesHomeData(getToken?: GetToken): Promise<Quizzes
       tenantSlug: appConfig.tenantSlug,
     });
 
+    console.log("[ASSESSMENTS][SERVICE] fetchQuizzesHomeData rawData:", JSON.stringify(rawData, null, 2));
+
     return {
       hero: rawData.hero ?? MOCK_QUIZZES_HOME_DATA.hero,
       quickActions: rawData.quickActions ?? MOCK_QUIZZES_HOME_DATA.quickActions,
@@ -33,6 +35,7 @@ export async function fetchQuizzesHomeData(getToken?: GetToken): Promise<Quizzes
       recentCompleted: rawData.recentCompleted ?? MOCK_QUIZZES_HOME_DATA.recentCompleted,
     };
   } catch (error) {
+    console.error("[ASSESSMENTS][SERVICE] fetchQuizzesHomeData error:", error);
     return MOCK_QUIZZES_HOME_DATA;
   }
 }
@@ -74,10 +77,12 @@ export async function fetchQuizLandingData(
   }
 
   try {
-    const rawData = await mobileApi<Partial<QuizLandingPayload>>(`/student/quiz-landing?subjectId=${subjectId}&chapterId=${chapterId}`, {
+    const rawData = await mobileApi<any>(`/student/quiz-landing?subjectId=${subjectId}&chapterId=${chapterId}`, {
       getToken,
       tenantSlug: appConfig.tenantSlug,
     });
+
+    console.log("[ASSESSMENTS][SERVICE] fetchQuizLandingData rawData:", JSON.stringify(rawData, null, 2));
 
     return {
       chapterNumber: rawData.chapterNumber ?? MOCK_QUIZ_LANDING_DATA.chapterNumber,
@@ -88,6 +93,7 @@ export async function fetchQuizLandingData(
       heroSubtitle: rawData.heroSubtitle ?? MOCK_QUIZ_LANDING_DATA.heroSubtitle,
     };
   } catch (error) {
+    console.error("[ASSESSMENTS][SERVICE] fetchQuizLandingData error:", error);
     return MOCK_QUIZ_LANDING_DATA;
   }
 }

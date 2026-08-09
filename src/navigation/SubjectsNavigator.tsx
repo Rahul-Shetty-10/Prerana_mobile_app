@@ -6,6 +6,7 @@ import {
   SubjectSelectionScreen,
   SubjectWorkspaceScreen,
 } from "../features/subjects";
+import { ExerciseResultScreen, ExerciseScreen, ReviewScreen } from "../features/exercise";
 
 const Stack = createNativeStackNavigator<SubjectsStackParamList>();
 
@@ -68,6 +69,120 @@ export function SubjectsNavigator({ getToken }: SubjectsNavigatorProps) {
             onBackPress={() => navigation.goBack()}
             subjectId={route.params.subjectId}
             subjectName={route.params.subjectName}
+          />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="Exercise">
+        {({ route, navigation }) => (
+          <ExerciseScreen
+            getToken={getToken}
+            onBackPress={() => navigation.goBack()}
+            onSubmitSuccess={(resData, revData) => {
+              navigation.navigate("ExerciseResult", {
+                resultData: resData,
+                reviewData: revData,
+                trackType: route.params.trackType,
+                subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
+                chapter: route.params.chapter,
+                subjectName: route.params.subjectName,
+              });
+            }}
+            trackType={route.params.trackType}
+            subjectId={route.params.subjectId}
+            chapterId={route.params.chapterId}
+            subjectSlug={route.params.subjectSlug}
+            trackSlug={route.params.trackSlug}
+          />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="ExerciseResult">
+        {({ route, navigation }) => (
+          <ExerciseResultScreen
+            onBackToSubject={() => {
+              if (route.params.chapter && route.params.subjectName) {
+                navigation.navigate("ChapterResource", {
+                  chapter: route.params.chapter,
+                  subjectName: route.params.subjectName,
+                  subjectId: route.params.subjectId,
+                });
+              } else {
+                navigation.goBack();
+              }
+            }}
+            onRetryExercise={() => {
+              navigation.navigate("Exercise", {
+                trackType: route.params.trackType,
+                subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
+                chapter: route.params.chapter,
+                subjectName: route.params.subjectName,
+              });
+            }}
+            onReviewAnswers={() => {
+              navigation.navigate("Review", {
+                trackType: route.params.trackType,
+                subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
+                resultData: route.params.resultData,
+                reviewData: route.params.reviewData,
+                chapter: route.params.chapter,
+                subjectName: route.params.subjectName,
+              });
+            }}
+            resultData={route.params.resultData}
+          />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="Review">
+        {({ route, navigation }) => (
+          <ReviewScreen
+            getToken={getToken}
+            onBackToResult={() => {
+              navigation.navigate("ExerciseResult", {
+                trackType: route.params.trackType,
+                subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
+                resultData: route.params.resultData,
+                reviewData: route.params.reviewData,
+                chapter: route.params.chapter,
+                subjectName: route.params.subjectName,
+              });
+            }}
+            onBackToSubject={() => {
+              if (route.params.chapter && route.params.subjectName) {
+                navigation.navigate("ChapterResource", {
+                  chapter: route.params.chapter,
+                  subjectName: route.params.subjectName,
+                  subjectId: route.params.subjectId,
+                });
+              } else {
+                navigation.goBack();
+              }
+            }}
+            onRetryExercise={() => {
+              navigation.navigate("Exercise", {
+                trackType: route.params.trackType,
+                subjectId: route.params.subjectId,
+                chapterId: route.params.chapterId,
+                subjectSlug: route.params.subjectSlug,
+                trackSlug: route.params.trackSlug,
+                chapter: route.params.chapter,
+                subjectName: route.params.subjectName,
+              });
+            }}
+            reviewData={route.params.reviewData}
           />
         )}
       </Stack.Screen>

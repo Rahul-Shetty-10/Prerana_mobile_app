@@ -119,6 +119,7 @@ export async function fetchChapterResources(
     const resourcesArray = (data as any).resources?.resources || (data as any).resources || [];
 
     if (Array.isArray(resourcesArray)) {
+      console.log(`[SUBJECTS][SERVICE] Resources returned:`, resourcesArray.map((r: any) => ({ type: r?.type, title: r?.title })));
       resourcesArray.forEach((item: any) => {
         if (!item || typeof item !== "object") return;
         const type = item.type;

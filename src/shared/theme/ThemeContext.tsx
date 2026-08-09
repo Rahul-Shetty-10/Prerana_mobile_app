@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { InteractionManager, View } from "react-native";
+import { View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getSavedThemeMode, saveThemeMode, ThemeMode } from "./theme";
 
@@ -41,9 +41,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
     // Clear the toggling flag after the next frame renders
     requestAnimationFrame(() => {
-      InteractionManager.runAfterInteractions(() => {
-        setIsToggling(false);
-      });
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(() => {
+          setIsToggling(false);
+        });
+      } else {
+        setTimeout(() => {
+          setIsToggling(false);
+        }, 0);
+      }
     });
   }, []);
 

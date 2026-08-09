@@ -1,18 +1,29 @@
 import type { TokenCache } from "@clerk/clerk-expo";
-import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const tokenCache: TokenCache = {
   async getToken(key) {
     try {
-      return await SecureStore.getItemAsync(key);
-    } catch {
+      return await AsyncStorage.getItem(key);
+    } catch (err) {
+      console.error(`[Clerk][tokenCache] Failed to get token from AsyncStorage:`, err);
       return null;
     }
   },
   async saveToken(key, token) {
-    await SecureStore.setItemAsync(key, token);
+    try {
+      await AsyncStorage.setItem(key, token);
+    } catch (err) {
+      console.error(`[Clerk][tokenCache] Failed to save token to AsyncStorage:`, err);
+    }
   },
   async clearToken(key) {
-    await SecureStore.deleteItemAsync(key);
+    try {
+      await AsyncStorage.removeItem(key);
+    } catch (err) {
+      console.error(`[Clerk][tokenCache] Failed to clear token from AsyncStorage:`, err);
+    }
   },
 };
+
+

@@ -18,7 +18,12 @@ import {
   Text,
   TextInput,
   View,
+  LogBox,
 } from "react-native";
+
+LogBox.ignoreLogs([
+  "InteractionManager has been deprecated and will be removed in a future release",
+]);
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { appConfig } from "./src/config";
@@ -64,6 +69,9 @@ export default function App() {
   );
 }
 
+(globalThis as any).appLaunchTime = Date.now();
+console.log("[PERF][BOOT] App launch: 0ms");
+
 function Root() {
   const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
   const [sessionState, setSessionState] = useState<'loading' | 'verifying' | 'verified' | 'failed'>('loading');
@@ -74,7 +82,9 @@ function Root() {
 
   useEffect(() => {
     if (isLoaded && !loggedClerkReady.current) {
-      console.log("[SUBJECTS][APP] Clerk ready, isLoaded = true");
+      const elapsed = Date.now() - (globalThis as any).appLaunchTime;
+      console.log(`[PERF][AUTH] Clerk loaded: ${elapsed}ms`);
+      console.log(`[PERF][AUTH] isSignedIn: ${isSignedIn}`);
       loggedClerkReady.current = true;
     }
     if (isSignedIn && !loggedAuth.current) {
@@ -88,43 +98,62 @@ function Root() {
   }, [isLoaded, isSignedIn, getToken]);
 
   useEffect(() => {
+    console.log("[SUBJECTS][APP] Root useEffect run. isLoaded:", isLoaded, "isSignedIn:", isSignedIn);
     if (!isLoaded) return;
 
     if (!isSignedIn) {
+      console.log("[SUBJECTS][APP] User is not signed in. Setting sessionState to loading.");
       setSessionState('loading');
       return;
     }
 
     const verifyBackendSession = async (isBackground: boolean) => {
+      console.log(`[SUBJECTS][APP] verifyBackendSession started. isBackground: ${isBackground}`);
+      const sessionStartTime = Date.now();
+      console.log("[PERF][SESSION] GET /session started");
       try {
+        console.log("[SUBJECTS][APP] Fetching /session from backend...");
         const data = await mobileApi<MobileSessionData>("/session", {
           getToken,
           tenantSlug: appConfig.tenantSlug,
         });
+        const elapsed = Date.now() - sessionStartTime;
+        console.log(`[PERF][SESSION] GET /session completed: ${elapsed}ms`);
+        console.log("[PERF][SESSION] status=200");
+        console.log("[SUBJECTS][APP] verifyBackendSession success. Role:", data?.role);
         if (data.role !== "student") {
           throw new Error("User role is not student");
         }
         await AsyncStorage.setItem("@prerana_session", JSON.stringify(data));
         setSessionState("verified");
-      } catch (error) {
-        console.error("[SUBJECTS][APP] Backend session verification error:", error);
-        await AsyncStorage.removeItem("@prerana_session");
-        setSessionState("failed");
+      } catch (error: any) {
+        console.error("[SUBJECTS][APP] Backend session verification error:", error?.message || error);
+        if (!isBackground) {
+          await AsyncStorage.removeItem("@prerana_session");
+          setSessionState("failed");
+        } else {
+          console.log("[SUBJECTS][APP] Background session verification failed, ignoring to prevent kicking user out.");
+        }
       }
     };
 
     const initializeSession = async () => {
+      console.log("[SUBJECTS][APP] initializeSession starting...");
       try {
+        console.log("[SUBJECTS][APP] Reading cached session from AsyncStorage...");
         const cachedSession = await AsyncStorage.getItem("@prerana_session");
+        console.log("[SUBJECTS][APP] cachedSession read complete:", cachedSession);
         if (cachedSession) {
           setSessionState("verified");
           // Background verification to ensure token/session is still active
           verifyBackendSession(true);
         } else {
+          console.log("[SUBJECTS][APP] No cached session. Setting state to verifying...");
           setSessionState("verifying");
           await verifyBackendSession(false);
         }
-      } catch (e) {
+      } catch (e: any) {
+        console.error("[SUBJECTS][APP] initializeSession error reading AsyncStorage:", e?.message || e);
         setSessionState("verifying");
         await verifyBackendSession(false);
       }

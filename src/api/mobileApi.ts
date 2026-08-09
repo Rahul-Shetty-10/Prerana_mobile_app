@@ -32,24 +32,67 @@ export type MobileSessionData = {
 };
 
 export async function mobileApi<TData>(path: string, options: MobileApiOptions): Promise<TData> {
-  const token = await options.getToken({ template: "convex" });
+  const startTime = Date.now();
+  console.log(`[MOBILE_API] Start request: ${path}`);
+  console.log("[PERF][AUTH] getToken started");
+  
+  let token: string | null = null;
+  try {
+    const tokenPromise = options.getToken({ template: "convex" });
+    const timeoutPromise = new Promise<null>((_, reject) =>
+      setTimeout(() => reject(new Error("Clerk token retrieval timed out")), 10000)
+    );
+    token = await Promise.race([tokenPromise, timeoutPromise]);
+    const getTokenDuration = Date.now() - startTime;
+    console.log(`[PERF][AUTH] getToken completed: ${getTokenDuration}ms`);
+    console.log(`[MOBILE_API] GetToken completed in ${getTokenDuration}ms. Token length: ${token?.length || 0}`);
+  } catch (err: any) {
+    const duration = Date.now() - startTime;
+    console.error(`[MOBILE_API] GetToken failed or timed out in ${duration}ms:`, err?.message || err);
+    console.warn(`\n[API][ERROR]\nendpoint=${path}\nmethod=GET_TOKEN\nstatus=TIMEOUT_OR_FAILED\nduration=${duration}ms\nerror=${err?.message || String(err)}\n`);
+    throw err;
+  }
+
   if (!token) {
+    const duration = Date.now() - startTime;
+    console.warn(`\n[API][ERROR]\nendpoint=${path}\nmethod=GET_TOKEN\nstatus=MISSING_TOKEN\nduration=${duration}ms\nerror=Unable to get Clerk token. Check sign-in and JWT template.\n`);
     throw new Error("Unable to get Clerk token. Check sign-in and JWT template.");
   }
 
-  const response = await fetch(`${appConfig.apiBaseUrl}${path}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "X-Tenant-Slug": options.tenantSlug,
-    },
-  });
+  const fetchStartTime = Date.now();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.warn(`[MOBILE_API] Request to ${path} timed out after 10s. Aborting.`);
+    controller.abort();
+  }, 10000); // 10 seconds timeout
 
-  const payload = (await response.json()) as MobileApiResponse<TData>;
-  if (!response.ok || !payload.ok) {
-    throw new Error(payload.ok ? "Request failed." : payload.error.message);
+  try {
+    const response = await fetch(`${appConfig.apiBaseUrl}${path}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-Tenant-Slug": options.tenantSlug,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const duration = Date.now() - fetchStartTime;
+    console.log(`[MOBILE_API] Fetch completed in ${duration}ms. Status: ${response.status}`);
+
+    const payload = (await response.json()) as MobileApiResponse<TData>;
+    if (!response.ok || !payload.ok) {
+      const errMsg = payload.ok ? "Request failed." : payload.error.message;
+      console.warn(`\n[API][ERROR]\nendpoint=${path}\nmethod=GET\nstatus=${response.status}\nduration=${duration}ms\nerror=${errMsg}\n`);
+      throw new Error(errMsg);
+    }
+
+    return payload.data;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    const duration = Date.now() - fetchStartTime;
+    console.error(`[MOBILE_API] Request to ${path} failed/aborted in ${duration}ms:`, err?.message || err);
+    console.warn(`\n[API][ERROR]\nendpoint=${path}\nmethod=GET\nstatus=FAILED\nduration=${duration}ms\nerror=${err?.message || String(err)}\n`);
+    throw err;
   }
-
-  return payload.data;
 }

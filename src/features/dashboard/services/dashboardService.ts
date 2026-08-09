@@ -51,11 +51,16 @@ export interface DashboardDataPayload {
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export async function fetchDashboardData(getToken: GetToken): Promise<DashboardDataPayload> {
+  const dashStartTime = Date.now();
+  console.log("[PERF][DASHBOARD] GET /student/dashboard started");
   try {
     const rawData = await mobileApi<DashboardApiResponse>("/student/dashboard", {
       getToken,
       tenantSlug: appConfig.tenantSlug,
     });
+    const elapsed = Date.now() - dashStartTime;
+    console.log(`[PERF][DASHBOARD] GET /student/dashboard completed: ${elapsed}ms`);
+    console.log("[PERF][DASHBOARD] status=200");
 
     if (!rawData) {
       throw new DashboardError('EMPTY_DATA', 'No data returned from the server');

@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { ResourceContainer, ResourceTabs } from "./components";
 import { RESOURCE_TABS_LIST } from "./constants";
 import { useChapterResources } from "./hooks";
 import { ChapterItem, ResourceTabType } from "./types";
-import { colors, spacing, typography } from "../../shared/theme";
+import { colors, spacing, typography, radius, shadows } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { AppIcon } from "../../shared/icons";
 import { saveLearningState } from "../../shared/services/learningStateService";
 import { markMilestoneSeen } from "../../shared/services/chapterProgressService";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -32,6 +34,18 @@ export function ChapterResourceScreen({
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
+  const navigation = useNavigation<any>();
+
+  const handleStartQuiz = () => {
+    navigation.navigate("Exercise", {
+      trackType: "explorer",
+      subjectId: subjectId || chapter.id,
+      chapterId: chapter.id,
+      title: `${subjectName} - Chapter ${chapter.number} Quiz`,
+      chapter,
+      subjectName,
+    });
+  };
 
   const [activeTab, setActiveTab] = useState<ResourceTabType>(initialTab || "infographic");
   const [slidedeckPageIndex, setSlidedeckPageIndex] = useState(0);
@@ -150,6 +164,20 @@ export function ChapterResourceScreen({
           />
         )}
       </ScrollView>
+
+      {/* Floating Quiz Button */}
+      <Pressable
+        accessibilityLabel="Quiz Yourself"
+        accessibilityRole="button"
+        onPress={handleStartQuiz}
+        style={({ pressed }) => [
+          styles.floatingQuizBtn,
+          pressed && styles.floatingQuizBtnPressed,
+        ]}
+      >
+        <AppIcon color="#FFFFFF" name="clipboard-outline" size={18} />
+        <Text style={styles.floatingQuizBtnText}>Quiz Yourself</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -163,7 +191,7 @@ const getStyles = (themeColors: any) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xxl + 20,
+    paddingBottom: spacing.xxl + 48,
   },
   chapterBanner: {
     paddingHorizontal: spacing.md,
@@ -206,5 +234,31 @@ const getStyles = (themeColors: any) => StyleSheet.create({
     fontSize: typography.fontSize.xs + 1,
     color: colors.status.error,
     textAlign: "center",
+  },
+  floatingQuizBtn: {
+    position: "absolute",
+    bottom: 24,
+    right: 20,
+    backgroundColor: colors.primary.main,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.sm - 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    gap: spacing.xs,
+    shadowColor: colors.primary.main,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  floatingQuizBtnPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.96 }],
+  },
+  floatingQuizBtnText: {
+    color: "#FFFFFF",
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.heavy,
   },
 });
