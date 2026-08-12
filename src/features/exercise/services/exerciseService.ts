@@ -4,6 +4,7 @@ import {
   ExerciseResultData,
   ExerciseSessionPayload,
   MCQOption,
+  MatchPair,
   QuestionItem,
   QuestionType,
   ReviewPayload,
@@ -11,7 +12,7 @@ import {
   ReviewStatus,
   TrackType,
 } from "../types";
-import { MOCK_EXERCISE_EXPLORER } from "../constants/exerciseData";
+import { resolveQuizId } from "./quizIdResolver";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -51,172 +52,262 @@ export interface RawQuizAttemptResponse {
   }>;
 }
 
-function extractQuizId(html: string): string | null {
-  if (!html) return null;
+const mapBackendTypeToFrontendType = (type: string): QuestionType => {
+  const t = type.toLowerCase().replace(/[_\s-]/g, "");
+  if (t === "matchfollowing" || t === "match") return "match";
+  if (t === "truefal" || t === "truefalse" || t === "true_false") return "true_false";
+  if (t === "fillblank" || t === "fillinthblank" || t === "fill_blank") return "fill_blank";
+  if (t === "reorder" || t === "reordersequence" || t === "sort") return "reorder";
+  // mcq_multi treated as standard mcq in mobile UI
+  return "mcq";
+};
 
-  // Strategy 1: Look for quizId key-value patterns (handles escaped JSON too)
-  const quizIdRegexes = [
-    /\\?["']quizId\\?["']\s*[:,\\]+\s*\\?["']([a-z0-9]{32})\\?["']/i,
-    /quizId\s*[:=]\s*["']?([a-z0-9]{32})["']?/i
-  ];
+/**
+ * Maps a single question object from the GET /api/mobile/v1/student/quiz-attempts
+ * (no questionId) response into a QuestionItem.
+ *
+ * The backend question shape (confirmed from API):
+ *   { _id, questionText, questionType, options: { choices[]|leftItems[]|rightItems[]|items[] },
+ *     correctAnswer: { choiceId|pairs[]|... }, explanation }
+ */
+export function mapBackendQuestionToQuestionItem(backendPayload: any, number: number): QuestionItem {
+  // The GET /quiz-attempts response wraps the question under a `question` key:
+  // { isSkipped, order, marks, question: { _id, questionText, ... } }
+  // Fall back to using the payload itself if there's no `question` wrapper.
+  const q = backendPayload?.question ?? backendPayload;
 
-  for (const regex of quizIdRegexes) {
-    const match = html.match(regex);
-    if (match && match[1]) {
-      return match[1];
-    }
+  const rawType: string = q?.questionType || q?.type || "";
+  const qType = mapBackendTypeToFrontendType(rawType);
+
+  // --- MCQ options (includes mcq_multi) ---
+  let mcqOptions: MCQOption[] | undefined;
+  if (qType === "mcq") {
+    const choices: any[] = q?.options?.choices ?? q?.choices ?? [];
+    // correctAnswer may be { choiceId } or { choiceIds: [] } for multi
+    const correctChoiceId: string =
+      q?.correctAnswer?.choiceId ?? q?.correctAnswer?.id ?? "";
+    const correctChoiceIds: string[] =
+      Array.isArray(q?.correctAnswer?.choiceIds) ? q.correctAnswer.choiceIds : [];
+    mcqOptions = choices.map((c: any, i: number) => ({
+      id: c.id,
+      label: String.fromCharCode(65 + i),
+      text: c.text ?? "",
+      isCorrect:
+        correctChoiceIds.length > 0
+          ? correctChoiceIds.includes(c.id)
+          : c.id === correctChoiceId,
+    }));
   }
 
-  // Strategy 2: Look for the word "quiz" followed by a 32-character ID in close proximity
-  const proximityRegex = /quiz[a-z0-9_]*\s*[^a-z0-9]{1,10}\s*([a-z0-9]{32})/gi;
-  let match;
-  while ((match = proximityRegex.exec(html)) !== null) {
-    if (match[1]) {
-      return match[1];
+  // --- Match pairs ---
+  let matchPairs: MatchPair[] | undefined;
+  if (qType === "match") {
+    const leftItems: any[] = q?.options?.leftItems ?? q?.leftItems ?? [];
+    const rightItems: any[] = q?.options?.rightItems ?? q?.rightItems ?? [];
+    const correctPairs: Array<{ leftId: string; rightId: string }> =
+      q?.correctAnswer?.pairs ?? [];
+    const correctMap = new Map<string, string>();
+    for (const pair of correctPairs) {
+      correctMap.set(pair.leftId, pair.rightId);
     }
+    matchPairs = leftItems.map((left: any) => {
+      const correctRightId = correctMap.get(left.id);
+      const right = rightItems.find((r: any) => r.id === correctRightId);
+      return {
+        id: left.id,
+        leftText: left.text ?? left.id,
+        rightText: right?.text ?? correctRightId ?? left.id,
+      };
+    });
   }
 
-  // Strategy 3: Find any 32-character strings and see if any contain "quiz" in their surrounding text
-  const all32CharMatches = html.match(/[a-z0-9]{32}/g) || [];
-  for (const id of all32CharMatches) {
-    const idx = html.indexOf(id);
-    if (idx !== -1) {
-      const surrounding = html.substring(Math.max(0, idx - 150), idx);
-      if (surrounding.toLowerCase().includes("quiz")) {
-        return id;
-      }
-    }
+  // --- Reorder / sort items ---
+  const reorderItems: Array<{ id: string; text: string }> | undefined =
+    (qType === "reorder")
+      ? (q?.options?.items ?? q?.options?.reorderItems ?? q?.reorderItems)
+      : undefined;
+
+  const result: QuestionItem = {
+    id: q?._id ?? q?.id ?? `q-${number}`,
+    number,
+    type: qType,
+    prompt: q?.questionText ?? q?.prompt ?? "",
+    instructions:
+      q?.instructions ??
+      (qType === "match" ? "Match the corresponding items:" : undefined),
+    mcqOptions,
+    matchPairs,
+    fillBlankPlaceholder:
+      q?.options?.placeholder ?? q?.options?.blank ?? undefined,
+    reorderItems,
+    correctAnswer: q?.correctAnswer,
+    explanation: q?.explanation ?? undefined,
+    isLoaded: true,
+    _rawBackendPayload: backendPayload,
+  };
+
+  return result;
+}
+
+/**
+ * Fetches ALL quiz questions for an in-progress attempt in a single GET request.
+ *
+ * Calls GET /api/mobile/v1/student/quiz-attempts?attemptId={id} — WITHOUT a
+ * questionId parameter — which returns the full list of questions with their
+ * content regardless of submission state.
+ *
+ * Returns the sorted `questions` array from data.result.questions.
+ */
+export async function fetchAllQuizQuestions(
+  attemptId: string,
+  token: string
+): Promise<any[]> {
+  const getUrl = `${appConfig.apiBaseUrl}/student/quiz-attempts?attemptId=${encodeURIComponent(attemptId)}`;
+
+  const getRes = await fetch(getUrl, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-Tenant-Slug": appConfig.tenantSlug,
+    },
+  });
+
+  let bodyText = "";
+  try {
+    bodyText = await getRes.text();
+  } catch (_) {
+    bodyText = "";
   }
 
-  return null;
+  if (!getRes.ok) {
+    console.error(
+      `[QUIZ][QUESTIONS_GET_ERROR] status=${getRes.status} url=${getUrl} body=${bodyText.slice(0, 400)}`
+    );
+    throw new Error(`Failed to load quiz questions. Status: ${getRes.status}`);
+  }
+
+  const payload = JSON.parse(bodyText);
+  // Response shape: { ok, data: { result: { attempt: {...}, questions: [{isSkipped, order, question:{...}}] } } }
+  const questions: any[] = payload?.data?.result?.questions ?? [];
+  // Sort by order field to ensure correct display order
+  questions.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+  return questions;
+}
+
+
+export interface ExerciseSessionResponse {
+  session: ExerciseSessionPayload;
+  attemptId: string;
+  questionOrder: string[];
+  quizId: string;
 }
 
 export async function fetchExerciseSession(
   trackType: TrackType = "explorer",
   subjectId: string = "subj-science",
   chapterId: string = "chap-1",
-  getToken?: GetToken
-): Promise<ExerciseSessionPayload> {
-  const quizStartTime = Date.now();
-  console.log(`[PERF][QUIZ] Quiz button tapped: 0ms`);
-  console.log("[PERF][QUIZ] Quiz resolution started");
-
+  getToken?: GetToken,
+  quizStartTime: number = Date.now()
+): Promise<ExerciseSessionResponse> {
   if (!getToken) {
     throw new Error("Authentication required. Please sign in.");
   }
 
   console.log(`[EXERCISE][SERVICE] fetchExerciseSession started: subjectId='${subjectId}', chapterId='${chapterId}'`);
 
-  try {
-    // Step 1: Call quiz-landing endpoint to resolve the quiz info
-    console.log("[EXERCISE][SERVICE] Resolving quizId from student/quiz-landing API...");
-    const landingStartTime = Date.now();
-    
-    const landingData = await mobileApi<any>(
-      `/student/quiz-landing?subjectId=${encodeURIComponent(subjectId)}&chapterId=${encodeURIComponent(chapterId)}`,
-      {
-        getToken,
-        tenantSlug: appConfig.tenantSlug,
-      }
-    );
-
-    const quizResolutionDuration = Date.now() - landingStartTime;
-    console.log(`[PERF][QUIZ] Quiz resolution completed: ${quizResolutionDuration}ms`);
-    console.log("[EXERCISE][SERVICE] quiz-landing API response:", JSON.stringify(landingData, null, 2));
-
-    const quizId = landingData?.quizId || landingData?.id || landingData?.quiz?._id || landingData?.chapterQuizEntry?.quizId || landingData?.chapterQuizEntry?.id;
-    console.log(`[PERF][QUIZ] quizId=${quizId || "undefined"}`);
-
-    if (!quizId) {
-      console.warn(`\n[API][ERROR]\nendpoint=/student/quiz-landing\nmethod=GET\nstatus=200\nduration=${quizResolutionDuration}ms\nerror=quizId missing in response\n`);
-      throw new Error("Could not find a valid quizId in the quiz-landing response.");
-    }
-
-    // Step 2: Create a quiz attempt using the resolved quizId
-    console.log("[PERF][QUIZ] Attempt creation started");
-    const attemptStartTime = Date.now();
-
-    const activeTokenNormal = await getToken();
-    if (!activeTokenNormal) {
-      throw new Error("Unable to retrieve authentication token.");
-    }
-
-    console.log(`[EXERCISE][SERVICE] Creating live quiz attempt for quizId='${quizId}'...`);
-    const attemptRes = await fetch("https://app.smartguru.in/api/student/quiz-attempts", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${activeTokenNormal}`,
-        "Content-Type": "application/json",
-        "X-Tenant-Slug": appConfig.tenantSlug,
-      },
-      body: JSON.stringify({
-        intent: "ensure",
-        tenant: appConfig.tenantSlug,
-        quizId: quizId,
-        questionCount: 45, // Full chapter count
-      }),
-    });
-
-    const attemptDuration = Date.now() - attemptStartTime;
-    console.log(`[PERF][QUIZ] Attempt creation completed: ${attemptDuration}ms`);
-
-    if (!attemptRes.ok) {
-      const errText = await attemptRes.text();
-      console.error(`\n[API][ERROR]\nendpoint=/api/student/quiz-attempts\nmethod=POST\nstatus=${attemptRes.status}\nduration=${attemptDuration}ms\nerror=${errText}\n`);
-      throw new Error(`Failed to start quiz attempt. Server status: ${attemptRes.status}`);
-    }
-
-    const attemptData = await attemptRes.json();
-    const attemptId = attemptData?.attemptId || attemptData?.id || attemptData?.attempt?._id;
-    console.log(`[PERF][QUIZ] attemptId=${attemptId || "undefined"}`);
-
-    // Step 3: Retrieve questions list from attempt data
-    console.log("[PERF][QUIZ] Questions request started");
-    const questionsList = attemptData?.questions || attemptData?.attempt?.questions;
-    const questionCount = questionsList?.length || 0;
-    console.log(`[PERF][QUIZ] Questions request completed: 0ms`);
-    console.log(`[PERF][QUIZ] questionCount=${questionCount}`);
-
-    if (!questionsList || !Array.isArray(questionsList) || questionsList.length === 0) {
-      throw new Error("No quiz questions returned from backend for this chapter.");
-    }
-
-    console.log(`[EXERCISE][SERVICE] Successfully retrieved ${questionsList.length} questions from backend.`);
-
-    const mappedQuestions: QuestionItem[] = questionsList.map((q: any, idx: number) => ({
-      id: q.id || q._id || `q-${idx + 1}`,
-      number: q.number || idx + 1,
-      type: q.type || "mcq",
-      prompt: q.prompt || "Question prompt",
-      instructions: q.instructions || "Select or answer the following:",
-      mcqOptions: q.mcqOptions,
-      matchPairs: q.matchPairs,
-      fillBlankPlaceholder: q.fillBlankPlaceholder,
-      reorderItems: q.reorderItems,
-      correctAnswer: q.correctAnswer,
-      explanation: q.explanation,
-    }));
-
-    const totalDuration = Date.now() - quizStartTime;
-    console.log(`[PERF][QUIZ] First question rendered: ${totalDuration}ms`);
-    console.log(`[PERF][QUIZ] TOTAL TIME TO FIRST QUESTION: ${totalDuration}ms`);
-
-    return {
-      id: attemptData.attemptId || attemptData.id || `ex-${trackType}-${chapterId}`,
-      subjectName: attemptData.subjectName || "General Science",
-      trackName: attemptData.trackName || "Practice Quiz",
-      trackType: trackType,
-      title: attemptData.title || "Chapter Test",
-      totalQuestions: mappedQuestions.length,
-      questions: mappedQuestions,
-    };
-  } catch (error: any) {
-    const totalDuration = Date.now() - quizStartTime;
-    console.error("[EXERCISE][SERVICE] fetchExerciseSession critical error:", error?.message || error);
-    console.warn(`\n[API][ERROR]\nendpoint=fetchExerciseSession\nmethod=GET_AND_POST\nstatus=FAILED\nduration=${totalDuration}ms\nerror=${error?.message || String(error)}\n`);
-    throw error;
+  // /api/mobile/v1 routes require the convex-template JWT
+  // /api/student/* web routes require the raw Clerk session token (no template)
+  const activeTokenNormal = await getToken({ template: "convex" });
+  if (!activeTokenNormal) {
+    throw new Error("Unable to retrieve authentication token.");
   }
+
+  // Obtain the raw Clerk session token for web student API routes
+  const activeTokenSession = await getToken();
+  if (!activeTokenSession) {
+    throw new Error("Unable to retrieve session token. Please sign in again.");
+  }
+
+  console.log(`[PERF][QUIZ] Quiz start`);
+
+  // Step 1: Resolve the quizId for this chapter
+  const quizId = resolveQuizId(chapterId);
+  console.log(`[PERF][QUIZ] Quiz ID resolved`);
+
+  // Step 2: Create or ensure a quiz attempt.
+  // /api/student/quiz-attempts is a web student route authenticated via the raw
+  // Clerk session token (no Convex template). It does NOT go through /api/mobile/v1.
+  const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");
+  const attemptRes = await fetch(`${baseUrl}/api/student/quiz-attempts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${activeTokenSession}`,
+      "Content-Type": "application/json",
+      "X-Tenant-Slug": appConfig.tenantSlug,
+    },
+    body: JSON.stringify({
+      intent: "ensure",
+      tenant: appConfig.tenantSlug,
+      quizId,
+      questionCount: 45,
+    }),
+  });
+
+  if (!attemptRes.ok) {
+    const errText = await attemptRes.text().catch(() => "");
+    console.error(`[PERF][QUIZ] Attempt creation failed: status=${attemptRes.status} body=${errText.slice(0, 200)}`);
+    throw new Error(`Unable to start the quiz right now. Please try again. (status: ${attemptRes.status})`);
+  }
+
+  console.log(`[PERF][QUIZ] Attempt created: ${Date.now() - quizStartTime}ms`);
+
+  const attemptData = await attemptRes.json();
+  const attemptId: string | undefined =
+    attemptData?.attemptId ?? attemptData?.id ?? attemptData?.attempt?._id;
+  const questionOrder: string[] | undefined = attemptData?.questionOrder;
+
+  if (!attemptId) {
+    throw new Error("Unable to start the quiz right now. Please try again. (missing attemptId)");
+  }
+  if (!questionOrder || !Array.isArray(questionOrder) || questionOrder.length === 0) {
+    throw new Error("No quiz questions are available for this chapter yet. Please check back soon.");
+  }
+
+  console.log(`[PERF][QUIZ] Attempt created — attemptId=${attemptId} questions=${questionOrder.length}`);
+
+  // Step 3: Fetch ALL questions at once.
+  // GET /api/mobile/v1/student/quiz-attempts?attemptId={id} (NO questionId) returns
+  // the full question list including content for unanswered (skipped) questions.
+  const rawQuestions = await fetchAllQuizQuestions(attemptId, activeTokenNormal);
+  console.log(`[PERF][QUIZ] All questions loaded: ${Date.now() - quizStartTime}ms (count=${rawQuestions.length})`);
+
+  if (rawQuestions.length === 0) {
+    throw new Error("No quiz questions are available for this chapter yet. Please check back soon.");
+  }
+
+  // Step 4: Map raw question items to QuestionItem and build the session.
+  const mappedQuestions = rawQuestions.map((rawQ: any, idx: number) =>
+    mapBackendQuestionToQuestionItem(rawQ, idx + 1)
+  );
+
+  const initialSession: ExerciseSessionPayload = {
+    id: attemptId,
+    subjectName: "General Science",
+    trackName: "Chapter Quiz",
+    trackType,
+    title: "Chapter Test",
+    totalQuestions: mappedQuestions.length,
+    questions: mappedQuestions,
+  };
+
+  return {
+    session: initialSession,
+    attemptId,
+    questionOrder,
+    quizId,
+  };
 }
+
 
 export async function fetchQuizAttemptReview(
   attemptId: string,

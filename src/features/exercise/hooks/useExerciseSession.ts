@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import { fetchExerciseSession, fetchFundamentalsTrack } from "../services";
+import { fetchExerciseSession, fetchFundamentalsTrack, mapBackendQuestionToQuestionItem } from "../services";
 import { ExerciseSessionPayload, TrackType } from "../types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -32,25 +32,48 @@ export function useExerciseSession(
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quizStartTime, setQuizStartTime] = useState<number | null>(null);
 
   const getTokenRef = useRef(getToken);
   useEffect(() => {
     getTokenRef.current = getToken;
   }, [getToken]);
 
+  const currentAttemptIdRef = useRef<string | null>(null);
+
   const loadSession = useCallback(async () => {
     const activeGetToken = getTokenRef.current;
+    if (!activeGetToken) {
+      setError("Authentication required. Please sign in.");
+      return;
+    }
+
+    const startTime = Date.now();
+    setQuizStartTime(startTime);
+    console.log("[PERF][QUIZ] Quiz start");
+
     setIsLoading(true);
     setError(null);
+
     try {
-      const payload = subjectSlug && trackSlug
-        ? await fetchFundamentalsTrack(subjectSlug, trackSlug, activeGetToken)
-        : await fetchExerciseSession(trackType, subjectId, chapterId, activeGetToken);
-      setSession(payload);
-      setCurrentQuestionIndex(0);
-      setUserAnswers({});
-      setFlaggedIndices([]);
-      setIsSubmitted(false);
+      if (subjectSlug && trackSlug) {
+        const payload = await fetchFundamentalsTrack(subjectSlug, trackSlug, activeGetToken);
+        currentAttemptIdRef.current = payload.id;
+        setSession(payload);
+        setCurrentQuestionIndex(0);
+        setUserAnswers({});
+        setFlaggedIndices([]);
+        setIsSubmitted(false);
+      } else {
+        const res = await fetchExerciseSession(trackType, subjectId, chapterId, activeGetToken, startTime);
+        currentAttemptIdRef.current = res.attemptId;
+        setSession(res.session);
+        setCurrentQuestionIndex(0);
+        setUserAnswers({});
+        setFlaggedIndices([]);
+        setIsSubmitted(false);
+        // All questions are fully loaded at once — no background fetching needed
+      }
     } catch (err) {
       console.warn("[EXERCISE][useExerciseSession] Track not loaded:", err instanceof Error ? err.message : String(err));
       setError(err instanceof Error ? err.message : "Failed to load exercise session.");
@@ -59,6 +82,7 @@ export function useExerciseSession(
       setIsLoading(false);
     }
   }, [trackType, subjectId, chapterId, subjectSlug, trackSlug]);
+
 
   useEffect(() => {
     void loadSession();
@@ -116,6 +140,7 @@ export function useExerciseSession(
     isSubmitted,
     isLoading,
     error,
+    quizStartTime,
     setAnswer,
     toggleFlagIndex,
     goToNextQuestion,

@@ -29,6 +29,8 @@ export interface QuestionItem {
   reorderItems?: Array<{ id: string; text: string }>;
   correctAnswer?: any;
   explanation?: string;
+  isLoaded?: boolean;
+  _rawBackendPayload?: any;
 }
 
 export interface ExerciseSessionPayload {

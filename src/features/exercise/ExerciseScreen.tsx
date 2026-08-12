@@ -73,6 +73,7 @@ export function ExerciseScreen({
     isSubmitted,
     isLoading,
     error,
+    quizStartTime,
     setAnswer,
     toggleFlagIndex,
     goToNextQuestion,
@@ -80,6 +81,14 @@ export function ExerciseScreen({
     jumpToQuestion,
     submitSession,
   } = useExerciseSession(trackType, subjectId, chapterId, getToken, subjectSlug, trackSlug);
+
+  const firstRenderLogged = React.useRef(false);
+  React.useEffect(() => {
+    if (!isLoading && totalQuestions > 0 && currentQuestion && !firstRenderLogged.current && quizStartTime) {
+      firstRenderLogged.current = true;
+      console.log(`[PERF][QUIZ] First question rendered: ${Date.now() - quizStartTime}ms`);
+    }
+  }, [isLoading, totalQuestions, currentQuestion, quizStartTime]);
 
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
   const isCurrentFlagged = flaggedIndices.includes(currentQuestionIndex);
@@ -107,6 +116,17 @@ export function ExerciseScreen({
   };
 
   const renderQuestionBody = (question: QuestionItem) => {
+    if (question.isLoaded === false) {
+      return (
+        <View style={{ padding: 40, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color={colors.primary.main} size="small" />
+          <Text style={{ marginTop: 8, color: themeColors.textMuted, fontSize: 12 }}>
+            Loading question details...
+          </Text>
+        </View>
+      );
+    }
+
     switch (question.type) {
       case "mcq":
         return (
@@ -256,7 +276,20 @@ export function ExerciseScreen({
                   />
                 </View>
 
-                {renderQuestionBody(currentQuestion)}
+                {(() => {
+                  const q = currentQuestion;
+                  const rawQ = (q as any)._rawBackendPayload || q;
+                  const backendQuestion = rawQ.question || rawQ;
+                  console.log(
+                    `[QUIZ][RENDER]\n` +
+                    `index=${currentQuestionIndex}\n` +
+                    `questionId=${q.id}\n` +
+                    `questionType=${q.type}\n` +
+                    `questionText=${!!(backendQuestion.questionText || q.prompt)}\n` +
+                    `hasOptions=${!!(backendQuestion.options || q.mcqOptions || q.matchPairs)}`
+                  );
+                  return renderQuestionBody(q);
+                })()}
               </View>
             ) : null}
 
