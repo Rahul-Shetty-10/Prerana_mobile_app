@@ -54,12 +54,12 @@ export async function fetchProfileData(getToken?: GetToken) {
     };
 
     const learningStats: LearningStats = {
-      overallAccuracy: response.learningStats?.overallAccuracy ?? MOCK_LEARNING_STATS.overallAccuracy,
-      questionsSolved: response.learningStats?.questionsSolved ?? MOCK_LEARNING_STATS.questionsSolved,
-      studyHours: response.learningStats?.studyHours ?? MOCK_LEARNING_STATS.studyHours,
-      completedChapters: response.learningStats?.completedChapters ?? MOCK_LEARNING_STATS.completedChapters,
-      completedSubjects: response.learningStats?.completedSubjects ?? MOCK_LEARNING_STATS.completedSubjects,
-      weeklyProgressPercent: response.learningStats?.weeklyProgressPercent ?? MOCK_LEARNING_STATS.weeklyProgressPercent,
+      overallAccuracy: response.learningStats?.overallAccuracy ?? 0,
+      questionsSolved: response.learningStats?.questionsSolved ?? 0,
+      studyHours: response.learningStats?.studyHours ?? 0,
+      completedChapters: response.learningStats?.completedChapters ?? 0,
+      completedSubjects: response.learningStats?.completedSubjects ?? 0,
+      weeklyProgressPercent: response.learningStats?.weeklyProgressPercent ?? 0,
     };
 
     const subjectProgress =

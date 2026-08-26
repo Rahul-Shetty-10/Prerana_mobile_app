@@ -7,6 +7,7 @@ import {
   SubjectWorkspaceScreen,
 } from "../features/subjects";
 import { ExerciseResultScreen, ExerciseScreen, ReviewScreen } from "../features/exercise";
+import { ChapterArcadeScreen } from "../features/arcade";
 
 const Stack = createNativeStackNavigator<SubjectsStackParamList>();
 
@@ -183,6 +184,21 @@ export function SubjectsNavigator({ getToken }: SubjectsNavigatorProps) {
               });
             }}
             reviewData={route.params.reviewData}
+          />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="ChapterArcade">
+        {({ route, navigation }) => (
+          <ChapterArcadeScreen
+            chapterId={route.params.chapterId}
+            chapterTitle={route.params.chapterTitle}
+            gameType={route.params.gameType}
+            getToken={getToken}
+            onBackPress={() => navigation.goBack()}
+            subjectId={route.params.subjectId}
+            subjectName={route.params.subjectName}
+            wordGames={route.params.wordGames}
           />
         )}
       </Stack.Screen>

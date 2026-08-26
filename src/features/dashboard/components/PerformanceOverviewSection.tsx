@@ -6,14 +6,9 @@ import { Badge } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 export function PerformanceOverviewSection({
-  overallAccuracy = 84.5,
-  masteryLevel = "Advanced",
-  subjectsPerformance = [
-    { subject: "Physics", scorePercentage: 88, questionsSolved: 420, colorVariant: "coral" },
-    { subject: "Chemistry", scorePercentage: 82, questionsSolved: 380, colorVariant: "amber" },
-    { subject: "Mathematics", scorePercentage: 79, questionsSolved: 290, colorVariant: "blue" },
-    { subject: "Biology", scorePercentage: 91, questionsSolved: 150, colorVariant: "emerald" },
-  ],
+  overallAccuracy = 0,
+  masteryLevel = "Beginner",
+  subjectsPerformance = [],
 }: PerformanceOverviewProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];

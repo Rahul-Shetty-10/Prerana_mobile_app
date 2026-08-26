@@ -7,7 +7,8 @@ export type ResourceTabType =
   | "textbook"
   | "flashcards"
   | "table"
-  | "audio";
+  | "audio"
+  | "arcade";
 
 export interface ResourceTabItem {
   id: ResourceTabType;

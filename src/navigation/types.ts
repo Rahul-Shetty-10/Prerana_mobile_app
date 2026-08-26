@@ -1,6 +1,8 @@
 import { SubjectItem } from "../features/fundamentals/types";
 import { ExerciseResultData, ReviewPayload, TrackType } from "../features/exercise/types";
 import { ChapterItem, ResourceTabType, SubjectMeta } from "../features/subjects/types";
+import { ChapterWordGames } from "../features/subjects/types";
+import { ChapterGameType } from "../features/arcade/types";
 
 export type RootTabParamList = {
   DashboardTab: undefined;
@@ -67,6 +69,14 @@ export type SubjectsStackParamList = {
     attemptId?: string;
     chapter?: ChapterItem;
     subjectName?: string;
+  };
+  ChapterArcade: {
+    subjectId: string;
+    chapterId: string;
+    chapterTitle: string;
+    subjectName: string;
+    gameType?: ChapterGameType;
+    wordGames: ChapterWordGames;
   };
 };
 

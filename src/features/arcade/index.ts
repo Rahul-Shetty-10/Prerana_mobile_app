@@ -8,6 +8,7 @@ export * from "./BrainBlitzScreen";
 export * from "./MatchMasterScreen";
 export * from "./LightningTapScreen";
 export * from "./PuzzleQuestScreen";
+export * from "./screens/ChapterArcadeScreen";
 
 
 

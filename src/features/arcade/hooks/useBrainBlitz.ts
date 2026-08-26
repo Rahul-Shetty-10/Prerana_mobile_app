@@ -1,10 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { fetchBrainBlitzQuestions } from "../services";
 import { BrainBlitzQuestion, BrainBlitzSessionResult, QuizCategory } from "../types";
 import { useGameEngine } from "./useGameEngine";
 import { useTimer } from "./useTimer";
+import { useAuth } from "@clerk/clerk-expo";
+import { recordQuestionAttempt } from "../../../shared/services/attemptTracker";
 
 export function useBrainBlitz() {
+  const { userId } = useAuth();
   const engine = useGameEngine({ maxLives: 3, basePoints: 10 });
   const [questions, setQuestions] = useState<BrainBlitzQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -24,6 +27,16 @@ export function useBrainBlitz() {
   isAnsweredRef.current = isAnswered;
   questionsRef.current = questions;
   currentIndexRef.current = currentIndex;
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const finalizeSession = useCallback(() => {
     const eng = engineRef.current;
@@ -82,7 +95,11 @@ export function useBrainBlitz() {
     if (eng.status !== "playing" || isAnsweredRef.current) return;
     setIsAnswered(true);
     eng.registerWrong();
-    setTimeout(() => {
+    if (userId) {
+      void recordQuestionAttempt(userId, false);
+    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
       advanceNextQuestion();
     }, 1200);
   }, [advanceNextQuestion]);
@@ -125,8 +142,13 @@ export function useBrainBlitz() {
       } else {
         eng.registerWrong();
       }
+      
+      if (userId) {
+        void recordQuestionAttempt(userId, isCorrect);
+      }
 
-      setTimeout(() => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
         const nextIdx = idx + 1;
         const currentLives = isCorrect ? eng.lives : eng.lives - 1;
 

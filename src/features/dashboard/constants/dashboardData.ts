@@ -26,60 +26,50 @@ export const MOCK_WELCOME_DATA: WelcomeCardProps = {
 export const MOCK_STATS_DATA: StatCardProps[] = [
   {
     title: "Overall Accuracy",
-    value: "84.5%",
+    value: "0%",
     icon: "analytics-outline",
     variant: "coral",
-    changeText: "+2.4%",
-    changeType: "positive",
+    changeText: "-",
+    changeType: "neutral",
   },
   {
     title: "Questions Solved",
-    value: "1,240",
+    value: "0",
     icon: "checkmark-done-circle-outline",
     variant: "emerald",
-    changeText: "+150",
-    changeType: "positive",
+    changeText: "-",
+    changeType: "neutral",
   },
   {
-    title: "Study Hours",
-    value: "38.5 hrs",
+    title: "Active Learning Time",
+    value: "0h",
     icon: "time-outline",
     variant: "amber",
-    changeText: "+4.2h",
-    changeType: "positive",
+    changeText: "-",
+    changeType: "neutral",
   },
   {
-    title: "National Rank",
-    value: "#412",
-    icon: "trophy-outline",
+    title: "Chapters Completed",
+    value: "0",
+    icon: "book-outline",
     variant: "purple",
-    changeText: "Top 2%",
-    changeType: "positive",
+    changeText: "-",
+    changeType: "neutral",
   },
 ];
 
 export const MOCK_FOCUS_NOW: FocusNowProps = {
-  nextChapter: {
-    subjectName: "Physics",
-    chapterTitle: "Chapter 4: Thermodynamics & Heat Transfer",
-    progressPercentage: 68,
-    estimatedMinutes: 25,
-  },
+  nextChapter: undefined,
   libraryStatus: {
-    savedResourcesCount: 14,
-    activeLabsCount: 3,
+    savedResourcesCount: 0,
+    activeLabsCount: 0,
   },
 };
 
 export const MOCK_PERFORMANCE: PerformanceOverviewProps = {
-  overallAccuracy: 84.5,
-  masteryLevel: "Advanced",
-  subjectsPerformance: [
-    { subject: "Physics", scorePercentage: 88, questionsSolved: 420, colorVariant: "coral" },
-    { subject: "Chemistry", scorePercentage: 82, questionsSolved: 380, colorVariant: "amber" },
-    { subject: "Mathematics", scorePercentage: 79, questionsSolved: 290, colorVariant: "blue" },
-    { subject: "Biology", scorePercentage: 91, questionsSolved: 150, colorVariant: "emerald" },
-  ],
+  overallAccuracy: 0,
+  masteryLevel: "Beginner",
+  subjectsPerformance: [],
 };
 
 export const MOCK_SIGNALS: LatestSignalsProps["signals"] = [

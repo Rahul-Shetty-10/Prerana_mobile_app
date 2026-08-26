@@ -1,6 +1,7 @@
 import React from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import { Modal, StyleSheet, Text, View } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { VictoryModalProps } from "../types";
 import { AppIcon } from "../../../shared/icons";
 import { Badge, Button } from "../../../shared/components";
@@ -15,6 +16,9 @@ export function VictoryModal({
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
+  const isFocused = useIsFocused();
+
+  if (!isFocused) return null;
 
   return (
     <Modal animationType="fade" transparent visible={visible}>

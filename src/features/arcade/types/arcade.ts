@@ -1,9 +1,13 @@
 import { IconName } from "../../../shared/icons";
 import { BrainBlitzSessionResult } from "./brainBlitz";
 import { ArcadeUserProfile } from "./profile";
+import { ChapterWordGames } from "../../../features/subjects/types";
 
 export type GameId = "brainBlitz" | "matchMaster" | "lightningTap" | "puzzleQuest";
 export type GameStatus = "available" | "coming_soon";
+
+/** The four chapter-specific word-game categories served by the puzzle resource. */
+export type ChapterGameType = "crossword" | "hangman" | "memoryBattle" | "speedSniper";
 
 export interface GameMetaCard {
   id: GameId;

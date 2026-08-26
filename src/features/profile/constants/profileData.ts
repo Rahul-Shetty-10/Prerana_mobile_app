@@ -16,12 +16,12 @@ export const MOCK_STUDENT_INFO: StudentInfo = {
 };
 
 export const MOCK_LEARNING_STATS: LearningStats = {
-  overallAccuracy: 84,
-  questionsSolved: 420,
-  studyHours: 32.5,
-  completedChapters: 14,
-  completedSubjects: 2,
-  weeklyProgressPercent: 78,
+  overallAccuracy: 0,
+  questionsSolved: 0,
+  studyHours: 0,
+  completedChapters: 0,
+  completedSubjects: 0,
+  weeklyProgressPercent: 0,
 };
 
 export const MOCK_ACHIEVEMENTS: AchievementItem[] = [
@@ -80,62 +80,7 @@ export const MOCK_ACHIEVEMENTS: AchievementItem[] = [
   },
 ];
 
-export const MOCK_SUBJECT_PROGRESS: SubjectProgressItem[] = [
-  {
-    id: "subj-phy-11",
-    subjectName: "Physics",
-    iconName: "planet-outline",
-    color: "#E86A50",
-    totalChapters: 8,
-    completedChapters: 5,
-    progressPercent: 62,
-  },
-  {
-    id: "subj-chem-11",
-    subjectName: "Chemistry",
-    iconName: "flask-outline",
-    color: "#7C3AED",
-    totalChapters: 7,
-    completedChapters: 4,
-    progressPercent: 57,
-  },
-  {
-    id: "subj-math-11",
-    subjectName: "Mathematics",
-    iconName: "calculator-outline",
-    color: "#F5B800",
-    totalChapters: 10,
-    completedChapters: 8,
-    progressPercent: 80,
-  },
-  {
-    id: "subj-bio-11",
-    subjectName: "Biology",
-    iconName: "leaf-outline",
-    color: "#059669",
-    totalChapters: 6,
-    completedChapters: 3,
-    progressPercent: 50,
-  },
-  {
-    id: "subj-eng-11",
-    subjectName: "English",
-    iconName: "text-outline",
-    color: "#2563EB",
-    totalChapters: 5,
-    completedChapters: 5,
-    progressPercent: 100,
-  },
-  {
-    id: "subj-cs-11",
-    subjectName: "Computer Science",
-    iconName: "code-slash-outline",
-    color: "#D97706",
-    totalChapters: 6,
-    completedChapters: 4,
-    progressPercent: 66,
-  },
-];
+export const MOCK_SUBJECT_PROGRESS: SubjectProgressItem[] = [];
 
 export const MOCK_ACCOUNT_OPTIONS: AccountOptionItem[] = [
   {

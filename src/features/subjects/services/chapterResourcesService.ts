@@ -6,6 +6,7 @@ import {
   PDFPageItem,
   TableColumn,
   TableRowData,
+  ChapterWordGames,
 } from "../types";
 
 export class ChapterResourcesError extends Error {
@@ -41,6 +42,8 @@ export interface ChapterResourcesPayload {
   videoTitle?: string;
   authToken?: string;
   tenantSlug?: string;
+  /** Parsed payload from a `type === "puzzle"` resource (Chapter Word Games). */
+  wordGames?: ChapterWordGames;
 }
 
 export async function fetchChapterResources(
@@ -182,6 +185,20 @@ export async function fetchChapterResources(
           result.audioUrl = assetUrl;
           result.audioTitle = item.title || "Audio Summary";
           result.audioDurationSeconds = item.payload?.duration || undefined;
+        } else if (type === "puzzle") {
+          // Chapter Word Games — payload keys match backend exactly.
+          const p = item.payload;
+          if (p && typeof p === "object") {
+            result.wordGames = {
+              crosswords: Array.isArray(p.crosswords) ? p.crosswords : [],
+              hangman: Array.isArray(p.hangman) ? p.hangman : [],
+              memoryBattle: Array.isArray(p.memoryBattle) ? p.memoryBattle : [],
+              speedSniper: Array.isArray(p.speedSniper) ? p.speedSniper : [],
+            };
+            console.log(
+              `[SUBJECTS][SERVICE] puzzle resource parsed — crosswords:${result.wordGames.crosswords.length} hangman:${result.wordGames.hangman.length} memoryBattle:${result.wordGames.memoryBattle.length} speedSniper:${result.wordGames.speedSniper.length}`
+            );
+          }
         }
       });
     }

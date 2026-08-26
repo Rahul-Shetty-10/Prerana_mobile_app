@@ -19,6 +19,9 @@ import { markQuizCompleted } from "../../shared/services/chapterProgressService"
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
 import { AppIcon } from "../../shared/icons";
+import { useAuth } from "@clerk/clerk-expo";
+import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
+import { recordBatchAttempts } from "../../shared/services/attemptTracker";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface ExerciseScreenProps {
@@ -46,6 +49,8 @@ export function ExerciseScreen({
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
+  const { userId } = useAuth();
+  useActiveLearningTracker();
   const [confirmModal, setConfirmModal] = useState<{
     visible: boolean;
     title: string;
@@ -104,6 +109,11 @@ export function ExerciseScreen({
       onConfirm: () => {
         submitSession();
         const { resultData, reviewData } = gradeExercise(session, userAnswers);
+        
+        if (userId) {
+          void recordBatchAttempts(userId, resultData.correctCount, resultData.incorrectCount);
+        }
+
         void markQuizCompleted(
           chapterId,
           subjectId,

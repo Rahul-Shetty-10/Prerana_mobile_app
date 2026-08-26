@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -6,12 +6,14 @@ import { useNavigation } from "@react-navigation/native";
 import { ResourceContainer, ResourceTabs } from "./components";
 import { RESOURCE_TABS_LIST } from "./constants";
 import { useChapterResources } from "./hooks";
-import { ChapterItem, ResourceTabType } from "./types";
+import { ChapterItem, ResourceTabItem, ResourceTabType } from "./types";
 import { colors, spacing, typography, radius, shadows } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
 import { AppIcon } from "../../shared/icons";
 import { saveLearningState } from "../../shared/services/learningStateService";
 import { markMilestoneSeen } from "../../shared/services/chapterProgressService";
+import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
+
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface ChapterResourceScreenProps {
@@ -35,6 +37,7 @@ export function ChapterResourceScreen({
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const navigation = useNavigation<any>();
+  useActiveLearningTracker();
 
   const handleStartQuiz = () => {
     navigation.navigate("Exercise", {
@@ -47,6 +50,7 @@ export function ChapterResourceScreen({
     });
   };
 
+
   const [activeTab, setActiveTab] = useState<ResourceTabType>(initialTab || "infographic");
   const [slidedeckPageIndex, setSlidedeckPageIndex] = useState(0);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
@@ -57,6 +61,17 @@ export function ChapterResourceScreen({
     chapter.id,
     getToken
   );
+
+  const navigateToGame = () => {
+    if (!resources?.wordGames) return;
+    navigation.navigate("ChapterArcade", {
+      subjectId: subjectId || chapter.id,
+      chapterId: chapter.id,
+      chapterTitle: chapter.title,
+      subjectName,
+      wordGames: resources.wordGames,
+    });
+  };
 
   useEffect(() => {
     if (initialTab) {
@@ -99,7 +114,29 @@ export function ChapterResourceScreen({
     };
   }, [isLoading]);
 
+  // Build game tabs dynamically – only include Arcade tab if any game has data
+  const dynamicTabs = useMemo((): ResourceTabItem[] => {
+    const wg = resources?.wordGames;
+    const hasGames = wg && (
+      (wg.crosswords && wg.crosswords.length > 0) ||
+      (wg.hangman && wg.hangman.length > 0) ||
+      (wg.memoryBattle && wg.memoryBattle.length > 0) ||
+      (wg.speedSniper && wg.speedSniper.length > 0)
+    );
+    
+    if (hasGames) {
+      return [...RESOURCE_TABS_LIST, { id: "arcade" as any, label: "Arcade", iconName: "game-controller-outline" }];
+    }
+    
+    return RESOURCE_TABS_LIST;
+  }, [resources?.wordGames]);
+
   const handleTabSelect = (tab: ResourceTabType) => {
+    // Game tabs navigate immediately rather than switching content pane
+    if (tab === ("arcade" as any)) {
+      navigateToGame();
+      return;
+    }
     setActiveTab(tab);
   };
 
@@ -110,11 +147,11 @@ export function ChapterResourceScreen({
         onBackPress={onBackPress}
       />
 
-      {/* Top horizontal scrollable resource tabs */}
+      {/* Top horizontal scrollable resource tabs (includes game tabs when available) */}
       <ResourceTabs
         activeTab={activeTab}
         onTabSelect={handleTabSelect}
-        tabs={RESOURCE_TABS_LIST}
+        tabs={dynamicTabs}
       />
 
       {/* Active Viewer Content */}
@@ -154,14 +191,14 @@ export function ChapterResourceScreen({
           </View>
         ) : (
           <ResourceContainer
-            activeTab={activeTab}
-            chapterTitle={chapter.title}
-            resources={resources || (!isLoading ? {} as any : undefined)}
-            slidedeckPageIndex={slidedeckPageIndex}
-            onSlidedeckPageChange={setSlidedeckPageIndex}
-            flashcardIndex={flashcardIndex}
-            onFlashcardIndexChange={setFlashcardIndex}
-          />
+              activeTab={activeTab}
+              chapterTitle={chapter.title}
+              resources={resources || (!isLoading ? {} as any : undefined)}
+              slidedeckPageIndex={slidedeckPageIndex}
+              onSlidedeckPageChange={setSlidedeckPageIndex}
+              flashcardIndex={flashcardIndex}
+              onFlashcardIndexChange={setFlashcardIndex}
+            />
         )}
       </ScrollView>
 

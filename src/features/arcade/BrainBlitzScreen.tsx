@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ScrollView, StyleSheet, View } from "react-native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   AnswerButton,
@@ -10,6 +11,7 @@ import {
   QuestionCard,
   VictoryModal,
 } from "./components";
+import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
 import { useArcadeProfile, useBrainBlitz } from "./hooks";
 import { colors, spacing } from "../../shared/theme";
 
@@ -42,10 +44,20 @@ export function BrainBlitzScreen({
     startSession();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        onReturnHome();
+      };
+    }, [onReturnHome])
+  );
+
   const recordGameResultRef = useRef(recordGameResult);
   useEffect(() => {
     recordGameResultRef.current = recordGameResult;
   }, [recordGameResult]);
+  const isFocused = useIsFocused();
+  useActiveLearningTracker();
 
   // Persist session profile stats on completion
   useEffect(() => {

@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useClerk } from "@clerk/clerk-expo";
+import { useClerk, useAuth } from "@clerk/clerk-expo";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import {
   AccountTile,
@@ -26,6 +26,8 @@ import { AppIcon } from "../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
 import { getCalculatedStats, mergeSubjectProgressWithLocal } from "../../shared/services/chapterProgressService";
+import { getAttemptStats, calculateAccuracy } from "../../shared/services/attemptTracker";
+import { getActiveLearningSeconds } from "../../shared/hooks/useActiveLearningTracker";
 
 export interface ProfileScreenProps {
   onBackPress?: () => void;
@@ -51,12 +53,26 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   const [dialogInfo, setDialogInfo] = useState<{ title: string; message: string } | null>(null);
   const [localStats, setLocalStats] = useState<any>(null);
   const [mergedProgress, setMergedProgress] = useState<SubjectProgressItem[]>([]);
+  const [trackerStats, setTrackerStats] = useState<{ activeHours: string; accuracy: number; questionsAttempted: number } | null>(null);
+  const { userId } = useAuth();
 
   useEffect(() => {
     if (isFocused) {
       (async () => {
         const stats = await getCalculatedStats();
         setLocalStats(stats);
+
+        if (userId) {
+          const activeSeconds = await getActiveLearningSeconds(userId);
+          const attemptStats = await getAttemptStats(userId);
+          const acc = calculateAccuracy(attemptStats);
+          setTrackerStats({
+            activeHours: (activeSeconds / 3600).toFixed(1),
+            accuracy: acc,
+            questionsAttempted: attemptStats.questionsAttempted,
+          });
+        }
+
         if (subjectProgress && subjectProgress.length > 0) {
           const merged = await mergeSubjectProgressWithLocal(subjectProgress);
           setMergedProgress(merged);
@@ -68,11 +84,18 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
   const mergedLearningStats = learningStats
     ? {
         ...learningStats,
-        overallAccuracy: localStats && localStats.overallAccuracy > 0
-          ? localStats.overallAccuracy
-          : learningStats.overallAccuracy,
-        questionsSolved: learningStats.questionsSolved + (localStats?.questionsSolved ?? 0),
+        overallAccuracy: trackerStats && trackerStats.questionsAttempted > 0
+          ? trackerStats.accuracy
+          : (localStats && localStats.overallAccuracy > 0
+              ? localStats.overallAccuracy
+              : learningStats.overallAccuracy),
+        questionsSolved: trackerStats && trackerStats.questionsAttempted > 0
+          ? trackerStats.questionsAttempted
+          : (learningStats.questionsSolved + (localStats?.questionsSolved ?? 0)),
         completedChapters: learningStats.completedChapters + (localStats?.completedChaptersCount ?? 0),
+        studyHours: trackerStats && trackerStats.activeHours !== "0.0"
+          ? parseFloat(trackerStats.activeHours)
+          : learningStats.studyHours,
       }
     : null;
 

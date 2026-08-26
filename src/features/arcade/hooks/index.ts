@@ -5,6 +5,7 @@ export * from "./useBrainBlitz";
 export * from "./useMatchMaster";
 export * from "./useLightningTap";
 export * from "./usePuzzleQuest";
-
-
-
+export * from "./useCrosswordGame";
+export * from "./useHangmanGame";
+export * from "./useMemoryBattleGame";
+export * from "./useSpeedSniperGame";

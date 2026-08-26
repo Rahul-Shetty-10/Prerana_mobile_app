@@ -14,6 +14,8 @@ export * from "./LightningQuestionCard";
 export * from "./ComboBadge";
 export * from "./PuzzleCard";
 export * from "./HintBadge";
-
-
-
+export * from "./ChapterArcadeSection";
+export * from "./CrosswordGameView";
+export * from "./HangmanGameView";
+export * from "./MemoryBattleGameView";
+export * from "./SpeedSniperGameView";

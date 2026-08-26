@@ -20,6 +20,9 @@ import { SubjectProgressTile } from "../profile/components/SubjectProgressTile";
 import { SubjectProgressItem } from "../profile/types";
 import { mergeSubjectProgressWithLocal, getCalculatedStats } from "../../shared/services/chapterProgressService";
 import { AppIcon } from "../../shared/icons";
+import { useAuth } from "@clerk/clerk-expo";
+import { getActiveLearningSeconds } from "../../shared/hooks/useActiveLearningTracker";
+import { getAttemptStats, calculateAccuracy } from "../../shared/services/attemptTracker";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -38,6 +41,9 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
   const [profileStats, setProfileStats] = useState<any>(null);
   const [subjectProgress, setSubjectProgress] = useState<SubjectProgressItem[]>([]);
   const [localCalculatedStats, setLocalCalculatedStats] = useState<any>(null);
+  const [trackerStats, setTrackerStats] = useState({ activeHours: "0.0", accuracy: 0, questionsAttempted: 0 });
+
+  const { userId } = useAuth();
 
   const getTokenRef = useRef(getToken);
   useEffect(() => {
@@ -71,6 +77,17 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
       const calcStats = await getCalculatedStats();
       setLocalCalculatedStats(calcStats);
 
+      if (userId) {
+        const activeSeconds = await getActiveLearningSeconds(userId);
+        const attemptStats = await getAttemptStats(userId);
+        const acc = calculateAccuracy(attemptStats);
+        setTrackerStats({
+          activeHours: (activeSeconds / 3600).toFixed(1),
+          accuracy: acc,
+          questionsAttempted: attemptStats.questionsAttempted,
+        });
+      }
+
       const activeGetToken = getTokenRef.current;
       if (activeGetToken) {
         try {
@@ -91,7 +108,7 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
     };
 
     void loadStateAndStats();
-  }, [isFocused]);
+  }, [isFocused, userId]);
 
 
 
@@ -108,15 +125,23 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
     return "purple";
   };
 
-  const mergedAccuracy = localCalculatedStats && localCalculatedStats.overallAccuracy > 0
-    ? localCalculatedStats.overallAccuracy
-    : (profileStats?.overallAccuracy ?? data.performance.overallAccuracy ?? 0);
+  const mergedAccuracy = trackerStats.questionsAttempted > 0 
+    ? trackerStats.accuracy 
+    : (localCalculatedStats && localCalculatedStats.overallAccuracy > 0
+        ? localCalculatedStats.overallAccuracy
+        : (profileStats?.overallAccuracy ?? data.performance.overallAccuracy ?? 0));
 
-  const mergedQuestionsSolved = (profileStats?.questionsSolved ?? 0) + (localCalculatedStats?.questionsSolved ?? 0);
+  const mergedQuestionsSolved = trackerStats.questionsAttempted > 0 
+    ? trackerStats.questionsAttempted 
+    : ((profileStats?.questionsSolved ?? 0) + (localCalculatedStats?.questionsSolved ?? 0));
 
   const mergedCompletedChapters = (profileStats?.completedChapters ?? 0) + (localCalculatedStats?.completedChaptersCount ?? 0);
 
-  const mergedStats = profileStats
+  const mergedStudyHours = trackerStats.activeHours !== "0.0" 
+    ? trackerStats.activeHours 
+    : (profileStats?.studyHours ?? "0.0");
+
+  const mergedStats = profileStats || localCalculatedStats || trackerStats.questionsAttempted > 0
     ? [
         {
           title: "Overall Accuracy",
@@ -132,7 +157,7 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
         },
         {
           title: "Study Hours",
-          value: `${profileStats.studyHours} hrs`,
+          value: `${mergedStudyHours} hrs`,
           icon: "time-outline" as const,
           variant: "amber" as const,
         },
