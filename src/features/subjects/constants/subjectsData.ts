@@ -22,7 +22,7 @@ export const MOCK_SUBJECTS_LIST: SubjectMeta[] = [
     name: "Hindi",
     chapterCount: 10,
     partCount: 20,
-    iconName: "book-outline",
+    iconName: "document-text-outline",
     colorVariant: "purple",
   },
   {
@@ -30,7 +30,7 @@ export const MOCK_SUBJECTS_LIST: SubjectMeta[] = [
     name: "Kannada",
     chapterCount: 14,
     partCount: 28,
-    iconName: "language-outline",
+    iconName: "journal-outline",
     colorVariant: "emerald",
   },
   {

@@ -168,22 +168,17 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
 
-  // No backend data — show "Yet to be updated"
-  if (!rootNode) {
-    return (
-      <ContentComingSoon
-        icon="git-network-outline"
-        title="Yet to be updated"
-        message="This resource has not been uploaded yet."
-      />
-    );
-  }
+  // 1. Remote Mind Map resolution state
+  const [remoteRootNode, setRemoteRootNode] = useState<MindmapNode | null>(null);
+  const [isLoadingRemote, setIsLoadingRemote] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<boolean>(false);
 
+  // 2. Viewer references and layout state
   const webViewRef = useRef<WebView>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const activeRoot = rootNode;
-  const rootId = activeRoot.id || "node-root";
+  const activeRoot = remoteRootNode || (rootNode && (rootNode.label || rootNode.children || rootNode.id) ? rootNode : undefined);
+  const rootId = activeRoot?.id || "node-root";
 
   const [selectedNodeId, setSelectedNodeId] = useState<string>(rootId);
   const [zoomScale, setZoomScale] = useState<number>(0.45);
@@ -194,28 +189,147 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isWebViewLoading, setIsWebViewLoading] = useState(true);
 
-  // Sync selectedNodeId when activeRoot changes
+  // 3. Remote JSON fetching effect
   useEffect(() => {
-    setSelectedNodeId(activeRoot.id || "node-root");
+    let isMounted = true;
+    const rawObj = rootNode as any;
+    const remoteUrl = rawObj?.resourceUrl || rawObj?.url;
+    const isRemoteRef =
+      typeof remoteUrl === "string" &&
+      !rawObj?.label &&
+      !rawObj?.children;
+
+    if (!isRemoteRef) {
+      setRemoteRootNode(null);
+      setIsLoadingRemote(false);
+      setFetchError(false);
+      return;
+    }
+
+    async function fetchRemoteMindmap() {
+      setIsLoadingRemote(true);
+      setFetchError(false);
+      try {
+        const res = await fetch(remoteUrl);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        const parsedTree: MindmapNode = json.root || json.mindmapRoot || json.data || json;
+
+        if (isMounted) {
+          if (parsedTree && (parsedTree.label || parsedTree.id || parsedTree.children)) {
+            setRemoteRootNode(parsedTree);
+          } else {
+            setFetchError(true);
+          }
+        }
+      } catch (err) {
+        console.warn("[SUBJECTS][MindmapViewer] Failed to fetch remote mindmap JSON:", err);
+        if (isMounted) {
+          setFetchError(true);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingRemote(false);
+        }
+      }
+    }
+
+    fetchRemoteMindmap();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [rootNode]);
+
+  // 4. Sync selectedNodeId when activeRoot changes
+  useEffect(() => {
+    if (activeRoot?.id) {
+      setSelectedNodeId(activeRoot.id);
+    }
   }, [activeRoot]);
 
-  // Compute Layout
+  // 5. Compute Layout unconditionally
   const { nodes, connections, details } = useMemo(() => {
+    if (!activeRoot) {
+      return { nodes: [], connections: [], details: {} };
+    }
     return layoutMindmap(activeRoot);
   }, [activeRoot]);
+
+  // 6. Synchronize theme with WebView
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const injectTheme = `if (typeof setTheme === 'function') { setTheme("${theme}", ${isDark}); }`;
+    webViewRef.current?.injectJavaScript(injectTheme);
+  }, [theme, isDark]);
+
+  const handleMessagePayload = (msg: any) => {
+    if (msg.type === "NODE_SELECTED") {
+      setSelectedNodeId(msg.nodeId);
+    } else if (msg.type === "TRANSFORM_UPDATE") {
+      setZoomScale(msg.scale);
+      setPanX(msg.panX);
+      setPanY(msg.panY);
+    } else if (msg.type === "MINDMAP_DOWNLOAD_SUCCESS") {
+      setIsDownloading(false);
+      triggerFileDownload(msg.base64);
+    } else if (msg.type === "MINDMAP_DOWNLOAD_ERROR") {
+      setIsDownloading(false);
+      Alert.alert("Download Failed", msg.error || "Unable to generate Mind Map image.");
+    }
+  };
+
+  const handleMessage = (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      handleMessagePayload(msg);
+    } catch (e) {
+      // Fail silently
+    }
+  };
+
+  // 7. Web message listener effect
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const handleWebMessage = (event: MessageEvent) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleMessagePayload(msg);
+      } catch (_) {}
+    };
+    window.addEventListener("message", handleWebMessage);
+    return () => window.removeEventListener("message", handleWebMessage);
+  }, []);
+
+  // ── Early returns after ALL hooks are initialized ──
+
+  if (isLoadingRemote) {
+    return (
+      <View style={{ flex: 1, minHeight: 300, justifyContent: "center", alignItems: "center", backgroundColor: themeColors.surface }}>
+        <ActivityIndicator color={colors.primary.main} size="large" />
+        <Text style={{ marginTop: spacing.sm, color: themeColors.textMuted, fontSize: typography.fontSize.xs }}>Loading mind map...</Text>
+      </View>
+    );
+  }
+
+  // No backend data or failed fetch — show "Yet to be updated"
+  if (!activeRoot || fetchError) {
+    return (
+      <ContentComingSoon
+        icon="git-network-outline"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
+      />
+    );
+  }
 
   const handleLoadEnd = () => {
     const injectTheme = `if (typeof setTheme === 'function') { setTheme("${theme}", ${isDark}); }`;
     const injectState = `if (typeof initializeState === 'function') { initializeState(${zoomScale}, ${panX}, ${panY}, "${selectedNodeId}"); }`;
     webViewRef.current?.injectJavaScript(injectTheme + injectState);
   };
-
-  // Synchronize theme with WebView
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    const injectTheme = `if (typeof setTheme === 'function') { setTheme("${theme}", ${isDark}); }`;
-    webViewRef.current?.injectJavaScript(injectTheme);
-  }, [theme, isDark]);
 
   const handleZoomIn = () => {
     webViewRef.current?.injectJavaScript("if (typeof zoomIn === 'function') { zoomIn(); }");
@@ -277,43 +391,6 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
       Alert.alert("Download Failed", "Unable to save the Mind Map image.");
     }
   };
-
-  const handleMessagePayload = (msg: any) => {
-    if (msg.type === "NODE_SELECTED") {
-      setSelectedNodeId(msg.nodeId);
-    } else if (msg.type === "TRANSFORM_UPDATE") {
-      setZoomScale(msg.scale);
-      setPanX(msg.panX);
-      setPanY(msg.panY);
-    } else if (msg.type === "MINDMAP_DOWNLOAD_SUCCESS") {
-      setIsDownloading(false);
-      triggerFileDownload(msg.base64);
-    } else if (msg.type === "MINDMAP_DOWNLOAD_ERROR") {
-      setIsDownloading(false);
-      Alert.alert("Download Failed", msg.error || "Unable to generate Mind Map image.");
-    }
-  };
-
-  const handleMessage = (event: any) => {
-    try {
-      const msg = JSON.parse(event.nativeEvent.data);
-      handleMessagePayload(msg);
-    } catch (e) {
-      // Fail silently
-    }
-  };
-
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const handleWebMessage = (event: MessageEvent) => {
-      try {
-        const msg = JSON.parse(event.data);
-        handleMessagePayload(msg);
-      } catch (_) {}
-    };
-    window.addEventListener("message", handleWebMessage);
-    return () => window.removeEventListener("message", handleWebMessage);
-  }, []);
 
   const handleDownload = () => {
     setIsDownloading(true);
