@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useTheme } from "../theme/ThemeContext";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useClerk } from "@clerk/clerk-expo";
+import { useClerk } from "@clerk/expo";
 import { AppIcon } from "../icons";
 import { colors, radius, spacing, typography } from "../theme";
 import { performStudentSignOut } from "../../features/profile/services/profileService";

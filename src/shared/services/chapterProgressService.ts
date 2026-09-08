@@ -1,8 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ResourceTabType } from "../../features/subjects/types";
 import { SubjectProgressItem } from "../../features/profile/types";
+import { getUserStorageKey } from "./userStorage";
 
 export const MILESTONES_STORAGE_KEY = "@prerana_chapter_milestones";
+
+export async function clearAllMilestones(): Promise<void> {
+  const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
+  if (!storageKey) return;
+  try {
+    await AsyncStorage.removeItem(storageKey);
+  } catch (e) {
+    // Local progress cleanup is best-effort during logout.
+  }
+}
 
 export interface ChapterMilestones {
   chapterId: string;
@@ -16,8 +27,10 @@ export interface ChapterMilestones {
 }
 
 export async function getAllMilestones(): Promise<Record<string, ChapterMilestones>> {
+  const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
+  if (!storageKey) return {};
   try {
-    const json = await AsyncStorage.getItem(MILESTONES_STORAGE_KEY);
+    const json = await AsyncStorage.getItem(storageKey);
     return json ? JSON.parse(json) : {};
   } catch (e) {
     return {};
@@ -38,7 +51,8 @@ export async function saveMilestones(
       subjectId: normalizeSubjectId(updates.subjectId || current.subjectId),
     };
     all[chapterId] = updated;
-    await AsyncStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(all));
+    const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
+    if (storageKey) await AsyncStorage.setItem(storageKey, JSON.stringify(all));
     return updated;
   } catch (e) {
     return { chapterId, subjectId, ...updates };

@@ -1,9 +1,12 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { appConfig } from "../../../config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { mobileApi } from "../../../api/mobileApi";
-import { MOCK_LEARNING_STATS, MOCK_STUDENT_INFO, MOCK_SUBJECT_PROGRESS } from "../constants";
 import { LearningStats, StudentInfo, SubjectProgressItem } from "../types";
 import { clearLearningState } from "../../../shared/services/learningStateService";
+import { clearAllMilestones } from "../../../shared/services/chapterProgressService";
+import { clearAllAttemptsForUser } from "../../../shared/services/attemptTracker";
+import { clearActiveLearningForUser } from "../../../shared/hooks/useActiveLearningTracker";
+import { clearArcadeProfileForUser } from "../../arcade/services/profileService";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -23,14 +26,8 @@ export interface ProfileApiResponse {
 }
 
 export async function fetchProfileData(getToken?: GetToken) {
-  const fallback = {
-    info: MOCK_STUDENT_INFO,
-    learningStats: MOCK_LEARNING_STATS,
-    subjectProgress: MOCK_SUBJECT_PROGRESS,
-  };
-
   if (!getToken) {
-    return fallback;
+    throw new Error("Authentication is required to load profile data.");
   }
 
   try {
@@ -40,17 +37,17 @@ export async function fetchProfileData(getToken?: GetToken) {
     });
 
     if (!response) {
-      return fallback;
+      throw new Error("No profile data returned from the server.");
     }
 
     const info: StudentInfo = {
-      name: response.info?.name || response.info?.fullName || MOCK_STUDENT_INFO.name,
-      email: response.info?.email || MOCK_STUDENT_INFO.email,
-      enrollmentId: response.info?.enrollmentId || MOCK_STUDENT_INFO.enrollmentId,
-      studentClass: response.info?.studentClass || MOCK_STUDENT_INFO.studentClass,
-      board: response.info?.board || MOCK_STUDENT_INFO.board,
-      workspace: response.info?.workspace || MOCK_STUDENT_INFO.workspace,
-      avatarUrl: response.info?.avatarUrl || MOCK_STUDENT_INFO.avatarUrl,
+      name: response.info?.name || response.info?.fullName || "",
+      email: response.info?.email || "",
+      enrollmentId: response.info?.enrollmentId || "",
+      studentClass: response.info?.studentClass || "",
+      board: response.info?.board || "",
+      workspace: response.info?.workspace || "",
+      avatarUrl: response.info?.avatarUrl,
     };
 
     const learningStats: LearningStats = {
@@ -62,10 +59,7 @@ export async function fetchProfileData(getToken?: GetToken) {
       weeklyProgressPercent: response.learningStats?.weeklyProgressPercent ?? 0,
     };
 
-    const subjectProgress =
-      response.subjectProgress && response.subjectProgress.length > 0
-        ? response.subjectProgress
-        : MOCK_SUBJECT_PROGRESS;
+    const subjectProgress = response.subjectProgress ?? [];
 
     return {
       info,
@@ -73,27 +67,31 @@ export async function fetchProfileData(getToken?: GetToken) {
       subjectProgress,
     };
   } catch (e) {
-    return fallback;
+    throw e;
   }
 }
 
 /**
  * Perform complete local logout storage cleanup
  */
-export async function performStudentSignOut(clerkSignOut?: () => Promise<void>): Promise<void> {
+export async function performStudentSignOut(
+  clerkSignOut?: () => Promise<void>,
+  userId?: string | null,
+): Promise<void> {
   try {
-    // 1. Clear AsyncStorage (learning state, theme, session caches)
-    await AsyncStorage.clear();
+    await Promise.allSettled([
+      AsyncStorage.removeItem("@prerana_session"),
+      clearLearningState(),
+      clearAllMilestones(),
+      userId ? clearAllAttemptsForUser(userId) : Promise.resolve(),
+      userId ? clearActiveLearningForUser(userId) : Promise.resolve(),
+      userId ? clearArcadeProfileForUser(userId) : Promise.resolve(),
+    ]);
 
-    // 2. Clear learning state helper
-    await clearLearningState();
-
-    // 3. Perform Clerk Sign Out if available
     if (clerkSignOut) {
       await clerkSignOut();
     }
   } catch (e) {
-    // Fallback sign out call
     if (clerkSignOut) {
       await clerkSignOut();
     }

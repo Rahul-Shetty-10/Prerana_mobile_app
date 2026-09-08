@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const ACTIVE_LEARNING_KEY_PREFIX = "@prerana_active_learning_";

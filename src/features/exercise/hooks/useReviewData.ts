@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { fetchQuizAttemptReview } from "../services";
 import { ReviewPayload } from "../types";
-import { MOCK_REVIEW_DATA } from "../constants";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export function useReviewData(attemptId: string, getToken?: GetToken) {
-  const [data, setData] = useState<ReviewPayload>(MOCK_REVIEW_DATA);
+  const [data, setData] = useState<ReviewPayload | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +23,7 @@ export function useReviewData(attemptId: string, getToken?: GetToken) {
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load review data");
-      setData(MOCK_REVIEW_DATA);
+      setData(null);
     } finally {
       setIsLoading(false);
     }

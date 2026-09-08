@@ -1,39 +1,65 @@
 import { ArcadeUserProfile } from "../types";
-import { MOCK_ARCADE_PROFILE } from "../constants";
+import { EMPTY_ARCADE_PROFILE } from "../constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ARCADE_PROFILE_STORAGE_KEY = "@arcade_profile_data";
 
-// In-memory profile state for the local session
-let currentProfile: ArcadeUserProfile = { ...MOCK_ARCADE_PROFILE };
+let currentProfile: ArcadeUserProfile = { ...EMPTY_ARCADE_PROFILE };
+let activeUserId: string | null = null;
 
 let isLoaded = false;
 
-export async function loadArcadeProfileFromStorage(): Promise<ArcadeUserProfile> {
+function getStorageKey(userId?: string | null): string | null {
+  return userId ? `${ARCADE_PROFILE_STORAGE_KEY}:${encodeURIComponent(userId)}` : null;
+}
+
+function resetForUser(userId?: string | null): void {
+  if (activeUserId !== (userId ?? null)) {
+    activeUserId = userId ?? null;
+    currentProfile = { ...EMPTY_ARCADE_PROFILE, id: userId ?? "" };
+    isLoaded = false;
+  }
+}
+
+export async function loadArcadeProfileFromStorage(userId?: string | null): Promise<ArcadeUserProfile> {
+  resetForUser(userId);
+  const storageKey = getStorageKey(userId);
+  if (!storageKey) {
+    return { ...currentProfile };
+  }
   if (isLoaded) {
     return { ...currentProfile };
   }
   try {
-    const raw = await AsyncStorage.getItem(ARCADE_PROFILE_STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(storageKey);
     if (raw) {
-      currentProfile = JSON.parse(raw);
+      const parsed = JSON.parse(raw) as Partial<ArcadeUserProfile>;
+      currentProfile = {
+        ...EMPTY_ARCADE_PROFILE,
+        ...parsed,
+        id: userId ?? "",
+        achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+      };
     }
     isLoaded = true;
   } catch (e) {
-    // Ignore error
+    isLoaded = true;
   }
   return { ...currentProfile };
 }
 
-export async function saveArcadeProfileToStorage(profile: ArcadeUserProfile): Promise<void> {
+export async function saveArcadeProfileToStorage(profile: ArcadeUserProfile, userId?: string | null): Promise<void> {
+  const storageKey = getStorageKey(userId);
+  if (!storageKey) return;
   try {
-    await AsyncStorage.setItem(ARCADE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    await AsyncStorage.setItem(storageKey, JSON.stringify(profile));
   } catch (e) {
-    // Ignore error
+    // Local progress is best-effort; the server remains the source of truth when available.
   }
 }
 
-export function getArcadeProfile(): ArcadeUserProfile {
+export function getArcadeProfile(userId?: string | null): ArcadeUserProfile {
+  resetForUser(userId);
   return { ...currentProfile };
 }
 
@@ -43,7 +69,8 @@ export function updateArcadeProfileOnGameEnd(params: {
   correctAnswers: number;
   totalQuestions: number;
   score: number;
-}): ArcadeUserProfile {
+}, userId?: string | null): ArcadeUserProfile {
+  resetForUser(userId);
   const newXp = currentProfile.xp + params.xpEarned;
   const newLevel = Math.floor(newXp / 500) + 1;
   const newCoins = currentProfile.coins + params.coinsEarned;
@@ -65,6 +92,18 @@ export function updateArcadeProfileOnGameEnd(params: {
     highestAccuracy: newHighestAccuracy,
   };
 
-  void saveArcadeProfileToStorage(currentProfile);
+  void saveArcadeProfileToStorage(currentProfile, userId);
   return { ...currentProfile };
+}
+
+export async function clearArcadeProfileForUser(userId?: string | null): Promise<void> {
+  const storageKey = getStorageKey(userId);
+  if (storageKey) {
+    try {
+      await AsyncStorage.removeItem(storageKey);
+    } catch (e) {
+      // Local progress cleanup is best-effort during logout.
+    }
+  }
+  resetForUser(null);
 }

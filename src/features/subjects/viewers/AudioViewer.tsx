@@ -9,8 +9,6 @@ import { colors, radius, shadows, spacing, typography } from "../../../shared/th
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
 
-const localAudio = require("../../../chapter/Audio.m4a");
-
 export function AudioViewer({
   audioTitle,
   audioUrl,
@@ -26,10 +24,15 @@ export function AudioViewer({
   const [isCompleted, setIsCompleted] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [localAudioPath, setLocalAudioPath] = useState<any>(null);
+  const [audioError, setAudioError] = useState(false);
 
   useEffect(() => {
     let active = true;
     const prepareAudio = async () => {
+      if (active) {
+        setAudioError(false);
+        setLocalAudioPath(null);
+      }
       if (!audioUrl) {
         // No backend URL — don't load local mock, just leave localAudioPath null
         return;
@@ -48,14 +51,17 @@ export function AudioViewer({
         }
 
         console.log(`[SUBJECTS][AudioViewer] Downloading audio from backend: ${audioUrl}`);
-        const result = await FileSystem.downloadAsync(audioUrl, tempPath);
+        const headers = authToken
+          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+          : undefined;
+        const result = await FileSystem.downloadAsync(audioUrl, tempPath, headers ? { headers } : undefined);
         if (result.status !== 200 && result.status !== 201) {
           throw new Error(`HTTP status ${result.status}`);
         }
         if (active) setLocalAudioPath(result.uri);
       } catch (err) {
-        console.warn("[SUBJECTS][AudioViewer] Failed to download remote audio, falling back to local asset:", err);
-        if (active) setLocalAudioPath(localAudio);
+        console.warn("[SUBJECTS][AudioViewer] Failed to download remote audio:", err);
+        if (active) setAudioError(true);
       } finally {
         if (active) setDownloading(false);
       }
@@ -67,7 +73,7 @@ export function AudioViewer({
     };
   }, [audioUrl, authToken, tenantSlug]);
 
-  const player = useAudioPlayer(localAudioPath || localAudio);
+  const player = useAudioPlayer(localAudioPath);
   const status = useAudioPlayerStatus(player);
 
   const isLoading = !status.isLoaded || downloading;
@@ -79,6 +85,8 @@ export function AudioViewer({
     setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: false,
+    }).catch((err) => {
+      console.warn("[SUBJECTS][AudioViewer] Failed to configure audio mode:", err);
     });
   }, []);
 
@@ -128,12 +136,14 @@ export function AudioViewer({
   const progressPercent = durationSeconds > 0 ? Math.round((currentTime / durationSeconds) * 100) : 0;
 
   // No backend URL at all — show Coming Soon (not local mock audio)
-  if (!audioUrl && !localAudioPath) {
+  if ((!audioUrl && !localAudioPath) || audioError) {
     return (
       <ContentComingSoon
         icon="headset-outline"
-        title="Audio Coming Soon"
-        message="The audio explanation for this chapter is being prepared. Check back soon!"
+        title={audioError ? "Unable to load audio" : "Audio Coming Soon"}
+        message={audioError
+          ? "The audio explanation could not be loaded. Check your connection and try again."
+          : "The audio explanation for this chapter is being prepared. Check back soon!"}
       />
     );
   }

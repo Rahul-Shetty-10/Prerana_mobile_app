@@ -20,7 +20,6 @@ import { ImageViewerProps } from "../types";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ViewerToolbar } from "./ViewerToolbar";
-import { Asset } from "expo-asset";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
@@ -30,9 +29,6 @@ const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
 import { ZoomPanView } from "./ZoomPanView";
 
-
-const localInfographic = require("../../../chapter/Infographic.png");
-const localMindmap = require("../../../chapter/Mindmap.png");
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -66,11 +62,20 @@ export function ImageViewer({
     );
   }
 
-  const activeImage = (imageUrl && !imageError)
-    ? {
-        uri: imageUrl,
-      }
-    : (isMindmap ? localMindmap : localInfographic);
+  if (imageError) {
+    return (
+      <ContentComingSoon
+        icon={isMindmap ? "git-network-outline" : "image-outline"}
+        title="Unable to load visual content"
+        message="This chapter resource could not be loaded. Check your connection and try again."
+      />
+    );
+  }
+
+  const resourceHeaders = authToken
+    ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+    : undefined;
+  const activeImage = resourceHeaders ? { uri: imageUrl, headers: resourceHeaders } : { uri: imageUrl };
   const label = isMindmap ? "MIND MAP IMAGE" : "INFOGRAPHIC";
 
   const handleZoomIn = () => setZoomScale((p) => Math.min(p + 0.25, 4));
@@ -103,21 +108,19 @@ export function ImageViewer({
           const filename = imageUrl.split("/").pop() || "image.png";
           const tempPath = `${FileSystem.documentDirectory}${filename}`;
           console.log(`[SUBJECTS][ImageViewer] Downloading image with headers: ${imageUrl}`);
-          const downloadResult = await FileSystem.downloadAsync(imageUrl, tempPath);
+          const downloadResult = await FileSystem.downloadAsync(
+            imageUrl,
+            tempPath,
+            resourceHeaders ? { headers: resourceHeaders } : undefined,
+          );
           if (downloadResult.status !== 200 && downloadResult.status !== 201) {
             throw new Error(`HTTP status ${downloadResult.status}`);
           }
           localUri = downloadResult.uri;
         } catch (err) {
-          console.warn("[SUBJECTS][ImageViewer] Download failed, sharing local asset:", err);
-          const asset = Asset.fromModule(isMindmap ? localMindmap : localInfographic);
-          await asset.downloadAsync();
-          localUri = asset.localUri || "";
+          console.warn("[SUBJECTS][ImageViewer] Download failed:", err);
+          throw err;
         }
-      } else {
-        const asset = Asset.fromModule(isMindmap ? localMindmap : localInfographic);
-        await asset.downloadAsync();
-        localUri = asset.localUri || "";
       }
 
       if (localUri && (await Sharing.isAvailableAsync())) {
@@ -153,7 +156,7 @@ export function ImageViewer({
               onError={() => {
                 setIsImageLoading(false);
                 if (imageUrl) {
-                  console.warn("[SUBJECTS][ImageViewer] Failed to load remote inline image, using local fallback.");
+                  console.warn("[SUBJECTS][ImageViewer] Failed to load remote inline image.");
                   setImageError(true);
                 }
               }}
@@ -225,7 +228,7 @@ export function ImageViewer({
                   onError={() => {
                     setIsImageLoading(false);
                     if (imageUrl) {
-                      console.warn("[SUBJECTS][ImageViewer] Failed to load remote fullscreen image, using local fallback.");
+                      console.warn("[SUBJECTS][ImageViewer] Failed to load remote fullscreen image.");
                       setImageError(true);
                     }
                   }}
@@ -368,4 +371,4 @@ const getStyles = (themeColors: any) =>
       paddingVertical: spacing.sm,
       fontStyle: "italic",
     },
-  });
+  });

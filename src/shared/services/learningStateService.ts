@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ResourceTabType } from "../../features/subjects/types";
+import { getUserStorageKey } from "./userStorage";
 
 export const LEARNING_STATE_STORAGE_KEY = "@prerana_learning_state";
 
@@ -23,8 +24,10 @@ const DEFAULT_LEARNING_STATE: LearningState = {
 };
 
 export async function getLearningState(): Promise<LearningState> {
+  const storageKey = getUserStorageKey(LEARNING_STATE_STORAGE_KEY);
+  if (!storageKey) return DEFAULT_LEARNING_STATE;
   try {
-    const jsonValue = await AsyncStorage.getItem(LEARNING_STATE_STORAGE_KEY);
+    const jsonValue = await AsyncStorage.getItem(storageKey);
     if (jsonValue != null) {
       const parsed = JSON.parse(jsonValue) as Partial<LearningState>;
       return {
@@ -39,6 +42,7 @@ export async function getLearningState(): Promise<LearningState> {
 }
 
 export async function saveLearningState(state: Partial<LearningState>): Promise<LearningState> {
+  const storageKey = getUserStorageKey(LEARNING_STATE_STORAGE_KEY);
   try {
     const current = await getLearningState();
     const updated: LearningState = {
@@ -46,7 +50,7 @@ export async function saveLearningState(state: Partial<LearningState>): Promise<
       ...state,
       lastVisitedAt: new Date().toISOString(),
     };
-    await AsyncStorage.setItem(LEARNING_STATE_STORAGE_KEY, JSON.stringify(updated));
+    if (storageKey) await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
     return updated;
   } catch (e) {
     return {
@@ -57,8 +61,10 @@ export async function saveLearningState(state: Partial<LearningState>): Promise<
 }
 
 export async function clearLearningState(): Promise<void> {
+  const storageKey = getUserStorageKey(LEARNING_STATE_STORAGE_KEY);
+  if (!storageKey) return;
   try {
-    await AsyncStorage.removeItem(LEARNING_STATE_STORAGE_KEY);
+    await AsyncStorage.removeItem(storageKey);
   } catch (e) {
     // Ignore error on clear
   }

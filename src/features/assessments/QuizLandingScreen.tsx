@@ -30,8 +30,8 @@ export function QuizLandingScreen({
   const { data, isLoading, error } = useQuizLandingData(subjectId, chapterId, getToken);
 
   const breadcrumbs = [
-    data.subjectName || "General Science",
-    `Chapter ${data.chapterNumber || 1}`,
+    data.subjectName || subjectId || "Selected subject",
+    data.chapterNumber ? `Chapter ${data.chapterNumber}` : chapterId || "Selected chapter",
     "Quiz Entry",
   ];
 

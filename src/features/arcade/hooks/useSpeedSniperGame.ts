@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { SpeedSniperPuzzle } from "../../subjects/types/wordGames";
 import { useGameEngine } from "./useGameEngine";
 import { useTimer } from "./useTimer";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { recordQuestionAttempt } from "../../../shared/services/attemptTracker";
 
 export interface SpeedSniperSessionResult {

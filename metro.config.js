@@ -7,7 +7,8 @@ config.resolver.assetExts.push("pdf");
 config.resolver.assetExts.push("xlsx");
 config.resolver.assetExts.push("m4a");
 
-// Disable package exports to bypass the Metro explicit extension resolution bug
-config.resolver.unstable_enablePackageExports = false;
+// Clerk Core 3 publishes package subpath exports (for example @clerk/react/internal).
+// Keep Metro package exports enabled so those modules resolve in native release bundles.
+config.resolver.unstable_enablePackageExports = true;
 
 module.exports = config;

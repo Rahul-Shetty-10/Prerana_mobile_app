@@ -8,9 +8,8 @@ import {
   ScoreCard,
   StatisticsCard,
 } from "./components";
-import { MOCK_EXERCISE_RESULT } from "./constants";
 import { ExerciseResultData } from "./types";
-import { Badge } from "../../shared/components";
+import { Badge, Button } from "../../shared/components";
 import { AppIcon } from "../../shared/icons";
 import { colors, radius, spacing, typography } from "../../shared/theme";
 
@@ -31,7 +30,20 @@ export function ExerciseResultScreen({
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
 
-  const data = resultData || MOCK_EXERCISE_RESULT;
+  if (!resultData) {
+    return (
+      <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
+        <View style={styles.emptyState}>
+          <AppIcon color={colors.status.error} name="alert-circle-outline" size={44} />
+          <Text style={styles.emptyTitle}>Results unavailable</Text>
+          <Text style={styles.emptyText}>The exercise result was not available. Please return to the chapter and try again.</Text>
+          <Button onPress={() => onBackToSubject?.()} title="Back to Subject" variant="primary" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const data = resultData;
 
   return (
     <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
@@ -123,6 +135,25 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
   },
   pressed: {
     opacity: 0.8,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.heavy,
+    color: themeColors.textPrimary,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: typography.fontSize.sm,
+    color: themeColors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.sm,
   },
   subjectBlock: {
     flex: 1,

@@ -10,7 +10,6 @@ import {
   ReviewQuestionCard,
   ReviewSummaryCard,
 } from "./components";
-import { MOCK_REVIEW_DATA } from "./constants";
 import { useReviewData } from "./hooks";
 import { ReviewPayload } from "./types";
 import { Badge, Button } from "../../shared/components";
@@ -41,8 +40,22 @@ export function ReviewScreen({
   const styles = getStyles(themeColors, isDark);
 
   const { data: fetchedData, isLoading, error, refresh } = useReviewData(attemptId || "", getToken);
-  const data = reviewData || fetchedData || MOCK_REVIEW_DATA;
+  const data = reviewData || fetchedData;
   const [activeIndex, setActiveIndex] = useState(0);
+
+  if (!data) {
+    return (
+      <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
+        <View style={styles.emptyState}>
+          <AppIcon color={colors.status.error} name="alert-circle-outline" size={44} />
+          <Text style={styles.emptyTitle}>Review unavailable</Text>
+          <Text style={styles.emptyText}>{error || "The quiz review could not be loaded."}</Text>
+          {getToken ? <Button onPress={() => void refresh()} title="Try Again" variant="primary" /> : null}
+          <Button onPress={() => onBackToResult?.()} title="Back to Results" variant="secondary" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const activeQuestion = data.questions[activeIndex] || data.questions[0];
 
@@ -264,5 +277,24 @@ const getStyles = (themeColors: any, isDark: boolean) => StyleSheet.create({
     fontSize: typography.fontSize.xs + 1,
     color: colors.status.error,
     textAlign: "center",
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.heavy,
+    color: themeColors.textPrimary,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: typography.fontSize.sm,
+    color: themeColors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.sm,
   },
 });

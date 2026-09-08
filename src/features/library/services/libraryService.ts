@@ -8,7 +8,7 @@ import {
   SavedOutputItem,
   SavedOutputType,
 } from "../types";
-import { MOCK_LIBRARY_DATA } from "../constants";
+import { EMPTY_LIBRARY_DATA } from "../constants";
 import { ResourceTabType } from "../../subjects/types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -70,7 +70,7 @@ function mapSavedOutputType(kind?: string): SavedOutputType {
 
 export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayload> {
   if (!getToken) {
-    return MOCK_LIBRARY_DATA;
+    throw new Error("Authentication is required to load the library.");
   }
 
   try {
@@ -80,16 +80,16 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
     });
 
     if (!rawData) {
-      return MOCK_LIBRARY_DATA;
+      throw new Error("No library data returned from the server.");
     }
 
     // If backend returns pre-formatted structured sections
     if (rawData.chapterShelves && rawData.chapterShelves.length > 0) {
       return {
-        hero: rawData.hero ?? MOCK_LIBRARY_DATA.hero,
-        savedOutputs: rawData.savedOutputs ?? MOCK_LIBRARY_DATA.savedOutputs,
+        hero: rawData.hero ?? EMPTY_LIBRARY_DATA.hero,
+        savedOutputs: rawData.savedOutputs ?? EMPTY_LIBRARY_DATA.savedOutputs,
         chapterShelves: rawData.chapterShelves,
-        featuredResources: rawData.featuredResources ?? MOCK_LIBRARY_DATA.featuredResources,
+        featuredResources: rawData.featuredResources ?? EMPTY_LIBRARY_DATA.featuredResources,
       };
     }
 
@@ -176,20 +176,19 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
             "No saved outputs yet. Approved outputs saved from AI workspace will appear here.",
           items: savedItems,
         },
-        chapterShelves: chapterShelves.length > 0 ? chapterShelves : MOCK_LIBRARY_DATA.chapterShelves,
-        featuredResources:
-          featuredResources.length > 0 ? featuredResources : MOCK_LIBRARY_DATA.featuredResources,
+        chapterShelves,
+        featuredResources,
       };
     }
 
     return {
-      hero: rawData.hero ?? MOCK_LIBRARY_DATA.hero,
-      savedOutputs: rawData.savedOutputs ?? MOCK_LIBRARY_DATA.savedOutputs,
-      chapterShelves: rawData.chapterShelves ?? MOCK_LIBRARY_DATA.chapterShelves,
-      featuredResources: rawData.featuredResources ?? MOCK_LIBRARY_DATA.featuredResources,
+      hero: rawData.hero ?? EMPTY_LIBRARY_DATA.hero,
+      savedOutputs: rawData.savedOutputs ?? EMPTY_LIBRARY_DATA.savedOutputs,
+      chapterShelves: rawData.chapterShelves ?? EMPTY_LIBRARY_DATA.chapterShelves,
+      featuredResources: rawData.featuredResources ?? EMPTY_LIBRARY_DATA.featuredResources,
     };
   } catch (error) {
-    return MOCK_LIBRARY_DATA;
+    throw error;
   }
 }
 

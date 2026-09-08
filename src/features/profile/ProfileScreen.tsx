@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import {
   Modal,
+  Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useClerk, useAuth } from "@clerk/clerk-expo";
+import { useClerk, useAuth } from "@clerk/expo";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import {
   AccountTile,
@@ -28,6 +30,7 @@ import { Header } from "../../shared/components/Header";
 import { getCalculatedStats, mergeSubjectProgressWithLocal } from "../../shared/services/chapterProgressService";
 import { getAttemptStats, calculateAccuracy } from "../../shared/services/attemptTracker";
 import { getActiveLearningSeconds } from "../../shared/hooks/useActiveLearningTracker";
+import { appConfig } from "../../config";
 
 export interface ProfileScreenProps {
   onBackPress?: () => void;
@@ -112,22 +115,53 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
     });
   };
 
+  const openExternalPage = async (url: string, failureMessage: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) throw new Error("URL is not supported");
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert("Unable to open link", failureMessage);
+    }
+  };
+
   const handleAccountOptionPress = (id: string) => {
     if (id === "opt-help") {
       setDialogInfo({
         title: "Help & Support",
-        message: "For support, email support@prerana.edu.in or visit smartguru.ai/help",
+        message: appConfig.supportEmail
+          ? `For support, email ${appConfig.supportEmail}.`
+          : "Support contact is not configured for this build.",
       });
     } else if (id === "opt-about") {
       setDialogInfo({
         title: "About Prerana App",
         message: "Prerana Student Mobile App v1.0.0. Powered by SmartGuru AI learning technology.",
       });
-    } else if (id === "opt-privacy" || id === "opt-terms") {
-      setDialogInfo({
-        title: "Legal & Policy",
-        message: "Terms and privacy details available at smartguru.ai/privacy",
-      });
+    } else if (id === "opt-privacy") {
+      void openExternalPage(appConfig.privacyPolicyUrl, "The privacy policy is not configured for this build.");
+    } else if (id === "opt-terms") {
+      void openExternalPage(appConfig.termsUrl, "The terms page is not configured for this build.");
+    } else if (id === "opt-delete") {
+      Alert.alert(
+        "Delete account and data?",
+        `This permanently deletes your Prerana account and associated data. If your account is managed by a school, your administrator may need to complete the request. You can request deletion online${appConfig.privacyEmail ? ` or email ${appConfig.privacyEmail}` : ""}.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Open deletion page",
+            style: "destructive",
+            onPress: () => void openExternalPage(appConfig.accountDeletionUrl, "Please use the deletion email option instead."),
+          },
+          {
+            text: "Email request",
+            onPress: () => void openExternalPage(
+              appConfig.privacyEmail ? `mailto:${appConfig.privacyEmail}?subject=Prerana%20account%20deletion%20request` : "",
+              "The deletion email address is not configured for this build.",
+            ),
+          },
+        ],
+      );
     }
   };
 

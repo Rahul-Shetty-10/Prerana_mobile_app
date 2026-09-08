@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { fetchAchievements, fetchProfileData, performStudentSignOut } from "../services";
 import { AchievementItem, LearningStats, StudentInfo, SubjectProgressItem } from "../types";
 import { useArcadeProfile } from "../../arcade/hooks";
@@ -8,7 +8,7 @@ import { getSavedThemeMode, saveThemeMode, ThemeMode } from "../../../shared/the
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export function useProfile(passedGetToken?: GetToken) {
-  const { getToken: clerkGetToken } = useAuth();
+  const { getToken: clerkGetToken, userId } = useAuth();
   const getToken = passedGetToken || clerkGetToken;
 
   const { profile: arcadeProfile } = useArcadeProfile();
@@ -51,8 +51,8 @@ export function useProfile(passedGetToken?: GetToken) {
   }, [themeMode]);
 
   const handleSignOut = useCallback(async (clerkSignOut?: () => Promise<void>) => {
-    await performStudentSignOut(clerkSignOut);
-  }, []);
+    await performStudentSignOut(clerkSignOut, userId);
+  }, [userId]);
 
   useEffect(() => {
     loadData();

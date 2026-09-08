@@ -58,7 +58,7 @@ export function ArcadeHomeScreen({
             <Text style={styles.sectionTitle}>Arcade Games</Text>
           </View>
           <Text style={styles.sectionSubtitle}>
-            Select a game to start earning XP, coins, and climbing the leaderboard.
+            Select a game to practice your skills and earn local XP and coins.
           </Text>
         </View>
 

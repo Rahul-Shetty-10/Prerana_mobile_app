@@ -16,6 +16,26 @@ import { resolveQuizId } from "./quizIdResolver";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
+const QUIZ_REQUEST_TIMEOUT_MS = 10_000;
+
+async function fetchQuizWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {}
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), QUIZ_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Quiz request timed out. Please check your connection and try again.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export interface RawChapterResourceResponse {
   id?: string;
   subjectName?: string;
@@ -164,7 +184,7 @@ export async function fetchAllQuizQuestions(
 ): Promise<any[]> {
   const getUrl = `${appConfig.apiBaseUrl}/student/quiz-attempts?attemptId=${encodeURIComponent(attemptId)}`;
 
-  const getRes = await fetch(getUrl, {
+  const getRes = await fetchQuizWithTimeout(getUrl, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -186,7 +206,12 @@ export async function fetchAllQuizQuestions(
     throw new Error(`Failed to load quiz questions. Status: ${getRes.status}`);
   }
 
-  const payload = JSON.parse(bodyText);
+  let payload: any;
+  try {
+    payload = JSON.parse(bodyText);
+  } catch {
+    throw new Error("Quiz questions response was invalid. Please try again.");
+  }
   // Response shape: { ok, data: { result: { attempt: {...}, questions: [{isSkipped, order, question:{...}}] } } }
   const questions: any[] = payload?.data?.result?.questions ?? [];
   // Sort by order field to ensure correct display order
@@ -238,7 +263,7 @@ export async function fetchExerciseSession(
   // /api/student/quiz-attempts is a web student route authenticated via the raw
   // Clerk session token (no Convex template). It does NOT go through /api/mobile/v1.
   const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");
-  const attemptRes = await fetch(`${baseUrl}/api/student/quiz-attempts`, {
+  const attemptRes = await fetchQuizWithTimeout(`${baseUrl}/api/student/quiz-attempts`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${activeTokenSession}`,
@@ -261,7 +286,12 @@ export async function fetchExerciseSession(
 
   console.log(`[PERF][QUIZ] Attempt created: ${Date.now() - quizStartTime}ms`);
 
-  const attemptData = await attemptRes.json();
+  let attemptData: any;
+  try {
+    attemptData = await attemptRes.json();
+  } catch {
+    throw new Error("Unable to start the quiz right now. The server returned an invalid response.");
+  }
   const attemptId: string | undefined =
     attemptData?.attemptId ?? attemptData?.id ?? attemptData?.attempt?._id;
   const questionOrder: string[] | undefined = attemptData?.questionOrder;
@@ -502,7 +532,8 @@ export async function fetchFundamentalsTrack(
 
 export function gradeExercise(
   session: ExerciseSessionPayload,
-  userAnswers: Record<string, any>
+  userAnswers: Record<string, any>,
+  durationMs?: number
 ): { resultData: ExerciseResultData; reviewData: ReviewPayload } {
   let correctCount = 0;
   let incorrectCount = 0;
@@ -671,6 +702,12 @@ export function gradeExercise(
   const attemptedCount = totalQuestions - skippedCount;
   const accuracyPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
   const completionPercent = totalQuestions > 0 ? Math.round((attemptedCount / totalQuestions) * 100) : 0;
+  const durationSeconds = Math.max(0, Math.floor((durationMs ?? 0) / 1000));
+  const durationMinutes = Math.floor(durationSeconds / 60);
+  const remainingSeconds = durationSeconds % 60;
+  const timeTakenFormatted = durationMs == null
+    ? "—"
+    : `${durationMinutes.toString().padStart(2, "0")}m ${remainingSeconds.toString().padStart(2, "0")}s`;
 
   let performanceLevel: "excellent" | "good" | "average" | "needs_improvement" = "average";
   let performanceMessage = "Good attempt! Keep practicing to improve your understanding of these concepts.";
@@ -701,7 +738,7 @@ export function gradeExercise(
     percentage: accuracyPercent,
     accuracyPercent,
     completionPercent,
-    timeTakenFormatted: "02m 15s", // mock duration
+    timeTakenFormatted,
     performanceLevel,
     performanceMessage,
   };

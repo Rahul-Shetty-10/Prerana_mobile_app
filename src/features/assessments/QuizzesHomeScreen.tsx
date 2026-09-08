@@ -38,6 +38,14 @@ export function QuizzesHomeScreen({
   const styles = getStyles(themeColors);
   const { data, isLoading, error, refresh } = useQuizzesHomeData(getToken);
 
+  const handleOpenNextQuiz = () => {
+    if (data.readyToStart.length > 0) {
+      onOpenQuiz?.(data.readyToStart[0]);
+    } else {
+      onOpenNextQuiz?.();
+    }
+  };
+
   const handleQuickAction = (actionType: string) => {
     if (actionType === "openSubjects") {
       onOpenMySubjects?.();
@@ -99,7 +107,7 @@ export function QuizzesHomeScreen({
 
         {/* 1. Hero Card */}
         <AssessmentHeroCard
-          onOpenNextQuiz={onOpenNextQuiz}
+          onOpenNextQuiz={handleOpenNextQuiz}
           onViewHistory={onViewHistory}
           stats={data.hero.stats}
           subtitle={data.hero.subtitle}
@@ -133,7 +141,7 @@ export function QuizzesHomeScreen({
         />
         <StatusCard
           buttons={["openNextQuiz", "viewHistory"]}
-          onOpenNextQuiz={onOpenNextQuiz}
+          onOpenNextQuiz={handleOpenNextQuiz}
           onViewHistory={onViewHistory}
           section={data.inProgress}
         />

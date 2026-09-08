@@ -6,16 +6,16 @@ import {
   QuizzesHomePayload,
 } from "../types";
 import {
-  MOCK_ASSESSMENT_HISTORY_DATA,
-  MOCK_QUIZ_LANDING_DATA,
-  MOCK_QUIZZES_HOME_DATA,
+  EMPTY_ASSESSMENT_HISTORY_DATA,
+  EMPTY_QUIZ_LANDING_DATA,
+  EMPTY_QUIZZES_HOME_DATA,
 } from "../constants";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export async function fetchQuizzesHomeData(getToken?: GetToken): Promise<QuizzesHomePayload> {
   if (!getToken) {
-    return MOCK_QUIZZES_HOME_DATA;
+    throw new Error("Authentication is required to load quizzes.");
   }
 
   try {
@@ -27,16 +27,16 @@ export async function fetchQuizzesHomeData(getToken?: GetToken): Promise<Quizzes
     console.log("[ASSESSMENTS][SERVICE] fetchQuizzesHomeData rawData:", JSON.stringify(rawData, null, 2));
 
     return {
-      hero: rawData.hero ?? MOCK_QUIZZES_HOME_DATA.hero,
-      quickActions: rawData.quickActions ?? MOCK_QUIZZES_HOME_DATA.quickActions,
-      inProgress: rawData.inProgress ?? MOCK_QUIZZES_HOME_DATA.inProgress,
-      awaitingReview: rawData.awaitingReview ?? MOCK_QUIZZES_HOME_DATA.awaitingReview,
-      readyToStart: rawData.readyToStart ?? MOCK_QUIZZES_HOME_DATA.readyToStart,
-      recentCompleted: rawData.recentCompleted ?? MOCK_QUIZZES_HOME_DATA.recentCompleted,
+      hero: rawData.hero ?? EMPTY_QUIZZES_HOME_DATA.hero,
+      quickActions: rawData.quickActions ?? EMPTY_QUIZZES_HOME_DATA.quickActions,
+      inProgress: rawData.inProgress ?? EMPTY_QUIZZES_HOME_DATA.inProgress,
+      awaitingReview: rawData.awaitingReview ?? EMPTY_QUIZZES_HOME_DATA.awaitingReview,
+      readyToStart: rawData.readyToStart ?? EMPTY_QUIZZES_HOME_DATA.readyToStart,
+      recentCompleted: rawData.recentCompleted ?? EMPTY_QUIZZES_HOME_DATA.recentCompleted,
     };
   } catch (error) {
     console.error("[ASSESSMENTS][SERVICE] fetchQuizzesHomeData error:", error);
-    return MOCK_QUIZZES_HOME_DATA;
+    throw error;
   }
 }
 
@@ -44,7 +44,7 @@ export async function fetchAssessmentHistoryData(
   getToken?: GetToken
 ): Promise<AssessmentHistoryPayload> {
   if (!getToken) {
-    return MOCK_ASSESSMENT_HISTORY_DATA;
+    throw new Error("Authentication is required to load assessment history.");
   }
 
   try {
@@ -54,16 +54,16 @@ export async function fetchAssessmentHistoryData(
     });
 
     return {
-      hero: rawData.hero ?? MOCK_ASSESSMENT_HISTORY_DATA.hero,
-      scope: rawData.scope ?? MOCK_ASSESSMENT_HISTORY_DATA.scope,
-      recentAttempts: rawData.recentAttempts ?? MOCK_ASSESSMENT_HISTORY_DATA.recentAttempts,
+      hero: rawData.hero ?? EMPTY_ASSESSMENT_HISTORY_DATA.hero,
+      scope: rawData.scope ?? EMPTY_ASSESSMENT_HISTORY_DATA.scope,
+      recentAttempts: rawData.recentAttempts ?? EMPTY_ASSESSMENT_HISTORY_DATA.recentAttempts,
       inProgressAttempts:
-        rawData.inProgressAttempts ?? MOCK_ASSESSMENT_HISTORY_DATA.inProgressAttempts,
+        rawData.inProgressAttempts ?? EMPTY_ASSESSMENT_HISTORY_DATA.inProgressAttempts,
       availableQuizEntries:
-        rawData.availableQuizEntries ?? MOCK_ASSESSMENT_HISTORY_DATA.availableQuizEntries,
+        rawData.availableQuizEntries ?? EMPTY_ASSESSMENT_HISTORY_DATA.availableQuizEntries,
     };
   } catch (error) {
-    return MOCK_ASSESSMENT_HISTORY_DATA;
+    throw error;
   }
 }
 
@@ -73,7 +73,7 @@ export async function fetchQuizLandingData(
   getToken?: GetToken
 ): Promise<QuizLandingPayload> {
   if (!getToken) {
-    return MOCK_QUIZ_LANDING_DATA;
+    throw new Error("Authentication is required to load quiz information.");
   }
 
   try {
@@ -85,15 +85,15 @@ export async function fetchQuizLandingData(
     console.log("[ASSESSMENTS][SERVICE] fetchQuizLandingData rawData:", JSON.stringify(rawData, null, 2));
 
     return {
-      chapterNumber: rawData.chapterNumber ?? MOCK_QUIZ_LANDING_DATA.chapterNumber,
-      chapterTitle: rawData.chapterTitle ?? MOCK_QUIZ_LANDING_DATA.chapterTitle,
-      subjectId: rawData.subjectId ?? subjectId ?? MOCK_QUIZ_LANDING_DATA.subjectId,
-      subjectName: rawData.subjectName ?? MOCK_QUIZ_LANDING_DATA.subjectName,
-      heroTitle: rawData.heroTitle ?? MOCK_QUIZ_LANDING_DATA.heroTitle,
-      heroSubtitle: rawData.heroSubtitle ?? MOCK_QUIZ_LANDING_DATA.heroSubtitle,
+      chapterNumber: rawData.chapterNumber ?? EMPTY_QUIZ_LANDING_DATA.chapterNumber,
+      chapterTitle: rawData.chapterTitle ?? EMPTY_QUIZ_LANDING_DATA.chapterTitle,
+      subjectId: rawData.subjectId ?? subjectId ?? EMPTY_QUIZ_LANDING_DATA.subjectId,
+      subjectName: rawData.subjectName ?? EMPTY_QUIZ_LANDING_DATA.subjectName,
+      heroTitle: rawData.heroTitle ?? EMPTY_QUIZ_LANDING_DATA.heroTitle,
+      heroSubtitle: rawData.heroSubtitle ?? EMPTY_QUIZ_LANDING_DATA.heroSubtitle,
     };
   } catch (error) {
     console.error("[ASSESSMENTS][SERVICE] fetchQuizLandingData error:", error);
-    return MOCK_QUIZ_LANDING_DATA;
+    throw error;
   }
 }

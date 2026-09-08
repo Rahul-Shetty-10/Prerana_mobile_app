@@ -1,5 +1,22 @@
 import { LibraryPayload } from "../types";
 
+export const EMPTY_LIBRARY_DATA: LibraryPayload = {
+  hero: {
+    title: "My AI Library",
+    subtitle: "Your saved outputs and approved resources will appear here.",
+    stats: { activeSubjects: 0, savedOutputs: 0, visibleResources: 0 },
+  },
+  savedOutputs: {
+    title: "Saved AI Outputs",
+    description: "Saved outputs will appear here when they are available.",
+    badgeText: "Nothing Saved Yet",
+    placeholderText: "No saved outputs are available yet.",
+    items: [],
+  },
+  chapterShelves: [],
+  featuredResources: [],
+};
+
 export const MOCK_LIBRARY_DATA: LibraryPayload = {
   hero: {
     title: "My AI Library",

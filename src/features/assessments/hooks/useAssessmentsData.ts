@@ -10,15 +10,15 @@ import {
   QuizzesHomePayload,
 } from "../types";
 import {
-  MOCK_ASSESSMENT_HISTORY_DATA,
-  MOCK_QUIZ_LANDING_DATA,
-  MOCK_QUIZZES_HOME_DATA,
+  EMPTY_ASSESSMENT_HISTORY_DATA,
+  EMPTY_QUIZ_LANDING_DATA,
+  EMPTY_QUIZZES_HOME_DATA,
 } from "../constants";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export function useQuizzesHomeData(getToken?: GetToken) {
-  const [data, setData] = useState<QuizzesHomePayload>(MOCK_QUIZZES_HOME_DATA);
+  const [data, setData] = useState<QuizzesHomePayload>(EMPTY_QUIZZES_HOME_DATA);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +49,7 @@ export function useQuizzesHomeData(getToken?: GetToken) {
 }
 
 export function useAssessmentHistoryData(getToken?: GetToken) {
-  const [data, setData] = useState<AssessmentHistoryPayload>(MOCK_ASSESSMENT_HISTORY_DATA);
+  const [data, setData] = useState<AssessmentHistoryPayload>(EMPTY_ASSESSMENT_HISTORY_DATA);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +80,7 @@ export function useAssessmentHistoryData(getToken?: GetToken) {
 }
 
 export function useQuizLandingData(subjectId?: string, chapterId?: string, getToken?: GetToken) {
-  const [data, setData] = useState<QuizLandingPayload>(MOCK_QUIZ_LANDING_DATA);
+  const [data, setData] = useState<QuizLandingPayload>(EMPTY_QUIZ_LANDING_DATA);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -6,7 +6,6 @@ import {
   QuizLandingScreen,
   QuizzesHomeScreen,
 } from "../features/assessments";
-import { MOCK_SUBJECTS_LIST } from "../features/subjects/constants/subjectsData";
 
 const Stack = createNativeStackNavigator<AssessmentsStackParamList>();
 
@@ -38,9 +37,10 @@ export function AssessmentsNavigator({ getToken }: AssessmentsNavigatorProps) {
               }
             }}
             onOpenNextQuiz={() => {
-              navigation.navigate("QuizLanding", {
-                subjectId: "subj-science",
-                chapterId: "chap-1",
+              const parent = navigation.getParent();
+              (parent as any)?.navigate("SubjectsTab", {
+                screen: "SubjectSelection",
+                params: { fromTab: "AssessmentsTab" },
               });
             }}
             onOpenQuiz={(entry) => {
@@ -61,9 +61,10 @@ export function AssessmentsNavigator({ getToken }: AssessmentsNavigatorProps) {
           <AssessmentHistoryScreen
             getToken={getToken}
             onOpenAvailableQuiz={() => {
-              navigation.navigate("QuizLanding", {
-                subjectId: "subj-science",
-                chapterId: "chap-1",
+              const parent = navigation.getParent();
+              (parent as any)?.navigate("SubjectsTab", {
+                screen: "SubjectSelection",
+                params: { fromTab: "AssessmentsTab" },
               });
             }}
             onOpenMySubjects={() => {
@@ -91,26 +92,21 @@ export function AssessmentsNavigator({ getToken }: AssessmentsNavigatorProps) {
       <Stack.Screen name="QuizLanding">
         {({ route, navigation }) => (
           <QuizLandingScreen
-            chapterId={route.params?.chapterId || "chap-1"}
+            chapterId={route.params?.chapterId || ""}
             getToken={getToken}
             onBackToChapter={(subjectId) => {
               const parent = navigation.getParent();
               if (parent) {
-                const targetSubject =
-                  MOCK_SUBJECTS_LIST.find((s) => s.id === subjectId) || MOCK_SUBJECTS_LIST[1];
-
                 (parent as any).navigate("SubjectsTab", {
-                  screen: "SubjectWorkspace",
-                  params: {
-                    subject: targetSubject,
-                  },
+                  screen: "SubjectSelection",
+                  params: { fromTab: "AssessmentsTab", subjectId },
                 });
               }
             }}
             onBrowseQuizzes={() => {
               navigation.navigate("QuizzesHome");
             }}
-            subjectId={route.params?.subjectId || "subj-science"}
+            subjectId={route.params?.subjectId || ""}
           />
         )}
       </Stack.Screen>

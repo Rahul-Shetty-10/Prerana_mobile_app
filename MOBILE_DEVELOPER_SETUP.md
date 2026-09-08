@@ -18,7 +18,7 @@ Ask the project owner for these values:
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://app.smartguru.in/api/mobile/v1
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<provided-by-owner>
-EXPO_PUBLIC_TENANT_SLUG=seed-tenant-alpha
+EXPO_PUBLIC_TENANT_SLUG=<staging-or-production-tenant-from-owner>
 ```
 
 Create `.env`:
@@ -86,7 +86,7 @@ Login using the student credentials provided by the project owner.
 Inside a React component or custom hook, get Clerk's `getToken` function:
 
 ```ts
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 
 const { getToken } = useAuth();
 ```
@@ -101,59 +101,13 @@ Every API call must send:
 
 ```http
 Authorization: Bearer <token>
-X-Tenant-Slug: seed-tenant-alpha
+X-Tenant-Slug: <configured-tenant>
 Content-Type: application/json
 ```
 
 Do not hardcode this token. It expires.
 
-## Step 7: Get Token For One-Time Postman Test
-
-Use this only to test the deployed API once before building screens.
-
-1. Open:
-
-```txt
-https://app.smartguru.in
-```
-
-2. Login as the student.
-
-3. Open DevTools Console.
-
-4. Run:
-
-```js
-await window.Clerk.session.getToken({ template: "convex" })
-```
-
-5. Copy the returned value starting with:
-
-```txt
-eyJ...
-```
-
-6. In Postman, add headers:
-
-```http
-Authorization: Bearer eyJ...
-X-Tenant-Slug: seed-tenant-alpha
-Content-Type: application/json
-```
-
-Correct:
-
-```txt
-Bearer eyJ...
-```
-
-Wrong:
-
-```txt
-Bearer "eyJ..."
-```
-
-## Step 8: Test The API Once In Postman
+## Step 7: Test The API With An Authenticated Client
 
 Base URL:
 
@@ -174,7 +128,7 @@ Expected:
   "ok": true,
   "data": {
     "role": "student",
-    "tenantSlug": "seed-tenant-alpha"
+    "tenantSlug": "<configured-tenant>"
   }
 }
 ```
@@ -187,7 +141,7 @@ GET https://app.smartguru.in/api/mobile/v1/student/dashboard
 
 If these pass, start building the app screens.
 
-## Step 9: Use This API Helper Pattern
+## Step 8: Use This API Helper Pattern
 
 ```ts
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -360,7 +314,7 @@ Token is missing, expired, copied with quotes, or not created using the `convex`
 
 `403 ROUTE_FORBIDDEN`
 
-Logged-in user is not a student in `seed-tenant-alpha`.
+Logged-in user is not a student in the configured tenant.
 
 `400 VALIDATION_ERROR`
 

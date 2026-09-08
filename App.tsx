@@ -5,7 +5,7 @@ import {
   useAuth,
   useClerk,
   useSignIn,
-} from "@clerk/clerk-expo";
+} from "@clerk/expo";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -32,7 +32,8 @@ import { tokenCache } from "./src/lib/tokenCache";
 import { RootNavigator } from "./src/navigation";
 import { ThemeProvider } from "./src/shared/theme/ThemeContext";
 import { mobileApi, MobileSessionData } from "./src/api/mobileApi";
-import { clearLearningState } from "./src/shared/services/learningStateService";
+import { performStudentSignOut } from "./src/features/profile/services/profileService";
+import { setActiveUserId } from "./src/shared/services/userStorage";
 
 export default function App() {
   useEffect(() => {
@@ -44,13 +45,13 @@ export default function App() {
     });
   }, []);
 
-  if (!appConfig.clerkPublishableKey) {
+  if (!appConfig.clerkPublishableKey || !appConfig.apiBaseUrl || !appConfig.tenantSlug) {
     return (
       <SafeAreaProvider>
         <ScreenShell centered>
-          <Text style={styles.title}>Missing Clerk config</Text>
+          <Text style={styles.title}>Missing app configuration</Text>
           <Text style={styles.muted}>
-            Set EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY in your .env file before starting Expo.
+            Set the production API URL, Clerk publishable key, and tenant slug in the build environment before starting Expo.
           </Text>
         </ScreenShell>
       </SafeAreaProvider>
@@ -73,12 +74,16 @@ export default function App() {
 console.log("[PERF][BOOT] App launch: 0ms");
 
 function Root() {
-  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
+  const { isLoaded, isSignedIn, getToken, signOut, userId } = useAuth();
   const [sessionState, setSessionState] = useState<'loading' | 'verifying' | 'verified' | 'failed'>('loading');
 
   const loggedClerkReady = useRef(false);
   const loggedAuth = useRef(false);
   const loggedGetToken = useRef(false);
+
+  useEffect(() => {
+    setActiveUserId(isSignedIn ? userId : null);
+  }, [isSignedIn, userId]);
 
   useEffect(() => {
     if (isLoaded && !loggedClerkReady.current) {
@@ -107,6 +112,8 @@ function Root() {
       return;
     }
 
+    let cancelled = false;
+
     const verifyBackendSession = async (isBackground: boolean) => {
       console.log(`[SUBJECTS][APP] verifyBackendSession started. isBackground: ${isBackground}`);
       const sessionStartTime = Date.now();
@@ -124,13 +131,14 @@ function Root() {
         if (data.role !== "student") {
           throw new Error("User role is not student");
         }
+        if (cancelled) return;
         await AsyncStorage.setItem("@prerana_session", JSON.stringify(data));
-        setSessionState("verified");
+        if (!cancelled) setSessionState("verified");
       } catch (error: any) {
         console.error("[SUBJECTS][APP] Backend session verification error:", error?.message || error);
         if (!isBackground) {
           await AsyncStorage.removeItem("@prerana_session");
-          setSessionState("failed");
+          if (!cancelled) setSessionState("failed");
         } else {
           console.log("[SUBJECTS][APP] Background session verification failed, ignoring to prevent kicking user out.");
         }
@@ -140,34 +148,27 @@ function Root() {
     const initializeSession = async () => {
       console.log("[SUBJECTS][APP] initializeSession starting...");
       try {
-        console.log("[SUBJECTS][APP] Reading cached session from AsyncStorage...");
-        const cachedSession = await AsyncStorage.getItem("@prerana_session");
-        console.log("[SUBJECTS][APP] cachedSession read complete:", cachedSession);
-        if (cachedSession) {
-          setSessionState("verified");
-          // Background verification to ensure token/session is still active
-          verifyBackendSession(true);
-        } else {
-          console.log("[SUBJECTS][APP] No cached session. Setting state to verifying...");
-          setSessionState("verifying");
-          await verifyBackendSession(false);
-        }
+        // Clerk sign-in is not enough for tenant access; always verify with the backend.
+        if (!cancelled) setSessionState("verifying");
+        await verifyBackendSession(false);
       } catch (e: any) {
-        console.error("[SUBJECTS][APP] initializeSession error reading AsyncStorage:", e?.message || e);
-        setSessionState("verifying");
+        console.error("[SUBJECTS][APP] initializeSession error:", e?.message || e);
+        if (!cancelled) setSessionState("verifying");
         await verifyBackendSession(false);
       }
     };
 
-    initializeSession();
-  }, [isLoaded, isSignedIn, getToken]);
+    void initializeSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn, getToken, userId]);
 
   const handleSignOut = async () => {
     try {
       await AsyncStorage.removeItem("@prerana_session");
-      await AsyncStorage.clear();
-      await clearLearningState();
-      await signOut();
+      await performStudentSignOut(signOut, userId);
     } catch (e) {
       await signOut();
     }
@@ -238,14 +239,14 @@ function SessionErrorScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
 }
 
 function SignInScreen() {
-  const { isLoaded, signIn, setActive } = useSignIn();
+  const { signIn, fetchStatus } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSignIn() {
-    if (!isLoaded || isSubmitting) {
+    if (fetchStatus === "fetching" || isSubmitting) {
       return;
     }
 
@@ -261,8 +262,15 @@ function SignInScreen() {
         password,
       });
 
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (signIn.status === "complete") {
+        const finalized = await signIn.finalize();
+        if (finalized.error) {
+          throw finalized.error;
+        }
         return;
       }
 
@@ -279,7 +287,7 @@ function SignInScreen() {
       <View style={styles.brandBlock}>
         <Text style={styles.eyebrow}>PRERANA 2.0</Text>
         <Text style={styles.title}>Mobile workspace</Text>
-        <Text style={styles.subtitle}>Sign in with a student test account to open the learning workspace.</Text>
+        <Text style={styles.subtitle}>Sign in with your student account to open the learning workspace.</Text>
       </View>
 
       <View style={styles.panel}>

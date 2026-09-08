@@ -19,7 +19,7 @@ import { markQuizCompleted } from "../../shared/services/chapterProgressService"
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
 import { AppIcon } from "../../shared/icons";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
 import { recordBatchAttempts } from "../../shared/services/attemptTracker";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -108,7 +108,11 @@ export function ExerciseScreen({
       cancelText: "Cancel",
       onConfirm: () => {
         submitSession();
-        const { resultData, reviewData } = gradeExercise(session, userAnswers);
+        const { resultData, reviewData } = gradeExercise(
+          session,
+          userAnswers,
+          quizStartTime == null ? undefined : Date.now() - quizStartTime,
+        );
         
         if (userId) {
           void recordBatchAttempts(userId, resultData.correctCount, resultData.incorrectCount);

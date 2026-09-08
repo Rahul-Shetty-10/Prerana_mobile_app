@@ -1,4 +1,4 @@
-import type { TokenCache } from "@clerk/clerk-expo";
+import type { TokenCache } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const tokenCache: TokenCache = {

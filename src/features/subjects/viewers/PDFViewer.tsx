@@ -93,7 +93,10 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
         const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
         console.log(`[SUBJECTS][PDFViewer] Downloading textbook notes from backend: ${pdfUrl}`);
-        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        const headers = authToken
+          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+          : undefined;
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
         if (downloadResult.status !== 200 && downloadResult.status !== 201) {
           throw new Error(`HTTP status ${downloadResult.status}`);
         }
@@ -175,7 +178,10 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
       if (pdfUrl && pdfUrl.startsWith("http")) {
         const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
-        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        const headers = authToken
+          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+          : undefined;
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
         localPdfUri = downloadResult.uri;
       } else {
         const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
