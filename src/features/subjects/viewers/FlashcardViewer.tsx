@@ -250,12 +250,12 @@ export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: Fla
   // ── Render ────────────────────────────────────────────────────────────────
 
   // Backend provided no data for this resource type
-  if (flashcards === undefined && !isLoading) {
+  if ((flashcards === undefined || flashcards.length === 0) && !isLoading) {
     return (
       <ContentComingSoon
         icon="albums-outline"
-        title="Flashcards Coming Soon"
-        message="Flashcards for this chapter are being prepared. Check back soon!"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import {
+  Alert,
   ActivityIndicator,
   Dimensions,
   Modal,
@@ -63,27 +64,25 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
   };
 
   const handleDownload = async () => {
+    if (!pdfUrl || !pdfUrl.startsWith("http")) {
+      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      return;
+    }
     try {
-      let localPdfUri = "";
-      if (pdfUrl && pdfUrl.startsWith("http")) {
-        const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
-        const tempPath = `${FileSystem.documentDirectory}${filename}`;
-        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
-        localPdfUri = downloadResult.uri;
-      } else {
-        const asset = Asset.fromModule(require("../../../chapter/Slidedeck.pdf"));
-        await asset.downloadAsync();
-        localPdfUri = asset.localUri || "";
+      const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
+      const tempPath = `${FileSystem.documentDirectory}${filename}`;
+      const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+      if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+        throw new Error(`HTTP status ${downloadResult.status}`);
       }
-
-      if (localPdfUri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(localPdfUri, {
+      if (downloadResult.uri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(downloadResult.uri, {
           mimeType: "application/pdf",
           dialogTitle: "Save Slide Deck",
         });
       }
-    } catch (_) {
-      // Handle error silently
+    } catch (err) {
+      Alert.alert("Download Failed", "Unable to download the slide deck.");
     }
   };
 
@@ -220,7 +219,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
 
   const renderDeckContent = (width: number, height: number, inFullscreen = false) => {
     if (Platform.OS === "web") {
-      const srcUri = pdfUrl || Asset.fromModule(require("../../../chapter/Slidedeck.pdf")).uri;
+      const srcUri = pdfUrl;
       return (
         <View style={inFullscreen ? styles.fullscreenPdfContainer : styles.pdfContainer}>
           <iframe
@@ -310,8 +309,9 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
   if (!pdfUrl) {
     return (
       <ContentComingSoon
-        title="Slide Deck Coming Soon"
-        message="Interactive slides for this chapter are currently being compiled by the backend team."
+        icon="easel-outline"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }

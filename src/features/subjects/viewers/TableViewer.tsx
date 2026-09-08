@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import * as FileSystem from "expo-file-system/legacy";
 import {
+  Alert,
   ActivityIndicator,
   Linking,
   Modal,
@@ -74,13 +75,7 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
   }, [rows, searchQuery, sortKey, sortDir]);
 
   const handleDownload = async () => {
-    try {
-      const asset = Asset.fromModule(require("../../../chapter/Table.xlsx"));
-      await asset.downloadAsync();
-      await Linking.openURL(asset.uri);
-    } catch (err) {
-      // Error handled silently
-    }
+    Alert.alert("Resource Unavailable", "This table resource is not currently available for download.");
   };
 
   useEffect(() => {
@@ -214,12 +209,12 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
     </ScrollView>
   );
 
-  if (propsColumns === undefined && !isLoading) {
+  if ((propsColumns === undefined || propsColumns.length === 0) && !isLoading) {
     return (
       <ContentComingSoon
         icon="grid-outline"
-        title="Data Table Coming Soon"
-        message="The data table for this chapter is being prepared. Check back soon!"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }

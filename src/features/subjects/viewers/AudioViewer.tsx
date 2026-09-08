@@ -9,8 +9,6 @@ import { colors, radius, shadows, spacing, typography } from "../../../shared/th
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
 
-const localAudio = require("../../../chapter/Audio.m4a");
-
 export function AudioViewer({
   audioTitle,
   audioUrl,
@@ -25,19 +23,17 @@ export function AudioViewer({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isCompleted, setIsCompleted] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [localAudioPath, setLocalAudioPath] = useState<any>(null);
+  const [localAudioPath, setLocalAudioPath] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     const prepareAudio = async () => {
       if (!audioUrl) {
-        // No backend URL — don't load local mock, just leave localAudioPath null
         return;
       }
 
       try {
         setDownloading(true);
-        // Extract a clean filename from audioUrl
         const filename = audioUrl.split("/").pop() || "Audio.m4a";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
 
@@ -54,8 +50,7 @@ export function AudioViewer({
         }
         if (active) setLocalAudioPath(result.uri);
       } catch (err) {
-        console.warn("[SUBJECTS][AudioViewer] Failed to download remote audio, falling back to local asset:", err);
-        if (active) setLocalAudioPath(localAudio);
+        console.warn("[SUBJECTS][AudioViewer] Failed to download remote audio:", err);
       } finally {
         if (active) setDownloading(false);
       }
@@ -67,10 +62,10 @@ export function AudioViewer({
     };
   }, [audioUrl, authToken, tenantSlug]);
 
-  const player = useAudioPlayer(localAudioPath || localAudio);
+  const player = useAudioPlayer(localAudioPath || "");
   const status = useAudioPlayerStatus(player);
 
-  const isLoading = !status.isLoaded || downloading;
+  const isLoading = (!status.isLoaded && !!localAudioPath) || downloading;
   const isPlaying = status.playing;
   const currentTime = status.currentTime ?? 0;
   const durationSeconds = status.duration ?? 0;
@@ -127,13 +122,13 @@ export function AudioViewer({
 
   const progressPercent = durationSeconds > 0 ? Math.round((currentTime / durationSeconds) * 100) : 0;
 
-  // No backend URL at all — show Coming Soon (not local mock audio)
-  if (!audioUrl && !localAudioPath) {
+  // No backend URL at all — show "Yet to be updated" (not local mock audio)
+  if (!audioUrl || !localAudioPath) {
     return (
       <ContentComingSoon
         icon="headset-outline"
-        title="Audio Coming Soon"
-        message="The audio explanation for this chapter is being prepared. Check back soon!"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }

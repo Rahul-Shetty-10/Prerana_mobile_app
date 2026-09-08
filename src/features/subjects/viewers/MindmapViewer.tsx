@@ -168,13 +168,13 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
 
-  // No backend data — show Coming Soon
+  // No backend data — show "Yet to be updated"
   if (!rootNode) {
     return (
       <ContentComingSoon
         icon="git-network-outline"
-        title="Mind Map Coming Soon"
-        message="The mind map for this chapter is being prepared. Check back soon!"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }

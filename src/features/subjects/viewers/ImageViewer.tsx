@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import {
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -20,7 +21,6 @@ import { ImageViewerProps } from "../types";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ViewerToolbar } from "./ViewerToolbar";
-import { Asset } from "expo-asset";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
@@ -29,10 +29,6 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
 import { ZoomPanView } from "./ZoomPanView";
-
-
-const localInfographic = require("../../../chapter/Infographic.png");
-const localMindmap = require("../../../chapter/Mindmap.png");
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -55,22 +51,18 @@ export function ImageViewer({
   const [isImageLoading, setIsImageLoading] = useState(false);
   const lastTap = useRef<number>(0);
 
-  // No backend URL at all — show Coming Soon screen (do NOT show local mock)
-  if (!imageUrl) {
+  // No backend URL or broken image — show "Yet to be updated" (do NOT show local mock)
+  if (!imageUrl || imageError) {
     return (
       <ContentComingSoon
         icon={isMindmap ? "git-network-outline" : "image-outline"}
-        title={isMindmap ? "Mind Map Image Coming Soon" : "Infographic Coming Soon"}
-        message="This visual content is being prepared by our team. Check back soon!"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }
 
-  const activeImage = (imageUrl && !imageError)
-    ? {
-        uri: imageUrl,
-      }
-    : (isMindmap ? localMindmap : localInfographic);
+  const activeImage = { uri: imageUrl };
   const label = isMindmap ? "MIND MAP IMAGE" : "INFOGRAPHIC";
 
   const handleZoomIn = () => setZoomScale((p) => Math.min(p + 0.25, 4));
@@ -96,35 +88,23 @@ export function ImageViewer({
   };
 
   const handleDownload = async () => {
+    if (!imageUrl) {
+      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      return;
+    }
     try {
-      let localUri = "";
-      if (imageUrl && !imageError) {
-        try {
-          const filename = imageUrl.split("/").pop() || "image.png";
-          const tempPath = `${FileSystem.documentDirectory}${filename}`;
-          console.log(`[SUBJECTS][ImageViewer] Downloading image with headers: ${imageUrl}`);
-          const downloadResult = await FileSystem.downloadAsync(imageUrl, tempPath);
-          if (downloadResult.status !== 200 && downloadResult.status !== 201) {
-            throw new Error(`HTTP status ${downloadResult.status}`);
-          }
-          localUri = downloadResult.uri;
-        } catch (err) {
-          console.warn("[SUBJECTS][ImageViewer] Download failed, sharing local asset:", err);
-          const asset = Asset.fromModule(isMindmap ? localMindmap : localInfographic);
-          await asset.downloadAsync();
-          localUri = asset.localUri || "";
-        }
-      } else {
-        const asset = Asset.fromModule(isMindmap ? localMindmap : localInfographic);
-        await asset.downloadAsync();
-        localUri = asset.localUri || "";
+      const filename = imageUrl.split("/").pop() || "image.png";
+      const tempPath = `${FileSystem.documentDirectory}${filename}`;
+      console.log(`[SUBJECTS][ImageViewer] Downloading image: ${imageUrl}`);
+      const downloadResult = await FileSystem.downloadAsync(imageUrl, tempPath);
+      if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+        throw new Error(`HTTP status ${downloadResult.status}`);
       }
-
-      if (localUri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(localUri);
+      if (downloadResult.uri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(downloadResult.uri);
       }
-    } catch (_) {
-      // Share unavailable on this platform
+    } catch (err) {
+      Alert.alert("Download Failed", "Unable to download the requested image.");
     }
   };
 
