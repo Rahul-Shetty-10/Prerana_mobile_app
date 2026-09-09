@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Prerana Mobile",
+    "name": "Prerana",
     "slug": "prerana-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.darshu_2228.preranamobile",
+      "package": "com.ellipsonic.prerana",
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -37,7 +37,7 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Allow Prerana Mobile to access Face ID for secure sign in."
+          "faceIDPermission": "Allow Prerana to access Face ID for secure sign in."
         }
       ],
       "expo-web-browser",
