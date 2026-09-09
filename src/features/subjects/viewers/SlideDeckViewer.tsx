@@ -22,6 +22,8 @@ import { ensurePdfJsCached, writeSlidedeckHtml, slidedeckHtmlPath } from "../uti
 import { ViewerToolbar } from "./ViewerToolbar";
 import { ContentComingSoon } from "./ContentComingSoon";
 import { ZoomPanView } from "./ZoomPanView";
+import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
+import { invalidateMobileSession } from "../../../shared/session/sessionStore";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
@@ -30,10 +32,9 @@ interface SlideDeckViewerProps {
   documentTitle: string;
   pdfUrl?: string;
   authToken?: string;
-  tenantSlug?: string;
 }
 
-export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: SlideDeckViewerProps) {
+export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -70,11 +71,10 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
     try {
       const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
       const tempPath = `${FileSystem.documentDirectory}${filename}`;
-      const headers = authToken
-        ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-        : undefined;
+      const headers = getResourceRequestHeaders(pdfUrl, authToken);
       const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
       if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+        if (shouldInvalidateResourceResponse(pdfUrl, downloadResult.status)) await invalidateMobileSession();
         throw new Error(`HTTP status ${downloadResult.status}`);
       }
 
@@ -109,12 +109,11 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
       if (pdfUrl && pdfUrl.startsWith("http")) {
         const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
-        console.log(`[SUBJECTS][SlideDeckViewer] Downloading slidedeck from backend: ${pdfUrl}`);
-        const headers = authToken
-          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-          : undefined;
+        console.log("[SUBJECTS][SlideDeckViewer] Downloading authenticated slide resource");
+        const headers = getResourceRequestHeaders(pdfUrl, authToken);
         const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
         if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+          if (shouldInvalidateResourceResponse(pdfUrl, downloadResult.status)) await invalidateMobileSession();
           throw new Error(`HTTP status ${downloadResult.status}`);
         }
         localPdfUri = downloadResult.uri;

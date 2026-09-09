@@ -13,6 +13,8 @@ import { MindmapNode, MindmapViewerProps } from "../types";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { HTML_TO_IMAGE_SOURCE } from "./htmlToImageSource";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
+import { invalidateMobileSession } from "../../../shared/session/sessionStore";
 
 interface PositionedNode {
   id: string;
@@ -162,7 +164,7 @@ function layoutMindmap(rootNode: MindmapNode) {
   return { nodes, connections, details };
 }
 
-export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
+export function MindmapViewer({ title, rootNode, authToken }: MindmapViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
@@ -209,8 +211,13 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
       setIsLoadingRemote(true);
       setFetchError(false);
       try {
-        const res = await fetch(remoteUrl);
+        if (!authToken) {
+          throw new Error("Authentication is required to load this resource.");
+        }
+        const headers = getResourceRequestHeaders(remoteUrl, authToken);
+        const res = await fetch(remoteUrl, headers ? { headers } : undefined);
         if (!res.ok) {
+          if (shouldInvalidateResourceResponse(remoteUrl, res.status)) await invalidateMobileSession();
           throw new Error(`HTTP ${res.status}`);
         }
         const json = await res.json();
@@ -223,8 +230,8 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
             setFetchError(true);
           }
         }
-      } catch (err) {
-        console.warn("[SUBJECTS][MindmapViewer] Failed to fetch remote mindmap JSON:", err);
+      } catch {
+        console.warn("[SUBJECTS][MindmapViewer] Failed to fetch remote mindmap JSON");
         if (isMounted) {
           setFetchError(true);
         }
@@ -240,7 +247,7 @@ export function MindmapViewer({ title, rootNode }: MindmapViewerProps) {
     return () => {
       isMounted = false;
     };
-  }, [rootNode]);
+  }, [rootNode, authToken]);
 
   // 4. Sync selectedNodeId when activeRoot changes
   useEffect(() => {

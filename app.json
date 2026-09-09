@@ -24,6 +24,9 @@
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -53,8 +56,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "dc214ed6-8e49-4035-8651-4b796b0d250f"
+        "projectId": "d10db3ee-05c5-4a6b-b750-e7177a77a458"
       }
-    }
+    },
+    "owner": "ellipsonic1"
   }
 }

@@ -8,7 +8,7 @@ This is the living release record for publishing Prerana Mobile to Google Play. 
 - Branch: `main`
 - Baseline commit at handoff: `b02c6eb`
 - App technology: Expo / React Native
-- Expo SDK: 56
+- Expo SDK: 57
 - Production build profile: `production` in `eas.json`
 - Current worktree validation: `npm run typecheck` passes
 - Dependency validation: `npm ci --ignore-scripts` passes after refreshing `package-lock.json`
@@ -21,7 +21,7 @@ This is the living release record for publishing Prerana Mobile to Google Play. 
 - Refreshed `package-lock.json` because the original lockfile was missing optional `lightningcss` platform packages required by `npm ci`.
 - Confirmed the Expo configuration resolves successfully.
 - Confirmed the TypeScript check passes.
-- No application source code has been changed.
+- Multi-tenant session and request isolation have been implemented in the mobile client; backend contract work remains separately tracked.
 
 ## 3. Environment variables
 
@@ -30,7 +30,7 @@ The production environment must contain these values:
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://app.smartguru.in/api/mobile/v1
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<real production Clerk publishable key>
-EXPO_PUBLIC_TENANT_SLUG=seed-tenant-alpha
+# Do not set EXPO_PUBLIC_TENANT_SLUG. Tenant selection is backend-driven.
 ```
 
 Do not commit `.env` or paste the real Clerk key into source control. For an EAS build, add these variables to the EAS `production` environment. The Clerk project and backend must use the matching production configuration and the `convex` JWT template.

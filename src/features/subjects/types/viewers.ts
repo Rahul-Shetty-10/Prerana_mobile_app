@@ -4,7 +4,6 @@ export interface ImageViewerProps {
   description?: string;
   isMindmap?: boolean;
   authToken?: string;
-  tenantSlug?: string;
 }
 
 export interface MindmapNode {
@@ -18,6 +17,7 @@ export interface MindmapViewerProps {
   title?: string;
   description?: string;
   rootNode?: MindmapNode;
+  authToken?: string;
 }
 
 export interface PDFPageItem {
@@ -35,7 +35,6 @@ export interface PDFViewerProps {
   onPageChange?: (index: number) => void;
   isSlidedeck?: boolean;
   authToken?: string;
-  tenantSlug?: string;
 }
 
 export interface FlashcardItem {
@@ -69,5 +68,12 @@ export interface AudioViewerProps {
   durationSeconds?: number;
   speakerName?: string;
   authToken?: string;
-  tenantSlug?: string;
+}
+
+export interface VideoViewerProps {
+  title?: string;
+  videoTitle?: string;
+  videoUrl?: string;
+  description?: string;
+  authToken?: string;
 }

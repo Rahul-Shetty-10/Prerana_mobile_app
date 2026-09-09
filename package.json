@@ -38,6 +38,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test:multi-tenant": "node --experimental-strip-types --test tests/multiTenant.test.ts",
     "release:validate": "node scripts/validate-release.mjs",
     "eas-build-pre-install": "node scripts/validate-release.mjs"
   },

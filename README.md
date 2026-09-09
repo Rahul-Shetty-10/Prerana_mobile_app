@@ -10,8 +10,9 @@ Expo starter for the Prerana 2.0 student mobile client. The app signs in with Cl
 ```txt
 EXPO_PUBLIC_API_BASE_URL=https://app.smartguru.in/api/mobile/v1
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<Clerk publishable key>
-EXPO_PUBLIC_TENANT_SLUG=<staging-or-production-tenant-from-owner>
 ```
+
+Tenant selection is backend-driven. The app sends the authenticated Clerk token to `GET /session` without a tenant header. The backend resolves the user's student membership and returns the validated tenant. Do not configure `EXPO_PUBLIC_TENANT_SLUG` or hardcode a tenant in the app.
 
 Use a deployed staging API for normal development. A local laptop URL only works while the laptop and Next.js server are running.
 
@@ -32,16 +33,20 @@ The app must call:
 const token = await getToken({ template: "convex" });
 ```
 
-Then send:
+Then send the token to `GET /session` without a tenant header. After the backend returns and validates the user's single active student membership, send:
 
 ```http
 Authorization: Bearer <short-lived-Clerk-token>
-X-Tenant-Slug: <configured-tenant>
+X-Tenant-Slug: <backend-validated-tenant>
 ```
+
+This app enforces one active student membership per Clerk user. If the backend returns zero, invalid, or multiple memberships, the app refuses to enter the learning workspace. A tenant header is only an additional routing hint; the backend must verify membership from the Clerk identity on every request.
 
 Mobile developers should not receive `CLERK_SECRET_KEY`, Convex dashboard access, deploy keys, database credentials, or manually minted JWTs.
 
 This mobile app is student-only. Teacher, parent, school-admin, and super-admin workflows stay in the web app.
+
+The server-side response and authorization requirements are documented in [BACKEND_MULTI_TENANT_CONTRACT.md](BACKEND_MULTI_TENANT_CONTRACT.md).
 
 ## API testing
 

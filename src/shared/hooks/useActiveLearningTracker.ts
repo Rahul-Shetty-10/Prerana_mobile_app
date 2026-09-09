@@ -3,17 +3,22 @@ import { AppState, AppStateStatus } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "@clerk/expo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getMobileSession } from "../session/sessionStore";
+import { getUserStorageKey } from "../services/userStorage";
 
 export const ACTIVE_LEARNING_KEY_PREFIX = "@prerana_active_learning_";
 
 function getStorageKey(userId: string): string {
-  return `${ACTIVE_LEARNING_KEY_PREFIX}${userId}`;
+  if (getMobileSession()?.userId !== userId) return "";
+  return getUserStorageKey(ACTIVE_LEARNING_KEY_PREFIX) ?? "";
 }
 
 export async function getActiveLearningSeconds(userId: string): Promise<number> {
   if (!userId) return 0;
   try {
-    const val = await AsyncStorage.getItem(getStorageKey(userId));
+    const storageKey = getStorageKey(userId);
+    if (!storageKey) return 0;
+    const val = await AsyncStorage.getItem(storageKey);
     return val ? parseInt(val, 10) : 0;
   } catch (e) {
     return 0;
@@ -24,7 +29,8 @@ export async function addActiveLearningSeconds(userId: string, seconds: number):
   if (!userId || seconds <= 0) return;
   try {
     const current = await getActiveLearningSeconds(userId);
-    await AsyncStorage.setItem(getStorageKey(userId), (current + seconds).toString());
+    const storageKey = getStorageKey(userId);
+    if (storageKey) await AsyncStorage.setItem(storageKey, (current + seconds).toString());
   } catch (e) {
     console.warn("Failed to save active learning time", e);
   }
@@ -33,7 +39,8 @@ export async function addActiveLearningSeconds(userId: string, seconds: number):
 export async function clearActiveLearningForUser(userId: string): Promise<void> {
   if (!userId) return;
   try {
-    await AsyncStorage.removeItem(getStorageKey(userId));
+    const storageKey = getStorageKey(userId);
+    if (storageKey) await AsyncStorage.removeItem(storageKey);
   } catch (e) {}
 }
 

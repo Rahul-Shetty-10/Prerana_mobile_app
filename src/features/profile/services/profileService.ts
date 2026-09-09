@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { mobileApi } from "../../../api/mobileApi";
 import { LearningStats, StudentInfo, SubjectProgressItem } from "../types";
 import { clearLearningState } from "../../../shared/services/learningStateService";
@@ -6,6 +5,7 @@ import { clearAllMilestones } from "../../../shared/services/chapterProgressServ
 import { clearAllAttemptsForUser } from "../../../shared/services/attemptTracker";
 import { clearActiveLearningForUser } from "../../../shared/hooks/useActiveLearningTracker";
 import { clearArcadeProfileForUser } from "../../arcade/services/profileService";
+import { clearMobileSession } from "../../../shared/session/sessionStore";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -78,13 +78,14 @@ export async function performStudentSignOut(
 ): Promise<void> {
   try {
     await Promise.allSettled([
-      AsyncStorage.removeItem("@prerana_session"),
       clearLearningState(),
       clearAllMilestones(),
       userId ? clearAllAttemptsForUser(userId) : Promise.resolve(),
       userId ? clearActiveLearningForUser(userId) : Promise.resolve(),
       userId ? clearArcadeProfileForUser(userId) : Promise.resolve(),
     ]);
+
+    await clearMobileSession(userId);
 
     if (clerkSignOut) {
       await clerkSignOut();

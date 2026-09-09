@@ -24,6 +24,8 @@ import { ViewerToolbar } from "./ViewerToolbar";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { getMobileSession, invalidateMobileSession } from "../../../shared/session/sessionStore";
+import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
@@ -39,7 +41,6 @@ export function ImageViewer({
   imageUrl,
   isMindmap = false,
   authToken,
-  tenantSlug,
 }: ImageViewerProps) {
   const { theme } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
@@ -63,9 +64,17 @@ export function ImageViewer({
     );
   }
 
-  const resourceHeaders = authToken
-    ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-    : undefined;
+  const activeTenantSlug = getMobileSession()?.tenantSlug;
+  if (authToken && !activeTenantSlug) {
+    return (
+      <ContentComingSoon
+        icon={isMindmap ? "git-network-outline" : "image-outline"}
+        title="Session expired"
+        message="Please sign in again to view this resource."
+      />
+    );
+  }
+  const resourceHeaders = getResourceRequestHeaders(imageUrl, authToken);
   const activeImage = resourceHeaders ? { uri: imageUrl, headers: resourceHeaders } : { uri: imageUrl };
   const label = isMindmap ? "MIND MAP IMAGE" : "INFOGRAPHIC";
 
@@ -102,13 +111,14 @@ export function ImageViewer({
         try {
           const filename = imageUrl.split("/").pop() || "image.png";
           const tempPath = `${FileSystem.documentDirectory}${filename}`;
-          console.log(`[SUBJECTS][ImageViewer] Downloading image with headers: ${imageUrl}`);
+          console.log("[SUBJECTS][ImageViewer] Downloading authenticated image resource");
           const downloadResult = await FileSystem.downloadAsync(
             imageUrl,
             tempPath,
             resourceHeaders ? { headers: resourceHeaders } : undefined,
           );
           if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+            if (shouldInvalidateResourceResponse(imageUrl, downloadResult.status)) await invalidateMobileSession();
             throw new Error(`HTTP status ${downloadResult.status}`);
           }
           localUri = downloadResult.uri;

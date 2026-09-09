@@ -32,22 +32,20 @@ import { RootNavigator } from "./src/navigation";
 import { ThemeProvider } from "./src/shared/theme/ThemeContext";
 import { mobileApi } from "./src/api/mobileApi";
 import { performStudentSignOut } from "./src/features/profile/services/profileService";
-import { setActiveUserId } from "./src/shared/services/userStorage";
+import { clearScopedStorageForUser } from "./src/shared/services/userStorage";
 import {
-  MobileSession,
   clearMobileSession,
-  loadMobileSession,
   saveMobileSession,
 } from "./src/shared/session/sessionStore";
-import { SessionProvider } from "./src/shared/session/SessionContext";
+import { SessionProvider, useSession } from "./src/shared/session/SessionContext";
+import { normalizeBackendSession } from "./src/shared/session/sessionValidation";
 
 export default function App() {
   useEffect(() => {
     console.log("[SUBJECTS][APP] App launched");
     console.log("[SUBJECTS][APP] Environment config:", {
       apiBaseUrl: appConfig.apiBaseUrl,
-      clerkPublishableKey: appConfig.clerkPublishableKey ? `PRESENT (${appConfig.clerkPublishableKey.substring(0, 15)}...)` : "MISSING",
-      tenantSlug: appConfig.tenantSlug
+      clerkPublishableKey: appConfig.clerkPublishableKey ? "PRESENT" : "MISSING",
     });
   }, []);
 
@@ -57,7 +55,7 @@ export default function App() {
         <ScreenShell centered>
           <Text style={styles.title}>Missing app configuration</Text>
           <Text style={styles.muted}>
-            Set the production API URL, Clerk publishable key, and tenant slug in the build environment before starting Expo.
+            Set the production API URL and Clerk publishable key in the build environment before starting Expo.
           </Text>
         </ScreenShell>
       </SafeAreaProvider>
@@ -83,15 +81,13 @@ console.log("[PERF][BOOT] App launch: 0ms");
 
 function Root() {
   const { isLoaded, isSignedIn, getToken, signOut, userId } = useAuth();
+  const { session } = useSession();
   const [sessionState, setSessionState] = useState<'loading' | 'verifying' | 'verified' | 'failed'>('loading');
 
   const loggedClerkReady = useRef(false);
   const loggedAuth = useRef(false);
   const loggedGetToken = useRef(false);
-
-  useEffect(() => {
-    setActiveUserId(isSignedIn ? userId : null);
-  }, [isSignedIn, userId]);
+  const lastAuthUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoaded && !loggedClerkReady.current) {
@@ -111,71 +107,44 @@ function Root() {
   }, [isLoaded, isSignedIn, getToken]);
 
   useEffect(() => {
-    console.log("[SUBJECTS][APP] Root useEffect run. isLoaded:", isLoaded, "isSignedIn:", isSignedIn);
+    console.log("[SUBJECTS][APP] Root session effect. isLoaded:", isLoaded, "isSignedIn:", isSignedIn);
     if (!isLoaded) return;
-
-    if (!isSignedIn) {
-      console.log("[SUBJECTS][APP] User is not signed in. Setting sessionState to loading.");
-      setSessionState('loading');
-      return;
-    }
 
     let cancelled = false;
 
-    const verifyBackendSession = async (isBackground: boolean) => {
-      console.log(`[SUBJECTS][APP] verifyBackendSession started. isBackground: ${isBackground}`);
+    const initializeSession = async () => {
+      const nextUserId = isSignedIn ? userId : null;
+      const previousUserId = lastAuthUserIdRef.current;
+      if (previousUserId !== nextUserId) {
+        lastAuthUserIdRef.current = nextUserId;
+        await clearMobileSession(previousUserId);
+      }
+
+      if (!nextUserId) {
+        if (!cancelled) setSessionState("loading");
+        return;
+      }
+
+      if (!cancelled) setSessionState("verifying");
       const sessionStartTime = Date.now();
       console.log("[PERF][SESSION] GET /session started");
       try {
         console.log("[SUBJECTS][APP] Fetching /session from backend...");
-        const data = await mobileApi<MobileSession>("/session", {
+        const data = await mobileApi<unknown>("/session", {
           getToken,
-          tenantSlug: null,
         });
         const elapsed = Date.now() - sessionStartTime;
         console.log(`[PERF][SESSION] GET /session completed: ${elapsed}ms`);
         console.log("[PERF][SESSION] status=200");
-        console.log("[SUBJECTS][APP] verifyBackendSession success. Role:", data?.role);
-        if (!data || data.role !== "student") {
-          throw new Error("User role is not student");
-        }
-        if (!data.tenantSlug) {
-          throw new Error("Tenant slug is missing in session response");
-        }
+        const validatedSession = normalizeBackendSession(data, nextUserId);
         if (cancelled) return;
-        await saveMobileSession({
-          role: data.role,
-          tenantId: data.tenantId,
-          tenantSlug: data.tenantSlug,
-          tenantName: data.tenantName,
-        });
+        await saveMobileSession(validatedSession);
         if (!cancelled) setSessionState("verified");
       } catch (error: any) {
         console.error("[SUBJECTS][APP] Backend session verification error:", error?.message || error);
-        if (!isBackground) {
-          await clearMobileSession();
-          if (!cancelled) setSessionState("failed");
-        } else {
-          console.log("[SUBJECTS][APP] Background session verification failed, ignoring to prevent kicking user out.");
-        }
-      }
-    };
-
-    const initializeSession = async () => {
-      console.log("[SUBJECTS][APP] initializeSession starting...");
-      try {
-        const cachedSession = await loadMobileSession();
-        if (cachedSession && cachedSession.tenantSlug && cachedSession.role === "student") {
-          if (!cancelled) setSessionState("verified");
-          void verifyBackendSession(true);
-        } else {
-          if (!cancelled) setSessionState("verifying");
-          await verifyBackendSession(false);
-        }
-      } catch (e: any) {
-        console.error("[SUBJECTS][APP] initializeSession error:", e?.message || e);
-        if (!cancelled) setSessionState("verifying");
-        await verifyBackendSession(false);
+        await clearScopedStorageForUser(nextUserId);
+        await clearMobileSession(nextUserId);
+        if (!cancelled) setSessionState("failed");
       }
     };
 
@@ -186,12 +155,18 @@ function Root() {
     };
   }, [isLoaded, isSignedIn, getToken, userId]);
 
+  useEffect(() => {
+    if (isSignedIn && sessionState === "verified" && !session) {
+      setSessionState("failed");
+    }
+  }, [isSignedIn, session, sessionState]);
+
   const handleSignOut = async () => {
     try {
-      await clearMobileSession();
       await performStudentSignOut(signOut, userId);
+      await clearMobileSession(userId);
     } catch (e) {
-      await clearMobileSession();
+      await clearMobileSession(userId);
       await signOut();
     }
   };
@@ -262,7 +237,7 @@ function SessionErrorScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
 function SignInScreen() {
   const { signIn, fetchStatus } = useSignIn();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -272,15 +247,15 @@ function SignInScreen() {
       return;
     }
 
-    if (!email.trim() || !password) {
-      Alert.alert("Missing details", "Enter email and password.");
+    if (!identifier.trim() || !password) {
+      Alert.alert("Missing details", "Enter your username or email and password.");
       return;
     }
 
     setIsSubmitting(true);
     try {
       const result = await signIn.create({
-        identifier: email.trim(),
+        identifier: identifier.trim(),
         password,
       });
 
@@ -313,26 +288,29 @@ function SignInScreen() {
       </View>
 
       <View style={styles.panel}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Username or email</Text>
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="name@example.com"
+          autoComplete="username"
+          onChangeText={setIdentifier}
+          placeholder="Username or email"
           placeholderTextColor="#8b7772"
           style={styles.input}
-          value={email}
+          textContentType="username"
+          value={identifier}
         />
 
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordInputShell}>
           <TextInput
+            autoComplete="password"
             onChangeText={setPassword}
             placeholder="Password"
             placeholderTextColor="#8b7772"
             secureTextEntry={!isPasswordVisible}
             style={styles.passwordInput}
+            textContentType="password"
             value={password}
           />
           <Pressable

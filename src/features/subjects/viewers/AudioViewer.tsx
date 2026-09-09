@@ -8,13 +8,14 @@ import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
+import { invalidateMobileSession } from "../../../shared/session/sessionStore";
 
 export function AudioViewer({
   audioTitle,
   audioUrl,
   speakerName = "SmartGuru Audio Tutor",
   authToken,
-  tenantSlug,
 }: AudioViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
@@ -50,12 +51,11 @@ export function AudioViewer({
           return;
         }
 
-        console.log(`[SUBJECTS][AudioViewer] Downloading audio from backend: ${audioUrl}`);
-        const headers = authToken
-          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-          : undefined;
+        console.log("[SUBJECTS][AudioViewer] Downloading authenticated audio resource");
+        const headers = getResourceRequestHeaders(audioUrl, authToken);
         const result = await FileSystem.downloadAsync(audioUrl, tempPath, headers ? { headers } : undefined);
         if (result.status !== 200 && result.status !== 201) {
+          if (shouldInvalidateResourceResponse(audioUrl, result.status)) await invalidateMobileSession();
           throw new Error(`HTTP status ${result.status}`);
         }
         if (active) setLocalAudioPath(result.uri);
@@ -71,7 +71,7 @@ export function AudioViewer({
     return () => {
       active = false;
     };
-  }, [audioUrl, authToken, tenantSlug]);
+  }, [audioUrl, authToken]);
 
   const player = useAudioPlayer(localAudioPath || "");
   const status = useAudioPlayerStatus(player);

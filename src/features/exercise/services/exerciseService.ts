@@ -1,6 +1,7 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import { getMobileSession } from "../../../shared/session/sessionStore";
+import { getRequiredTenantSlug, invalidateMobileSession } from "../../../shared/session/sessionStore";
+import { shouldInvalidateSession } from "../../../api/mobileApiPolicy";
 import {
   ExerciseResultData,
   ExerciseSessionPayload,
@@ -199,30 +200,24 @@ export async function fetchAllQuizQuestions(
   attemptId: string,
   token: string
 ): Promise<any[]> {
+  const tenantSlug = getRequiredTenantSlug();
   const getUrl = `${appConfig.apiBaseUrl}/student/quiz-attempts?attemptId=${encodeURIComponent(attemptId)}`;
 
   const getRes = await fetchQuizWithTimeout(getUrl, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
-      "X-Tenant-Slug": getMobileSession()?.tenantSlug ?? "",
+      "X-Tenant-Slug": tenantSlug,
     },
   });
 
-  let bodyText = "";
-  try {
-    bodyText = await getRes.text();
-  } catch (_) {
-    bodyText = "";
-  }
-
   if (!getRes.ok) {
-    console.error(
-      `[QUIZ][QUESTIONS_GET_ERROR] status=${getRes.status} url=${getUrl} body=${bodyText.slice(0, 400)}`
-    );
+    if (shouldInvalidateSession(getRes.status)) await invalidateMobileSession();
+    console.error(`[QUIZ][QUESTIONS_GET_ERROR] status=${getRes.status}`);
     throw new Error(`Failed to load quiz questions. Status: ${getRes.status}`);
   }
 
+  const bodyText = await getRes.text();
   let payload: any;
   try {
     payload = JSON.parse(bodyText);
@@ -269,6 +264,7 @@ export async function fetchExerciseSession(
   if (!activeTokenSession) {
     throw new Error("Unable to retrieve session token. Please sign in again.");
   }
+  const tenantSlug = getRequiredTenantSlug();
 
   console.log(`[PERF][QUIZ] Quiz start`);
 
@@ -285,19 +281,19 @@ export async function fetchExerciseSession(
     headers: {
       Authorization: `Bearer ${activeTokenSession}`,
       "Content-Type": "application/json",
-      "X-Tenant-Slug": getMobileSession()?.tenantSlug ?? "",
+      "X-Tenant-Slug": tenantSlug,
     },
     body: JSON.stringify({
       intent: "ensure",
-      tenant: getMobileSession()?.tenantSlug ?? "",
+      tenant: tenantSlug,
       quizId,
       questionCount: 45,
     }),
   });
 
   if (!attemptRes.ok) {
-    const errText = await attemptRes.text().catch(() => "");
-    console.error(`[PERF][QUIZ] Attempt creation failed: status=${attemptRes.status} body=${errText.slice(0, 200)}`);
+    if (shouldInvalidateSession(attemptRes.status)) await invalidateMobileSession();
+    console.error(`[PERF][QUIZ] Attempt creation failed: status=${attemptRes.status}`);
     throw new Error(`Unable to start the quiz right now. Please try again. (status: ${attemptRes.status})`);
   }
 
@@ -320,7 +316,7 @@ export async function fetchExerciseSession(
     throw new Error("No quiz questions are available for this chapter yet. Please check back soon.");
   }
 
-  console.log(`[PERF][QUIZ] Attempt created — attemptId=${attemptId} questions=${questionOrder.length}`);
+  console.log(`[PERF][QUIZ] Attempt created — questions=${questionOrder.length}`);
 
   // Step 3: Fetch ALL questions at once.
   // GET /api/mobile/v1/student/quiz-attempts?attemptId={id} (NO questionId) returns

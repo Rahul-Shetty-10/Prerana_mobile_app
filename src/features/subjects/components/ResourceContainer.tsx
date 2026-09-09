@@ -8,6 +8,7 @@ import {
   SlideDeckViewer,
   TableViewer,
   MindmapViewer,
+  VideoViewer,
 } from "../viewers";
 
 export function ResourceContainer({
@@ -27,7 +28,6 @@ export function ResourceContainer({
           imageUrl={resources?.infographicUrl}
           title={resources?.chapterTitle || `${chapterTitle} Infographic`}
           authToken={resources?.authToken}
-          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -36,6 +36,7 @@ export function ResourceContainer({
         <MindmapViewer
           title={resources?.chapterTitle || `${chapterTitle} Mindmap`}
           rootNode={resources?.mindmapRoot}
+          authToken={resources?.authToken}
         />
       );
 
@@ -45,7 +46,6 @@ export function ResourceContainer({
           documentTitle={resources?.chapterTitle || `${chapterTitle} Slidedeck`}
           pdfUrl={resources?.slidedeckUrl}
           authToken={resources?.authToken}
-          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -55,7 +55,6 @@ export function ResourceContainer({
           documentTitle={resources?.chapterTitle || `${chapterTitle} Textbook Notes`}
           pdfUrl={resources?.textbookNotesUrl}
           authToken={resources?.authToken}
-          tenantSlug={resources?.tenantSlug}
         />
       );
 
@@ -84,7 +83,15 @@ export function ResourceContainer({
           audioUrl={resources?.audioUrl}
           durationSeconds={resources?.audioDurationSeconds}
           authToken={resources?.authToken}
-          tenantSlug={resources?.tenantSlug}
+        />
+      );
+
+    case "video":
+      return (
+        <VideoViewer
+          videoTitle={resources?.videoTitle || `${chapterTitle} Video Explanation`}
+          videoUrl={resources?.videoUrl}
+          authToken={resources?.authToken}
         />
       );
 
@@ -95,7 +102,6 @@ export function ResourceContainer({
           imageUrl={resources?.infographicUrl}
           title={resources?.chapterTitle || `${chapterTitle} Infographic`}
           authToken={resources?.authToken}
-          tenantSlug={resources?.tenantSlug}
         />
       );
   }
