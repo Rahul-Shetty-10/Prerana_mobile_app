@@ -30,6 +30,7 @@ const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
 import { ZoomPanView } from "./ZoomPanView";
 
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ImageViewer({
@@ -51,18 +52,21 @@ export function ImageViewer({
   const [isImageLoading, setIsImageLoading] = useState(false);
   const lastTap = useRef<number>(0);
 
-  // No backend URL or broken image — show "Yet to be updated" (do NOT show local mock)
+  // No backend URL or broken image — show an explicit unavailable state.
   if (!imageUrl || imageError) {
     return (
       <ContentComingSoon
         icon={isMindmap ? "git-network-outline" : "image-outline"}
         title="Yet to be updated"
-        message="This resource has not been uploaded yet."
+        message={imageError ? "This chapter resource could not be loaded. Check your connection and try again." : "This resource has not been uploaded yet."}
       />
     );
   }
 
-  const activeImage = { uri: imageUrl };
+  const resourceHeaders = authToken
+    ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+    : undefined;
+  const activeImage = resourceHeaders ? { uri: imageUrl, headers: resourceHeaders } : { uri: imageUrl };
   const label = isMindmap ? "MIND MAP IMAGE" : "INFOGRAPHIC";
 
   const handleZoomIn = () => setZoomScale((p) => Math.min(p + 0.25, 4));
@@ -93,17 +97,31 @@ export function ImageViewer({
       return;
     }
     try {
-      const filename = imageUrl.split("/").pop() || "image.png";
-      const tempPath = `${FileSystem.documentDirectory}${filename}`;
-      console.log(`[SUBJECTS][ImageViewer] Downloading image: ${imageUrl}`);
-      const downloadResult = await FileSystem.downloadAsync(imageUrl, tempPath);
-      if (downloadResult.status !== 200 && downloadResult.status !== 201) {
-        throw new Error(`HTTP status ${downloadResult.status}`);
+      let localUri = "";
+      if (imageUrl && !imageError) {
+        try {
+          const filename = imageUrl.split("/").pop() || "image.png";
+          const tempPath = `${FileSystem.documentDirectory}${filename}`;
+          console.log(`[SUBJECTS][ImageViewer] Downloading image with headers: ${imageUrl}`);
+          const downloadResult = await FileSystem.downloadAsync(
+            imageUrl,
+            tempPath,
+            resourceHeaders ? { headers: resourceHeaders } : undefined,
+          );
+          if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+            throw new Error(`HTTP status ${downloadResult.status}`);
+          }
+          localUri = downloadResult.uri;
+        } catch (err) {
+          console.warn("[SUBJECTS][ImageViewer] Download failed:", err);
+          throw err;
+        }
       }
-      if (downloadResult.uri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(downloadResult.uri);
+
+      if (localUri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(localUri);
       }
-    } catch (err) {
+    } catch (_) {
       Alert.alert("Download Failed", "Unable to download the requested image.");
     }
   };
@@ -133,7 +151,7 @@ export function ImageViewer({
               onError={() => {
                 setIsImageLoading(false);
                 if (imageUrl) {
-                  console.warn("[SUBJECTS][ImageViewer] Failed to load remote inline image, using local fallback.");
+                  console.warn("[SUBJECTS][ImageViewer] Failed to load remote inline image.");
                   setImageError(true);
                 }
               }}
@@ -205,7 +223,7 @@ export function ImageViewer({
                   onError={() => {
                     setIsImageLoading(false);
                     if (imageUrl) {
-                      console.warn("[SUBJECTS][ImageViewer] Failed to load remote fullscreen image, using local fallback.");
+                      console.warn("[SUBJECTS][ImageViewer] Failed to load remote fullscreen image.");
                       setImageError(true);
                     }
                   }}
@@ -348,4 +366,4 @@ const getStyles = (themeColors: any) =>
       paddingVertical: spacing.sm,
       fontStyle: "italic",
     },
-  });
+  });

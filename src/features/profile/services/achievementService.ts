@@ -1,5 +1,4 @@
 import { mobileApi } from "../../../api/mobileApi";
-import { MOCK_ACHIEVEMENTS } from "../constants";
 import { AchievementItem } from "../types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -14,12 +13,10 @@ export async function fetchAchievements(getToken?: GetToken): Promise<Achievemen
       const response = await mobileApi<AchievementsApiResponse>("/student/achievements", {
         getToken,
       });
-      if (response.achievements && response.achievements.length > 0) {
-        return response.achievements;
-      }
+      return response.achievements ?? [];
     } catch (e) {
-      // Local fallback on API error
+      throw e;
     }
   }
-  return MOCK_ACHIEVEMENTS;
+  throw new Error("Authentication is required to load achievements.");
 }

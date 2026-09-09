@@ -20,7 +20,7 @@ import { SubjectProgressTile } from "../profile/components/SubjectProgressTile";
 import { SubjectProgressItem } from "../profile/types";
 import { mergeSubjectProgressWithLocal, getCalculatedStats } from "../../shared/services/chapterProgressService";
 import { AppIcon } from "../../shared/icons";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { getActiveLearningSeconds } from "../../shared/hooks/useActiveLearningTracker";
 import { getAttemptStats, calculateAccuracy } from "../../shared/services/attemptTracker";
 
@@ -210,7 +210,7 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
         showsVerticalScrollIndicator={false}
       >
         {/* Loading Header Indicator if actively fetching */}
-        {isLoading && !data ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.primary.main} size="large" />
             <Text style={styles.loadingText}>Syncing dashboard payload...</Text>

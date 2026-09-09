@@ -91,7 +91,13 @@ export async function mobileApi<TData>(path: string, options: MobileApiOptions):
     const duration = Date.now() - fetchStartTime;
     console.log(`[MOBILE_API] Fetch completed in ${duration}ms. Status: ${response.status}`);
 
-    const payload = (await response.json()) as MobileApiResponse<TData>;
+    let payload: MobileApiResponse<TData> | null = null;
+    try {
+      payload = (await response.json()) as MobileApiResponse<TData>;
+    } catch {
+      throw new Error(`Server returned an invalid response (HTTP ${response.status}).`);
+    }
+
     if (!response.ok || !payload.ok) {
       const errMsg = payload.ok ? "Request failed." : payload.error.message;
       console.warn(`\n[API][ERROR]\nendpoint=${path}\nmethod=GET\nstatus=${response.status}\nduration=${duration}ms\nerror=${errMsg}\n`);
@@ -107,4 +113,3 @@ export async function mobileApi<TData>(path: string, options: MobileApiOptions):
     throw err;
   }
 }
-

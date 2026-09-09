@@ -30,8 +30,8 @@ export function QuizLandingScreen({
   const { data, isLoading, error } = useQuizLandingData(subjectId, chapterId, getToken);
 
   const breadcrumbs = [
-    data.subjectName || "General Science",
-    `Chapter ${data.chapterNumber || 1}`,
+    data.subjectName || subjectId || "Selected subject",
+    data.chapterNumber ? `Chapter ${data.chapterNumber}` : chapterId || "Selected chapter",
     "Quiz Entry",
   ];
 
@@ -43,7 +43,7 @@ export function QuizLandingScreen({
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Loading Indicator */}
-        {isLoading && !data ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.primary.main} size="large" />
             <Text style={styles.loadingText}>Fetching Quiz Route status...</Text>

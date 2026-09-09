@@ -42,8 +42,8 @@ export interface ChapterShelfItem {
   id: string;
   chapterId: string;
   chapterName: string;
-  chapterNumber: number;
-  partNumber: number;
+  chapterNumber?: number;
+  partNumber?: number;
   subjectId: string;
   subjectName: string;
   chapterType: string;

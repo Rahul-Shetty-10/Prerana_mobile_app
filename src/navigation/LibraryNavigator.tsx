@@ -2,7 +2,6 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { LibraryStackParamList } from "./types";
 import { MyLibraryHomeScreen } from "../features/library";
-import { MOCK_SUBJECTS_LIST, MOCK_SUBJECT_WORKSPACE } from "../features/subjects/constants/subjectsData";
 
 const Stack = createNativeStackNavigator<LibraryStackParamList>();
 
@@ -27,18 +26,20 @@ export function LibraryNavigator({ getToken }: LibraryNavigatorProps) {
             onOpenChapterShelf={(shelf) => {
               const parent = navigation.getParent();
               if (parent) {
-                const targetSubject =
-                  MOCK_SUBJECTS_LIST.find((s) => s.id === shelf.subjectId) || MOCK_SUBJECTS_LIST[1];
-                const targetChapter =
-                  MOCK_SUBJECT_WORKSPACE.chapters.find((c) => c.id === shelf.chapterId) ||
-                  MOCK_SUBJECT_WORKSPACE.chapters[0];
+                const targetChapter = {
+                  id: shelf.chapterId,
+                  number: shelf.chapterNumber,
+                  partNumber: shelf.partNumber,
+                  title: shelf.chapterName,
+                  subtitle: "",
+                };
 
                 (parent as any).navigate("SubjectsTab", {
                   screen: "ChapterResource",
                   params: {
                     chapter: targetChapter,
-                    subjectName: shelf.subjectName || targetSubject.name,
-                    subjectId: shelf.subjectId || targetSubject.id,
+                    subjectName: shelf.subjectName || "Subject",
+                    subjectId: shelf.subjectId,
                   },
                 });
               }
@@ -46,18 +47,21 @@ export function LibraryNavigator({ getToken }: LibraryNavigatorProps) {
             onOpenFeaturedResource={(resource) => {
               const parent = navigation.getParent();
               if (parent) {
-                const targetSubject =
-                  MOCK_SUBJECTS_LIST.find((s) => s.id === resource.subjectId) || MOCK_SUBJECTS_LIST[1];
-                const targetChapter =
-                  MOCK_SUBJECT_WORKSPACE.chapters.find((c) => c.id === resource.chapterId) ||
-                  MOCK_SUBJECT_WORKSPACE.chapters[0];
+                const chapterNumberMatch = resource.chapterName.match(/chapter\s+(\d+)/i);
+                const targetChapter = {
+                  id: resource.chapterId,
+                  number: chapterNumberMatch ? Number(chapterNumberMatch[1]) : 1,
+                  partNumber: 1,
+                  title: resource.chapterName,
+                  subtitle: "",
+                };
 
                 (parent as any).navigate("SubjectsTab", {
                   screen: "ChapterResource",
                   params: {
                     chapter: targetChapter,
-                    subjectName: resource.subjectName || targetSubject.name,
-                    subjectId: resource.subjectId || targetSubject.id,
+                    subjectName: resource.subjectName || "Subject",
+                    subjectId: resource.subjectId,
                     initialTab: resource.resourceTab,
                   },
                 });

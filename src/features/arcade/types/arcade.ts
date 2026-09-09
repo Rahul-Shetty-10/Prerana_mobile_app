@@ -18,9 +18,12 @@ export interface GameMetaCard {
   status: GameStatus;
   difficulty: string;
   xpReward: number;
-  bestScore: number;
-  completionPercentage: number;
-  recentlyPlayed: boolean;
+  /** Populated only when the server provides per-game progress for this user. */
+  bestScore?: number;
+  /** Populated only when the server provides per-game progress for this user. */
+  completionPercentage?: number;
+  /** Populated only when the server provides per-game activity for this user. */
+  recentlyPlayed?: boolean;
   gradientColors: [string, string];
 }
 

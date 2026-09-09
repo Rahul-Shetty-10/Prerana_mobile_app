@@ -4,6 +4,40 @@ import {
   QuizzesHomePayload,
 } from "../types";
 
+export const EMPTY_QUIZZES_HOME_DATA: QuizzesHomePayload = {
+  hero: {
+    title: "Quizzes",
+    subtitle: "Quiz data will appear when your workspace is available.",
+    stats: { activeSubjects: 0, nextAvailableChapter: "", chapterQuizEntries: 0, recordedAttempts: 0 },
+  },
+  quickActions: [],
+  inProgress: { title: "In Progress", emptyStateText: "No in-progress quizzes found.", items: [] },
+  awaitingReview: { title: "Awaiting Review", emptyStateText: "No quizzes are awaiting review.", items: [] },
+  readyToStart: [],
+  recentCompleted: { title: "Recent Completed", emptyStateText: "No completed quizzes found.", items: [] },
+};
+
+export const EMPTY_ASSESSMENT_HISTORY_DATA: AssessmentHistoryPayload = {
+  hero: {
+    title: "Assessment History",
+    subtitle: "Your assessment history will appear here.",
+    stats: { activeSubjects: 0, quizReadyChapters: 0, recordedAttempts: 0 },
+  },
+  scope: { enrolledGrade: "", activeSubjectsCount: 0, curriculumChaptersCount: 0, recordedAttemptsCount: 0 },
+  recentAttempts: { title: "Recent Attempts", emptyStateText: "No recent attempts found.", items: [] },
+  inProgressAttempts: { title: "In Progress Attempts", emptyStateText: "No in-progress attempts found.", items: [] },
+  availableQuizEntries: [],
+};
+
+export const EMPTY_QUIZ_LANDING_DATA: QuizLandingPayload = {
+  chapterNumber: 0,
+  chapterTitle: "",
+  subjectId: "",
+  subjectName: "",
+  heroTitle: "Quiz unavailable",
+  heroSubtitle: "Quiz information could not be loaded. Please try again later.",
+};
+
 export const MOCK_QUIZZES_HOME_DATA: QuizzesHomePayload = {
   hero: {
     title: "Quizzes",

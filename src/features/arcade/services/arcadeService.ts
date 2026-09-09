@@ -1,6 +1,5 @@
 import { mobileApi } from "../../../api/mobileApi";
 import { ArcadeHomePayload } from "../types";
-import { MOCK_ARCADE_GAMES } from "../constants";
 import { getArcadeProfile } from "./profileService";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -14,10 +13,7 @@ export async function fetchArcadeHomeData(getToken?: GetToken): Promise<ArcadeHo
   const localProfile = getArcadeProfile();
 
   if (!getToken) {
-    return {
-      profile: localProfile,
-      games: MOCK_ARCADE_GAMES,
-    };
+    throw new Error("Authentication is required to load arcade data.");
   }
 
   try {
@@ -27,12 +23,9 @@ export async function fetchArcadeHomeData(getToken?: GetToken): Promise<ArcadeHo
 
     return {
       profile: rawData.profile ?? localProfile,
-      games: rawData.games ?? MOCK_ARCADE_GAMES,
+      games: Array.isArray(rawData.games) ? rawData.games : [],
     };
   } catch (error) {
-    return {
-      profile: localProfile,
-      games: MOCK_ARCADE_GAMES,
-    };
+    throw error;
   }
 }

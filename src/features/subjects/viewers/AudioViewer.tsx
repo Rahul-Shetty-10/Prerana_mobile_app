@@ -24,16 +24,23 @@ export function AudioViewer({
   const [isCompleted, setIsCompleted] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [localAudioPath, setLocalAudioPath] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState(false);
 
   useEffect(() => {
     let active = true;
     const prepareAudio = async () => {
+      if (active) {
+        setAudioError(false);
+        setLocalAudioPath(null);
+      }
       if (!audioUrl) {
+        // No backend URL — don't load local mock, just leave localAudioPath null
         return;
       }
 
       try {
         setDownloading(true);
+        // Extract a clean filename from audioUrl
         const filename = audioUrl.split("/").pop() || "Audio.m4a";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
 
@@ -44,13 +51,17 @@ export function AudioViewer({
         }
 
         console.log(`[SUBJECTS][AudioViewer] Downloading audio from backend: ${audioUrl}`);
-        const result = await FileSystem.downloadAsync(audioUrl, tempPath);
+        const headers = authToken
+          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+          : undefined;
+        const result = await FileSystem.downloadAsync(audioUrl, tempPath, headers ? { headers } : undefined);
         if (result.status !== 200 && result.status !== 201) {
           throw new Error(`HTTP status ${result.status}`);
         }
         if (active) setLocalAudioPath(result.uri);
       } catch (err) {
         console.warn("[SUBJECTS][AudioViewer] Failed to download remote audio:", err);
+        if (active) setAudioError(true);
       } finally {
         if (active) setDownloading(false);
       }
@@ -74,6 +85,8 @@ export function AudioViewer({
     setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: false,
+    }).catch((err) => {
+      console.warn("[SUBJECTS][AudioViewer] Failed to configure audio mode:", err);
     });
   }, []);
 
@@ -122,13 +135,15 @@ export function AudioViewer({
 
   const progressPercent = durationSeconds > 0 ? Math.round((currentTime / durationSeconds) * 100) : 0;
 
-  // No backend URL at all — show "Yet to be updated" (not local mock audio)
-  if (!audioUrl || !localAudioPath) {
+  // Do not render a player when the backend has no usable resource.
+  if ((!audioUrl && !localAudioPath) || audioError) {
     return (
       <ContentComingSoon
         icon="headset-outline"
-        title="Yet to be updated"
-        message="This resource has not been uploaded yet."
+        title={audioError ? "Unable to load audio" : "Yet to be updated"}
+        message={audioError
+          ? "The audio explanation could not be loaded. Check your connection and try again."
+          : "This resource has not been uploaded yet."}
       />
     );
   }

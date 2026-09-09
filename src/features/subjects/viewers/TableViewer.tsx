@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 import {
   Alert,
   ActivityIndicator,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -13,8 +13,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Asset } from "expo-asset";
-import * as XLSX from "xlsx";
 import { TableViewerProps } from "../types";
 import { Badge } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
@@ -75,7 +73,41 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
   }, [rows, searchQuery, sortKey, sortDir]);
 
   const handleDownload = async () => {
-    Alert.alert("Resource Unavailable", "This table resource is not currently available for download.");
+    try {
+      if (columns.length === 0 || rows.length === 0) {
+        Alert.alert("Download unavailable", "There is no table data to download for this chapter.");
+        return;
+      }
+
+      const escapeCsv = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const header = columns.map((column) => escapeCsv(column.title || column.key)).join(",");
+      const body = rows
+        .map((row) => columns.map((column) => escapeCsv(row[column.key])).join(","))
+        .join("\n");
+      const csv = `${header}\n${body}`;
+      const filename = `table-${new Date().toISOString().slice(0, 10)}.csv`;
+
+      if (typeof window !== "undefined" && typeof document !== "undefined") {
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const path = `${FileSystem.documentDirectory}${filename}`;
+      await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Save table" });
+      } else {
+        Alert.alert("Download unavailable", "Sharing is not available on this device.");
+      }
+    } catch (err) {
+      Alert.alert("Download failed", "Unable to export the table data.");
+    }
   };
 
   useEffect(() => {
@@ -209,12 +241,12 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
     </ScrollView>
   );
 
-  if ((propsColumns === undefined || propsColumns.length === 0) && !isLoading) {
+  if (propsColumns === undefined && !isLoading) {
     return (
       <ContentComingSoon
         icon="grid-outline"
-        title="Yet to be updated"
-        message="This resource has not been uploaded yet."
+        title="Data Table Coming Soon"
+        message="The data table for this chapter is being prepared. Check back soon!"
       />
     );
   }

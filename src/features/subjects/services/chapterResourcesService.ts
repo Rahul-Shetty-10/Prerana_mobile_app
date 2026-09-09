@@ -75,7 +75,6 @@ export async function fetchChapterResources(
       throw new ChapterResourcesError('EMPTY_DATA', "API returned nullish or non-object response payload for chapter resources.");
     }
 
-    console.log("[SUBJECTS][DEBUG] RAW RESPONSE PAYLOAD FROM BACKEND:", JSON.stringify(data, null, 2));
 
     // Map raw array resources to flat ChapterResourcesPayload structure
     const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");

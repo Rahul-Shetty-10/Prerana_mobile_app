@@ -75,7 +75,7 @@ export function FundamentalsHomeScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Loading Indicator */}
-        {isLoading && !data ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.primary.main} size="large" />
             <Text style={styles.loadingText}>Loading Fundamentals...</Text>

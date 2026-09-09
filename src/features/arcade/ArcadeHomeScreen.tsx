@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { ArcadeProfileCard, GameCard } from "./components";
 import { useArcadeProfile } from "./hooks";
-import { MOCK_ARCADE_GAMES } from "./constants";
+import { ARCADE_GAME_CATALOG } from "./constants";
 import { GameId } from "./types";
 import { AppIcon } from "../../shared/icons";
 import { Header } from "../../shared/components/Header";
@@ -58,12 +58,12 @@ export function ArcadeHomeScreen({
             <Text style={styles.sectionTitle}>Arcade Games</Text>
           </View>
           <Text style={styles.sectionSubtitle}>
-            Select a game to start earning XP, coins, and climbing the leaderboard.
+            Select a game to practice your skills and earn local XP and coins.
           </Text>
         </View>
 
         {/* 3. Four Game Cards */}
-        {MOCK_ARCADE_GAMES.map((game) => (
+        {ARCADE_GAME_CATALOG.map((game) => (
           <GameCard
             key={game.id}
             game={game}

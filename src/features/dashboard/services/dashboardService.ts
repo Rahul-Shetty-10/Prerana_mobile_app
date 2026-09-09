@@ -86,11 +86,9 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
       console.warn("[DASHBOARD] Could not fetch real subjects list for dashboard:", e);
     }
 
-    const welcomeCardSubjects = realSubjects.length > 0 
-      ? realSubjects 
-      : (rawData.welcomeCard?.subjects && rawData.welcomeCard.subjects.length > 0 
-          ? rawData.welcomeCard.subjects 
-          : ["Physics", "Chemistry", "Mathematics", "Biology"]);
+    const welcomeCardSubjects = realSubjects.length > 0
+      ? realSubjects
+      : (rawData.welcomeCard?.subjects ?? []);
 
     return {
       student: {
@@ -104,7 +102,7 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
         title: rawData.welcomeCard?.title || (rawData.student?.userName ? `Welcome Back, ${rawData.student.userName}!` : "Welcome Back!"),
         description: rawData.welcomeCard?.description || "Ready to excel in your exams? Pick up where you left off or dive into targeted study modules.",
         subjects: welcomeCardSubjects,
-        selectedSubject: rawData.welcomeCard?.selectedSubject || welcomeCardSubjects[0] || "Physics",
+        selectedSubject: rawData.welcomeCard?.selectedSubject || welcomeCardSubjects[0] || "",
       },
       stats: rawData.stats || [],
       focusNow: {

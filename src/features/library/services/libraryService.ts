@@ -7,7 +7,7 @@ import {
   SavedOutputItem,
   SavedOutputType,
 } from "../types";
-import { MOCK_LIBRARY_DATA } from "../constants";
+import { EMPTY_LIBRARY_DATA } from "../constants";
 import { ResourceTabType } from "../../subjects/types";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -69,7 +69,7 @@ function mapSavedOutputType(kind?: string): SavedOutputType {
 
 export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayload> {
   if (!getToken) {
-    return MOCK_LIBRARY_DATA;
+    throw new Error("Authentication is required to load the library.");
   }
 
   try {
@@ -78,22 +78,22 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
     });
 
     if (!rawData) {
-      return MOCK_LIBRARY_DATA;
+      throw new Error("No library data returned from the server.");
     }
 
     // If backend returns pre-formatted structured sections
     if (rawData.chapterShelves && rawData.chapterShelves.length > 0) {
       return {
-        hero: rawData.hero ?? MOCK_LIBRARY_DATA.hero,
-        savedOutputs: rawData.savedOutputs ?? MOCK_LIBRARY_DATA.savedOutputs,
+        hero: rawData.hero ?? EMPTY_LIBRARY_DATA.hero,
+        savedOutputs: rawData.savedOutputs ?? EMPTY_LIBRARY_DATA.savedOutputs,
         chapterShelves: rawData.chapterShelves,
-        featuredResources: rawData.featuredResources ?? MOCK_LIBRARY_DATA.featuredResources,
+        featuredResources: rawData.featuredResources ?? EMPTY_LIBRARY_DATA.featuredResources,
       };
     }
 
     // If backend returns flat list of items, transform into grouped shelves
     if (rawData.items && Array.isArray(rawData.items) && rawData.items.length > 0) {
-      const allItems = rawData.items;
+      const allItems = rawData.items.filter((item) => Boolean(item.id && item.title));
 
       // 1. Group saved AI outputs (study_lab)
       const savedItems: SavedOutputItem[] = allItems
@@ -102,20 +102,22 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
           id: item.id,
           title: item.title,
           type: mapSavedOutputType(item.resourceKind),
-          subject: item.subjectName || "General Science",
-          chapter: item.chapterName || "Chapter 1",
-          savedAt: item.savedAt || "Recently",
+          subject: item.subjectName || "Subject unavailable",
+          chapter: item.chapterName || "Chapter unavailable",
+          savedAt: item.savedAt || "Date unavailable",
         }));
 
       // 2. Group approved chapter resources by chapterId
       const chapterMap = new Map<string, RawLibraryItem[]>();
-      allItems.forEach((item) => {
-        const cId = item.chapterId || "chap-default";
+      allItems
+        .filter((item) => item.sourceKind !== "study_lab" && Boolean(item.chapterId && item.subjectId))
+        .forEach((item) => {
+        const cId = item.chapterId!;
         if (!chapterMap.has(cId)) {
           chapterMap.set(cId, []);
         }
         chapterMap.get(cId)!.push(item);
-      });
+        });
 
       const chapterShelves: ChapterShelfItem[] = Array.from(chapterMap.entries()).map(
         ([cId, groupItems], idx) => {
@@ -127,12 +129,12 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
           return {
             id: `shelf-${cId}-${idx}`,
             chapterId: cId,
-            chapterName: first.chapterName || "Chemical Reactions & Equations",
-            chapterNumber: first.chapterNumber || idx + 1,
-            partNumber: first.partNumber || 1,
-            subjectId: first.subjectId || "subj-science",
-            subjectName: first.subjectName || "General Science",
-            chapterType: `${first.subjectName || "Science"} Core Chapter`,
+            chapterName: first.chapterName || "Chapter unavailable",
+            chapterNumber: first.chapterNumber,
+            partNumber: first.partNumber,
+            subjectId: first.subjectId || "",
+            subjectName: first.subjectName || "Subject unavailable",
+            chapterType: first.subjectName ? `${first.subjectName} Core Chapter` : "Chapter resources",
             approvedResourceCount: groupItems.length,
             resourceTypes: distinctResourceTypes,
           };
@@ -140,21 +142,23 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
       );
 
       // 3. Featured Resources
-      const featuredResources: FeaturedResourceItem[] = allItems.map((item, idx) => ({
-        id: item.id || `feat-${idx}`,
+      const featuredResources: FeaturedResourceItem[] = allItems
+        .filter((item) => Boolean(item.subjectId && item.chapterId))
+        .map((item) => ({
+        id: item.id,
         title: item.title,
-        subjectId: item.subjectId || "subj-science",
-        subjectName: item.subjectName || "General Science",
-        chapterId: item.chapterId || "chap-1",
-        chapterName: item.chapterName || "Chapter 1",
+        subjectId: item.subjectId!,
+        subjectName: item.subjectName || "Subject unavailable",
+        chapterId: item.chapterId!,
+        chapterName: item.chapterName || "Chapter unavailable",
         resourceBadge: mapResourceBadge(item.resourceKind),
         resourceTab: mapResourceTab(item.resourceKind),
-      }));
+        }));
 
       // 4. Hero Data
       const distinctSubjects = new Set(allItems.map((i) => i.subjectId || i.subjectName)).size;
       const heroStats = {
-        activeSubjects: distinctSubjects > 0 ? distinctSubjects : 6,
+        activeSubjects: distinctSubjects,
         savedOutputs: savedItems.length,
         visibleResources: allItems.length,
       };
@@ -174,20 +178,19 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
             "No saved outputs yet. Approved outputs saved from AI workspace will appear here.",
           items: savedItems,
         },
-        chapterShelves: chapterShelves.length > 0 ? chapterShelves : MOCK_LIBRARY_DATA.chapterShelves,
-        featuredResources:
-          featuredResources.length > 0 ? featuredResources : MOCK_LIBRARY_DATA.featuredResources,
+        chapterShelves,
+        featuredResources,
       };
     }
 
     return {
-      hero: rawData.hero ?? MOCK_LIBRARY_DATA.hero,
-      savedOutputs: rawData.savedOutputs ?? MOCK_LIBRARY_DATA.savedOutputs,
-      chapterShelves: rawData.chapterShelves ?? MOCK_LIBRARY_DATA.chapterShelves,
-      featuredResources: rawData.featuredResources ?? MOCK_LIBRARY_DATA.featuredResources,
+      hero: rawData.hero ?? EMPTY_LIBRARY_DATA.hero,
+      savedOutputs: rawData.savedOutputs ?? EMPTY_LIBRARY_DATA.savedOutputs,
+      chapterShelves: rawData.chapterShelves ?? EMPTY_LIBRARY_DATA.chapterShelves,
+      featuredResources: rawData.featuredResources ?? EMPTY_LIBRARY_DATA.featuredResources,
     };
   } catch (error) {
-    return MOCK_LIBRARY_DATA;
+    throw error;
   }
 }
 

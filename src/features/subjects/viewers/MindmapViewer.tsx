@@ -12,7 +12,6 @@ import { colors, radius, spacing, typography } from "../../../shared/theme";
 import { MindmapNode, MindmapViewerProps } from "../types";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { HTML_TO_IMAGE_SOURCE } from "./htmlToImageSource";
-import { MOCK_MINDMAP_ROOT } from "../constants/viewerData";
 import { ContentComingSoon } from "./ContentComingSoon";
 
 interface PositionedNode {

@@ -48,7 +48,7 @@ export function GameCard({ game, onPlayPress }: GameCardProps) {
           <Text style={styles.statPillValue}>+{game.xpReward} XP</Text>
         </View>
 
-        {game.bestScore > 0 ? (
+        {typeof game.bestScore === "number" && game.bestScore > 0 ? (
           <View style={styles.statPill}>
             <Text style={styles.statPillLabel}>Best:</Text>
             <Text style={styles.statPillValue}>{game.bestScore} pts</Text>
@@ -57,7 +57,7 @@ export function GameCard({ game, onPlayPress }: GameCardProps) {
       </View>
 
       {/* Progress Bar for Available Game */}
-      {isAvailable ? (
+      {isAvailable && typeof game.completionPercentage === "number" ? (
         <View style={styles.progressBox}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressLabel}>Mastery Completion</Text>

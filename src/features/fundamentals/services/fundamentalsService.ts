@@ -1,6 +1,5 @@
 import { mobileApi } from "../../../api/mobileApi";
 import { FundamentalsDataPayload, SubjectItem, SubjectTrack } from "../types";
-import { MOCK_FUNDAMENTALS_HEADER, MOCK_FUNDAMENTALS_SUBJECTS } from "../constants";
 import { IconName } from "../../../shared/icons";
 import { StatCardVariant } from "../../dashboard/types";
 
@@ -95,22 +94,14 @@ interface CatalogApiResponse {
 }
 
 export async function fetchFundamentalsData(getToken?: GetToken): Promise<FundamentalsDataPayload> {
-  const fallbackPayload: FundamentalsDataPayload = {
-    subjectCount: MOCK_FUNDAMENTALS_HEADER.subjectCount,
-    trackCount: MOCK_FUNDAMENTALS_HEADER.trackCount,
-    subjects: MOCK_FUNDAMENTALS_SUBJECTS,
-  };
-
   if (!getToken) {
-    return fallbackPayload;
+    throw new Error("Authentication is required to load fundamentals.");
   }
 
   try {
     const rawData = await mobileApi<any>("/student/fundamentals/catalog", {
       getToken,
     });
-
-    console.log("[FUNDAMENTALS][DEBUG] Full catalog response:", JSON.stringify(rawData, null, 2));
 
     let rawSubjects: any[] = [];
     
@@ -148,20 +139,20 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
     }
 
     if (!rawSubjects || rawSubjects.length === 0) {
-      console.warn("[FUNDAMENTALS][SERVICE] No subjects found in fundamentals catalog, returning fallback.");
-      return fallbackPayload;
+      console.warn("[FUNDAMENTALS][SERVICE] No subjects found in fundamentals catalog.");
+      return { subjectCount: 0, trackCount: 0, subjects: [] };
     }
 
-    const totalSubjectCount = rawSubjects.length;
-
     let totalTrackCount = 0;
-    const mappedSubjects: SubjectItem[] = rawSubjects.map((item, idx) => {
+    const mappedSubjects: SubjectItem[] = rawSubjects
+      .filter((item) => Boolean(item?.subjectName && (item?.subjectId || item?.id || item?.subjectSlug)))
+      .map((item, idx) => {
       // Backend returns levels[] with the actual slugs to use for each track
       const levels: BackendLevel[] = (item.levels || []).sort(
         (a: BackendLevel, b: BackendLevel) => (a.levelOrder ?? 0) - (b.levelOrder ?? 0)
       );
 
-      const subjectTrackCount = levels.length || item.trackCount || 4;
+      const subjectTrackCount = levels.length || item.trackCount || 0;
       totalTrackCount += subjectTrackCount;
 
       // Map backend levels into SubjectTrack (slug is what we pass as trackSlug to the API)
@@ -179,22 +170,22 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
       const totalQuestions = levels.reduce((sum, l) => sum + (l.questionCount || 0), 0);
 
       return {
-        id: item.subjectId || item.id || item.subjectSlug || `subj-${idx}`,
+        id: item.subjectId || item.id || item.subjectSlug,
         subjectSlug: item.subjectSlug || item.subjectCode || item.id || "",
-        title: item.subjectName || "Subject",
-        description: item.description || `Master foundational concepts in ${item.subjectName}.`,
+        title: item.subjectName,
+        description: item.description || "Subject details are unavailable.",
         iconName: getIconForSubject(item.subjectCode, item.subjectName),
         previewBadgeText: getBadgeForSubject(item.subjectCode, item.subjectName),
         trackCount: subjectTrackCount,
-        questionCount: totalQuestions > 0 ? totalQuestions : subjectTrackCount * 30,
+        questionCount: totalQuestions,
         colorVariant: getColorVariantForSubject(item.subjectCode, idx),
         tracks: mappedTracks.length > 0 ? mappedTracks : undefined,
       };
-    });
+      });
 
     return {
-      subjectCount: totalSubjectCount,
-      trackCount: totalTrackCount > 0 ? totalTrackCount : MOCK_FUNDAMENTALS_HEADER.trackCount,
+      subjectCount: mappedSubjects.length,
+      trackCount: totalTrackCount,
       subjects: mappedSubjects,
     };
   } catch (error) {

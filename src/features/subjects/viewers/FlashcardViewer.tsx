@@ -10,7 +10,6 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
-import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import { Badge, Button } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";

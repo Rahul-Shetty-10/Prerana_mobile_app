@@ -1,6 +1,7 @@
 import { GameMetaCard } from "../types";
 
-export const MOCK_ARCADE_GAMES: GameMetaCard[] = [
+/** Static game catalogue. User progress is supplied by the backend when available. */
+export const ARCADE_GAME_CATALOG: GameMetaCard[] = [
   {
     id: "brainBlitz",
     title: "Brain Blitz",
@@ -11,9 +12,6 @@ export const MOCK_ARCADE_GAMES: GameMetaCard[] = [
     status: "available",
     difficulty: "Adaptive",
     xpReward: 150,
-    bestScore: 120,
-    completionPercentage: 80,
-    recentlyPlayed: true,
     gradientColors: ["#E86A50", "#C84E35"],
   },
   {
@@ -26,9 +24,6 @@ export const MOCK_ARCADE_GAMES: GameMetaCard[] = [
     status: "available",
     difficulty: "Easy / Med / Hard",
     xpReward: 200,
-    bestScore: 180,
-    completionPercentage: 60,
-    recentlyPlayed: true,
     gradientColors: ["#7C3AED", "#4C1D95"],
   },
   {
@@ -41,9 +36,6 @@ export const MOCK_ARCADE_GAMES: GameMetaCard[] = [
     status: "available",
     difficulty: "Fast-Paced",
     xpReward: 250,
-    bestScore: 210,
-    completionPercentage: 50,
-    recentlyPlayed: true,
     gradientColors: ["#F5B800", "#D49E00"],
   },
   {
@@ -56,9 +48,6 @@ export const MOCK_ARCADE_GAMES: GameMetaCard[] = [
     status: "available",
     difficulty: "Logic Puzzle",
     xpReward: 300,
-    bestScore: 240,
-    completionPercentage: 40,
-    recentlyPlayed: true,
     gradientColors: ["#059669", "#064E3B"],
   },
 ];

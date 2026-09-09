@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { AppIcon } from "../../../shared/icons";
@@ -71,17 +70,21 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
     try {
       const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
       const tempPath = `${FileSystem.documentDirectory}${filename}`;
-      const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+      const headers = authToken
+        ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+        : undefined;
+      const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
       if (downloadResult.status !== 200 && downloadResult.status !== 201) {
         throw new Error(`HTTP status ${downloadResult.status}`);
       }
+
       if (downloadResult.uri && (await Sharing.isAvailableAsync())) {
         await Sharing.shareAsync(downloadResult.uri, {
           mimeType: "application/pdf",
           dialogTitle: "Save Slide Deck",
         });
       }
-    } catch (err) {
+    } catch (_) {
       Alert.alert("Download Failed", "Unable to download the slide deck.");
     }
   };
@@ -107,7 +110,10 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
         const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
         console.log(`[SUBJECTS][SlideDeckViewer] Downloading slidedeck from backend: ${pdfUrl}`);
-        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath);
+        const headers = authToken
+          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+          : undefined;
+        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
         if (downloadResult.status !== 200 && downloadResult.status !== 201) {
           throw new Error(`HTTP status ${downloadResult.status}`);
         }

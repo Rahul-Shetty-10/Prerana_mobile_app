@@ -105,6 +105,13 @@ export const MOCK_ACCOUNT_OPTIONS: AccountOptionItem[] = [
     actionType: "link",
   },
   {
+    id: "opt-delete",
+    title: "Delete Account & Data",
+    subtitle: "Request permanent deletion of your account and data",
+    iconName: "trash-outline",
+    actionType: "link",
+  },
+  {
     id: "opt-about",
     title: "About Prerana App",
     subtitle: "SmartGuru AI powered student mobile learning",

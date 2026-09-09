@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from "react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { fetchAchievements, fetchProfileData, performStudentSignOut } from "../services";
 import { AchievementItem, LearningStats, StudentInfo, SubjectProgressItem } from "../types";
 import { useArcadeProfile } from "../../arcade/hooks";
@@ -8,7 +8,7 @@ import { getSavedThemeMode, saveThemeMode, ThemeMode } from "../../../shared/the
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export function useProfile(passedGetToken?: GetToken) {
-  const { getToken: clerkGetToken } = useAuth();
+  const { getToken: clerkGetToken, userId } = useAuth();
   const getToken = passedGetToken || clerkGetToken;
 
   const { profile: arcadeProfile } = useArcadeProfile();
@@ -27,21 +27,32 @@ export function useProfile(passedGetToken?: GetToken) {
   const loadData = useCallback(async () => {
     const activeGetToken = getTokenRef.current;
     setIsLoading(true);
-    try {
-      const data = await fetchProfileData(activeGetToken);
-      const achs = await fetchAchievements(activeGetToken);
-      const savedTheme = await getSavedThemeMode();
+    const [profileResult, achievementsResult, themeResult] = await Promise.allSettled([
+      fetchProfileData(activeGetToken),
+      fetchAchievements(activeGetToken),
+      getSavedThemeMode(),
+    ]);
 
-      setInfo(data.info);
-      setLearningStats(data.learningStats);
-      setSubjectProgress(data.subjectProgress);
-      setAchievements(achs);
-      setThemeMode(savedTheme);
-    } catch (e) {
-      // Ignore
-    } finally {
-      setIsLoading(false);
+    if (profileResult.status === "fulfilled") {
+      setInfo(profileResult.value.info);
+      setLearningStats(profileResult.value.learningStats);
+      setSubjectProgress(profileResult.value.subjectProgress);
+    } else {
+      console.warn("[PROFILE] Profile data could not be loaded:", profileResult.reason);
     }
+
+    if (achievementsResult.status === "fulfilled") {
+      setAchievements(achievementsResult.value);
+    } else {
+      console.warn("[PROFILE] Achievements could not be loaded:", achievementsResult.reason);
+      setAchievements([]);
+    }
+
+    if (themeResult.status === "fulfilled") {
+      setThemeMode(themeResult.value);
+    }
+
+    setIsLoading(false);
   }, []);
 
   const toggleThemeMode = useCallback(async () => {
@@ -51,8 +62,8 @@ export function useProfile(passedGetToken?: GetToken) {
   }, [themeMode]);
 
   const handleSignOut = useCallback(async (clerkSignOut?: () => Promise<void>) => {
-    await performStudentSignOut(clerkSignOut);
-  }, []);
+    await performStudentSignOut(clerkSignOut, userId);
+  }, [userId]);
 
   useEffect(() => {
     loadData();
