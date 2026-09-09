@@ -210,7 +210,7 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
         showsVerticalScrollIndicator={false}
       >
         {/* Loading Header Indicator if actively fetching */}
-        {isLoading && !data ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.primary.main} size="large" />
             <Text style={styles.loadingText}>Syncing dashboard payload...</Text>

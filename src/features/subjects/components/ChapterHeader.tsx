@@ -41,7 +41,7 @@ export function ChapterHeader({
       <View style={styles.titleBlock}>
         <Text style={styles.subjectNameText}>{subjectName}</Text>
         <Text numberOfLines={2} style={styles.chapterTitleText}>
-          Chapter {chapterNumber}: {chapterTitle}
+          {chapterNumber ? `Chapter ${chapterNumber}: ` : ""}{chapterTitle}
         </Text>
       </View>
     </View>

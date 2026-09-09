@@ -16,7 +16,7 @@ export function ChapterCard({
 
   return (
     <Pressable
-      accessibilityLabel={`Open Chapter ${chapter.number}: ${chapter.title}`}
+      accessibilityLabel={`Open ${chapter.number ? `Chapter ${chapter.number}: ` : "chapter "}${chapter.title}`}
       accessibilityRole="button"
       onPress={() => onPress?.(chapter)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
@@ -24,8 +24,8 @@ export function ChapterCard({
       {/* Top Badges Row */}
       <View style={styles.topHeaderRow}>
         <View style={styles.badgesRow}>
-          <Badge label={`CHAPTER ${chapter.number}`} variant="primary" />
-          <Badge label={`PART ${chapter.partNumber}`} variant="secondary" />
+          {chapter.number ? <Badge label={`CHAPTER ${chapter.number}`} variant="primary" /> : null}
+          {chapter.partNumber ? <Badge label={`PART ${chapter.partNumber}`} variant="secondary" /> : null}
         </View>
         <AppIcon color={themeColors.textMuted} name="chevron-forward-outline" size={18} />
       </View>

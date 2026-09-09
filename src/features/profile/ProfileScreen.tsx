@@ -145,7 +145,7 @@ export function ProfileScreen({ onBackPress }: ProfileScreenProps) {
     } else if (id === "opt-delete") {
       Alert.alert(
         "Delete account and data?",
-        `This permanently deletes your Prerana account and associated data. If your account is managed by a school, your administrator may need to complete the request. You can request deletion online${appConfig.privacyEmail ? ` or email ${appConfig.privacyEmail}` : ""}.`,
+        `Submit a request to delete your Prerana account and associated data. If your account is managed by a school, your administrator may need to complete the request. You can request deletion online${appConfig.privacyEmail ? ` or email ${appConfig.privacyEmail}` : ""}.`,
         [
           { text: "Cancel", style: "cancel" },
           {

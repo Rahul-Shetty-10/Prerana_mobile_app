@@ -77,7 +77,6 @@ export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMet
       tenantSlug: appConfig.tenantSlug,
     });
 
-    console.log("[SUBJECTS][DEBUG] rawData =", rawData);
 
     let subjects: any[] = [];
     if (rawData && typeof rawData === "object") {
@@ -99,23 +98,27 @@ export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMet
       throw new SubjectsError('EMPTY_DATA', 'No subjects found or returned from the server.');
     }
 
-    const mapped = subjects.map((item, idx) => {
+    const mapped = subjects.filter((item) => Boolean(item?.id && item?.subjectName)).map((item, idx) => {
       const itemChapters = Array.isArray(item.chapters) ? item.chapters : [];
-      const chapterCount = itemChapters.length;
+      const chapterCount = itemChapters.filter((c: any) => Boolean(c?.id && c?.chapterName)).length;
       const partCount =
         itemChapters.length > 0
-          ? Math.max(...itemChapters.map((c: any) => c.partNumber || 1))
-          : 1;
+          ? Math.max(...itemChapters.map((c: any) => c.partNumber || 0))
+          : 0;
 
       return {
-        id: item.id || `subj-${idx}`,
-        name: item.subjectName || "Unknown Subject",
+        id: item.id,
+        name: item.subjectName,
         chapterCount,
         partCount,
         iconName: getIconForSubject(item.subjectCode, item.subjectName),
         colorVariant: getColorVariantForSubject(item.subjectCode, idx),
       };
     });
+
+    if (mapped.length === 0) {
+      throw new SubjectsError('EMPTY_DATA', 'No valid subjects found on the server.');
+    }
 
     console.log(`[SUBJECTS][SERVICE] fetchSubjectsList(): Mapped subject count: ${mapped.length}`);
     console.log("[SUBJECTS][SERVICE] fetchSubjectsList(): END");
@@ -178,26 +181,26 @@ export async function fetchSubjectWorkspace(
 
     const item = subjects[itemIdx];
     const itemChapters = Array.isArray(item.chapters) ? item.chapters : [];
-    const chapterCount = itemChapters.length;
+    const chapterCount = itemChapters.filter((c: any) => Boolean(c?.id && c?.chapterName)).length;
     const partCount =
       itemChapters.length > 0
-        ? Math.max(...itemChapters.map((c: any) => c.partNumber || 1))
-        : 1;
+        ? Math.max(...itemChapters.map((c: any) => c.partNumber || 0))
+        : 0;
 
     const subjectMeta: SubjectMeta = {
       id: item.id || subjectId,
-      name: item.subjectName || "Unknown Subject",
+      name: item.subjectName || "Selected subject",
       chapterCount,
       partCount,
       iconName: getIconForSubject(item.subjectCode, item.subjectName),
       colorVariant: getColorVariantForSubject(item.subjectCode, itemIdx),
     };
 
-    const chapters: ChapterItem[] = itemChapters.map((ch: any, idx: number) => ({
-      id: ch.id || `chap-${idx + 1}`,
-      number: ch.chapterNumber || idx + 1,
-      partNumber: ch.partNumber || 1,
-      title: ch.chapterName || `Chapter ${ch.chapterNumber || idx + 1}`,
+    const chapters: ChapterItem[] = itemChapters.filter((ch: any) => Boolean(ch?.id && ch?.chapterName)).map((ch: any) => ({
+      id: ch.id,
+      number: ch.chapterNumber,
+      partNumber: ch.partNumber,
+      title: ch.chapterName,
       subtitle: ch.partName || "Open this chapter for a focused student view.",
     }));
 

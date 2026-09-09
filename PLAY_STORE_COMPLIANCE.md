@@ -2,13 +2,19 @@
 
 This checklist is an engineering release record, not legal advice. The app owner must confirm the actual data practices of the backend, Clerk project, hosting provider, and any school/tenant agreements before completing Play Console declarations.
 
-## Automated verification — 8 September 2026
+## Automated verification — 9 September 2026
 
 - Passed: TypeScript compile check (`npm run typecheck`).
 - Passed: Expo Doctor, 21/21 checks, on Expo SDK 57 / React Native 0.86.3.
 - Passed: Android Hermes JavaScript export with the local `.env` loaded.
 - Passed: unauthenticated API reachability check; `/api/mobile/v1/session` returned the expected `401` rather than a network failure.
 - Passed: generated Android manifest contains no microphone or foreground-service recording permission; legacy storage and overlay permissions are blocked.
+- Passed: client data adapters no longer fabricate user progress, subjects, chapters, question prompts, answer choices, or quiz metadata when the server omits them; malformed records now fail safely or are omitted.
+- Confirmed: unauthenticated protected routes return `401` for session, dashboard, learning snapshot, fundamentals, profile, and library.
+- Confirmed blocker: the configured API currently returns `404` for `/student/achievements`, `/student/arcade-home`, `/student/quizzes-home`, `/student/assessment-history`, and `/student/quiz-landing`; the app calls these routes, so backend ownership must confirm whether they should be implemented or the corresponding features removed/disabled.
+- Confirmed blocker: `https://prerana.smartguru.in/` responds, but `/privacy-policy`, `/terms-and-conditions`, `/delete-account`, and `/legal` currently return `404`.
+- Reviewed: all eight supplied DOCX files structurally and by extracted text. They are coherent but contain URL placeholders in the legal index and claim child consent/verification and account deletion are already implemented; those claims do not match the current mobile flow. Visual rendering could not be certified because LibreOffice is unavailable in the controlled review runtime.
+- Reviewed: the supplied pricing workbook has one sheet, 276 populated rows, no formulas, duplicates, blanks, negative prices, or spreadsheet errors. It is restaurant/catering pricing data and is not referenced by this app.
 - Blocked intentionally: release validator rejects `seed-tenant-alpha` and missing legal/support environment values.
 - Not executed here: signed EAS AAB, real Clerk sign-in, authenticated backend routes, Android-device/emulator flows, deletion confirmation, and Play Console review.
 
@@ -22,6 +28,9 @@ This checklist is an engineering release record, not legal advice. The app owner
 - [ ] Make the hosted privacy policy reference Prerana Mobile, its developer/legal entity, Clerk, the SmartGuru API, data retention, student/child handling, and support contact.
 - [ ] Publish a dedicated account-deletion web page. It must clearly identify Prerana Mobile and let a user request deletion outside the app. The current privacy-policy URL is only a temporary link until that page is published.
 - [ ] Ensure the backend implements deletion of the Clerk account, backend profile, quiz attempts/answers, progress, and any tenant copies, or clearly documents legally required retention.
+- [ ] Implement or explicitly de-scope the five confirmed `404` mobile routes before release; test them with a real authenticated student in the production tenant.
+- [ ] Reconcile the child-age/guardian-consent statements in the supplied policy documents with the actual onboarding flow and Play target-audience declaration.
+- [ ] Reconcile the website/docs claims about AI tutor, uploads, AI modes, and question/resource counts with the features actually present in the Android build.
 - [ ] Confirm that the in-app “Delete Account & Data” action reaches the same deletion workflow and requires appropriate identity verification.
 - [ ] Complete Play Console Data safety, Data deletion, Target audience, Content rating, App access, Ads, and privacy-policy declarations from verified production behavior.
 - [ ] Build a signed Android App Bundle with the production EAS profile and run Play Internal Testing before production rollout.

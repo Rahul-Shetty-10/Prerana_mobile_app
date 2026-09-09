@@ -12,8 +12,8 @@ export interface SubjectMeta {
 
 export interface ChapterItem {
   id: string;
-  number: number;
-  partNumber: number;
+  number?: number;
+  partNumber?: number;
   title: string;
   subtitle: string;
 }

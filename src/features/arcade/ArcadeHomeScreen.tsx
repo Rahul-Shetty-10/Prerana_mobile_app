@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { ArcadeProfileCard, GameCard } from "./components";
 import { useArcadeProfile } from "./hooks";
-import { MOCK_ARCADE_GAMES } from "./constants";
+import { ARCADE_GAME_CATALOG } from "./constants";
 import { GameId } from "./types";
 import { AppIcon } from "../../shared/icons";
 import { Header } from "../../shared/components/Header";
@@ -63,7 +63,7 @@ export function ArcadeHomeScreen({
         </View>
 
         {/* 3. Four Game Cards */}
-        {MOCK_ARCADE_GAMES.map((game) => (
+        {ARCADE_GAME_CATALOG.map((game) => (
           <GameCard
             key={game.id}
             game={game}

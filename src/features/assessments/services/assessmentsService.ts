@@ -24,7 +24,6 @@ export async function fetchQuizzesHomeData(getToken?: GetToken): Promise<Quizzes
       tenantSlug: appConfig.tenantSlug,
     });
 
-    console.log("[ASSESSMENTS][SERVICE] fetchQuizzesHomeData rawData:", JSON.stringify(rawData, null, 2));
 
     return {
       hero: rawData.hero ?? EMPTY_QUIZZES_HOME_DATA.hero,
@@ -82,7 +81,6 @@ export async function fetchQuizLandingData(
       tenantSlug: appConfig.tenantSlug,
     });
 
-    console.log("[ASSESSMENTS][SERVICE] fetchQuizLandingData rawData:", JSON.stringify(rawData, null, 2));
 
     return {
       chapterNumber: rawData.chapterNumber ?? EMPTY_QUIZ_LANDING_DATA.chapterNumber,

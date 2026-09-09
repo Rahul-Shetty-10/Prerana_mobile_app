@@ -27,21 +27,32 @@ export function useProfile(passedGetToken?: GetToken) {
   const loadData = useCallback(async () => {
     const activeGetToken = getTokenRef.current;
     setIsLoading(true);
-    try {
-      const data = await fetchProfileData(activeGetToken);
-      const achs = await fetchAchievements(activeGetToken);
-      const savedTheme = await getSavedThemeMode();
+    const [profileResult, achievementsResult, themeResult] = await Promise.allSettled([
+      fetchProfileData(activeGetToken),
+      fetchAchievements(activeGetToken),
+      getSavedThemeMode(),
+    ]);
 
-      setInfo(data.info);
-      setLearningStats(data.learningStats);
-      setSubjectProgress(data.subjectProgress);
-      setAchievements(achs);
-      setThemeMode(savedTheme);
-    } catch (e) {
-      // Ignore
-    } finally {
-      setIsLoading(false);
+    if (profileResult.status === "fulfilled") {
+      setInfo(profileResult.value.info);
+      setLearningStats(profileResult.value.learningStats);
+      setSubjectProgress(profileResult.value.subjectProgress);
+    } else {
+      console.warn("[PROFILE] Profile data could not be loaded:", profileResult.reason);
     }
+
+    if (achievementsResult.status === "fulfilled") {
+      setAchievements(achievementsResult.value);
+    } else {
+      console.warn("[PROFILE] Achievements could not be loaded:", achievementsResult.reason);
+      setAchievements([]);
+    }
+
+    if (themeResult.status === "fulfilled") {
+      setThemeMode(themeResult.value);
+    }
+
+    setIsLoading(false);
   }, []);
 
   const toggleThemeMode = useCallback(async () => {

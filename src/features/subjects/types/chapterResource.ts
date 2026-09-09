@@ -20,7 +20,7 @@ export interface ChapterResourceHeaderProps {
   breadcrumbItems: string[];
   subjectName: string;
   chapterTitle: string;
-  chapterNumber: number;
+  chapterNumber?: number;
   onBackPress?: () => void;
 }
 

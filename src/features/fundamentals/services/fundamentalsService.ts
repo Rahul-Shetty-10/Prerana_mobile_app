@@ -105,8 +105,6 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
       tenantSlug: appConfig.tenantSlug,
     });
 
-    console.log("[FUNDAMENTALS][DEBUG] Full catalog response:", JSON.stringify(rawData, null, 2));
-
     let rawSubjects: any[] = [];
     
     function findSubjectsArray(obj: any): any[] | null {
@@ -147,10 +145,10 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
       return { subjectCount: 0, trackCount: 0, subjects: [] };
     }
 
-    const totalSubjectCount = rawSubjects.length;
-
     let totalTrackCount = 0;
-    const mappedSubjects: SubjectItem[] = rawSubjects.map((item, idx) => {
+    const mappedSubjects: SubjectItem[] = rawSubjects
+      .filter((item) => Boolean(item?.subjectName && (item?.subjectId || item?.id || item?.subjectSlug)))
+      .map((item, idx) => {
       // Backend returns levels[] with the actual slugs to use for each track
       const levels: BackendLevel[] = (item.levels || []).sort(
         (a: BackendLevel, b: BackendLevel) => (a.levelOrder ?? 0) - (b.levelOrder ?? 0)
@@ -174,10 +172,10 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
       const totalQuestions = levels.reduce((sum, l) => sum + (l.questionCount || 0), 0);
 
       return {
-        id: item.subjectId || item.id || item.subjectSlug || `subj-${idx}`,
+        id: item.subjectId || item.id || item.subjectSlug,
         subjectSlug: item.subjectSlug || item.subjectCode || item.id || "",
-        title: item.subjectName || "Subject",
-        description: item.description || `Master foundational concepts in ${item.subjectName}.`,
+        title: item.subjectName,
+        description: item.description || "Subject details are unavailable.",
         iconName: getIconForSubject(item.subjectCode, item.subjectName),
         previewBadgeText: getBadgeForSubject(item.subjectCode, item.subjectName),
         trackCount: subjectTrackCount,
@@ -185,10 +183,10 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
         colorVariant: getColorVariantForSubject(item.subjectCode, idx),
         tracks: mappedTracks.length > 0 ? mappedTracks : undefined,
       };
-    });
+      });
 
     return {
-      subjectCount: totalSubjectCount,
+      subjectCount: mappedSubjects.length,
       trackCount: totalTrackCount,
       subjects: mappedSubjects,
     };

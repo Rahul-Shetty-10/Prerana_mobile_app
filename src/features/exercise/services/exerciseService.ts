@@ -98,6 +98,12 @@ export function mapBackendQuestionToQuestionItem(backendPayload: any, number: nu
 
   const rawType: string = q?.questionType || q?.type || "";
   const qType = mapBackendTypeToFrontendType(rawType);
+  const prompt = q?.questionText ?? q?.prompt ?? "";
+  const questionId = q?._id ?? q?.id;
+
+  if (!questionId || !String(prompt).trim()) {
+    throw new Error(`Quiz question ${number} is missing an id or prompt.`);
+  }
 
   // --- MCQ options (includes mcq_multi) ---
   let mcqOptions: MCQOption[] | undefined;
@@ -117,6 +123,9 @@ export function mapBackendQuestionToQuestionItem(backendPayload: any, number: nu
           ? correctChoiceIds.includes(c.id)
           : c.id === correctChoiceId,
     }));
+    if (mcqOptions.length === 0 || mcqOptions.some((option) => !option.id || !option.text.trim())) {
+      throw new Error(`Quiz question ${number} has invalid answer choices.`);
+    }
   }
 
   // --- Match pairs ---
@@ -139,6 +148,9 @@ export function mapBackendQuestionToQuestionItem(backendPayload: any, number: nu
         rightText: right?.text ?? correctRightId ?? left.id,
       };
     });
+    if (matchPairs.length === 0 || matchPairs.some((pair) => !pair.id || !pair.leftText || !pair.rightText)) {
+      throw new Error(`Quiz question ${number} has invalid matching choices.`);
+    }
   }
 
   // --- Reorder / sort items ---
@@ -147,11 +159,15 @@ export function mapBackendQuestionToQuestionItem(backendPayload: any, number: nu
       ? (q?.options?.items ?? q?.options?.reorderItems ?? q?.reorderItems)
       : undefined;
 
+  if (qType === "reorder" && (!reorderItems || reorderItems.length === 0)) {
+    throw new Error(`Quiz question ${number} has no items to reorder.`);
+  }
+
   const result: QuestionItem = {
-    id: q?._id ?? q?.id ?? `q-${number}`,
+    id: questionId,
     number,
     type: qType,
-    prompt: q?.questionText ?? q?.prompt ?? "",
+    prompt: String(prompt),
     instructions:
       q?.instructions ??
       (qType === "match" ? "Match the corresponding items:" : undefined),
@@ -322,10 +338,10 @@ export async function fetchExerciseSession(
 
   const initialSession: ExerciseSessionPayload = {
     id: attemptId,
-    subjectName: "General Science",
-    trackName: "Chapter Quiz",
+    subjectName: attemptData?.subjectName || "Selected subject",
+    trackName: attemptData?.trackName || "Chapter quiz",
     trackType,
-    title: "Chapter Test",
+    title: attemptData?.title || "Chapter quiz",
     totalQuestions: mappedQuestions.length,
     questions: mappedQuestions,
   };
@@ -359,15 +375,20 @@ export async function fetchQuizAttemptReview(
     throw new Error("No review data found for this quiz attempt.");
   }
 
-  const mappedQuestions = rawData.questions.map((q: any, idx: number) => ({
-    id: q.id || `rq-${idx + 1}`,
-    number: q.number || idx + 1,
-    prompt: q.prompt || "Question prompt",
-    typeLabel: q.typeLabel || "Multiple Choice",
+  const reviewSource = rawData.questions.filter((q: any) => q?.id && q?.prompt);
+  if (reviewSource.length === 0) {
+    throw new Error("Quiz review contains no valid question data.");
+  }
+
+  const mappedQuestions = reviewSource.map((q: any, idx: number) => ({
+    id: q.id,
+    number: q.number ?? idx + 1,
+    prompt: q.prompt,
+    typeLabel: q.typeLabel || "",
     status: q.status || "skipped",
     studentAnswer: q.studentAnswer || "Not answered",
-    correctAnswer: q.correctAnswer || "A",
-    explanation: q.explanation || "No explanation provided.",
+    correctAnswer: q.correctAnswer || "",
+    explanation: q.explanation || "",
   }));
 
   const correctCount = mappedQuestions.filter((q: any) => q.status === "correct").length;
@@ -377,8 +398,8 @@ export async function fetchQuizAttemptReview(
   const accuracyPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
   return {
-    subjectName: rawData.subjectName || "General Science",
-    trackName: rawData.trackName || "Practice Set",
+    subjectName: rawData.subjectName || "Selected subject",
+    trackName: rawData.trackName || "Practice set",
     trackType: rawData.trackType || "explorer",
     title: rawData.title || "Practice Review Session",
     totalQuestions,
@@ -459,6 +480,12 @@ export async function fetchFundamentalsTrack(
   // ── Step 3: Map each question to QuestionItem ─────────────────────────────────
   const mappedQuestions: QuestionItem[] = rawPackQuestions.map(({ order, packType, question: q }) => {
     const qType = normalizeType(packType, q.questionType || "");
+    const questionId = q.id || q._id;
+    const prompt = q.questionText || q.prompt || q.stem || q.text || "";
+
+    if (!questionId || !String(prompt).trim()) {
+      throw new Error(`A question in this track is missing an id or prompt.`);
+    }
 
     // ── MCQ options ─────────────────────────────────────────────────────────
     let mcqOptions: MCQOption[] | undefined;
@@ -467,7 +494,7 @@ export async function fetchFundamentalsTrack(
       mcqOptions = (q.options.choices as any[]).map((c: any, i: number) => ({
         id: c.id,
         label: String.fromCharCode(65 + i), // A, B, C, D
-        text: c.text || `Option ${i + 1}`,
+        text: c.text || "",
         isCorrect: c.id === correctChoiceId,
       }));
     }
@@ -493,17 +520,24 @@ export async function fetchFundamentalsTrack(
         const right = rightItems.find((r: any) => r.id === correctRightId);
         return {
           id: left.id,
-          leftText: left.text || left.id,
-          rightText: right?.text || correctRightId || left.id,
+          leftText: left.text || "",
+          rightText: right?.text || "",
         };
       });
+      if (matchPairs.length === 0 || matchPairs.some((pair) => !pair.id || !pair.leftText || !pair.rightText)) {
+        throw new Error(`A matching question in this track has invalid choices.`);
+      }
+    }
+
+    if (qType === "mcq" && (!mcqOptions || mcqOptions.length === 0 || mcqOptions.some((option) => !option.id || !option.text.trim()))) {
+      throw new Error(`A multiple-choice question in this track has invalid choices.`);
     }
 
     return {
-      id: q.id || `q-${order}`,
+      id: questionId,
       number: order,
       type: qType,
-      prompt: q.questionText || q.prompt || q.stem || q.text || `Question ${order}`,
+      prompt: String(prompt),
       instructions: qType === "match"
         ? "Match each item in Column A with its correct pair in Column B."
         : "Select the correct answer.",
