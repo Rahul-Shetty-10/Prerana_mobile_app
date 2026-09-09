@@ -4,8 +4,10 @@ export * from "./SlideDeckViewer";
 export * from "./FlashcardViewer";
 export * from "./TableViewer";
 export * from "./AudioViewer";
+export * from "./VideoViewer";
 export * from "./MindmapViewer";
 export * from "./ViewerToolbar";
 export * from "./ContentComingSoon";
+
 
 

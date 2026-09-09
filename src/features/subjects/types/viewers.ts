@@ -71,3 +71,13 @@ export interface AudioViewerProps {
   authToken?: string;
   tenantSlug?: string;
 }
+
+export interface VideoViewerProps {
+  title?: string;
+  videoTitle?: string;
+  videoUrl?: string;
+  description?: string;
+  authToken?: string;
+  tenantSlug?: string;
+}
+

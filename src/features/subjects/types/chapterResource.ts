@@ -2,13 +2,15 @@ import { IconName } from "../../../shared/icons";
 
 export type ResourceTabType =
   | "infographic"
-  | "mindmap"
   | "slidedeck"
-  | "textbook"
   | "flashcards"
-  | "table"
   | "audio"
-  | "arcade";
+  | "video"
+  | "mindmap"
+  | "textbook"
+  | "table";
+
+
 
 export interface ResourceTabItem {
   id: ResourceTabType;

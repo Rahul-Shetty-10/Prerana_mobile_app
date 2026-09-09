@@ -47,7 +47,6 @@ export default function App() {
     console.log("[SUBJECTS][APP] Environment config:", {
       apiBaseUrl: appConfig.apiBaseUrl,
       clerkPublishableKey: appConfig.clerkPublishableKey ? `PRESENT (${appConfig.clerkPublishableKey.substring(0, 15)}...)` : "MISSING",
-      tenantSlug: appConfig.tenantSlug
     });
   }, []);
 
@@ -57,7 +56,7 @@ export default function App() {
         <ScreenShell centered>
           <Text style={styles.title}>Missing app configuration</Text>
           <Text style={styles.muted}>
-            Set the production API URL, Clerk publishable key, and tenant slug in the build environment before starting Expo.
+            Set the production API URL and Clerk publishable key in the build environment before starting Expo.
           </Text>
         </ScreenShell>
       </SafeAreaProvider>

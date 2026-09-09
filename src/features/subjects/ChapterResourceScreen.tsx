@@ -91,12 +91,13 @@ export function ChapterResourceScreen({
     }
   }, [chapter, subjectName, subjectId, activeTab]);
 
-  // Track milestones (Infographic, Mindmap, Audio seen)
+  // Track milestones (Infographic, Slidedeck, Flashcards, Audio, Video seen)
   useEffect(() => {
-    if (chapter && subjectId && (activeTab === "infographic" || activeTab === "mindmap" || activeTab === "audio")) {
-      void markMilestoneSeen(chapter.id, subjectId, activeTab);
+    if (chapter && subjectId && (activeTab === "infographic" || activeTab === "slidedeck" || activeTab === "flashcards" || activeTab === "audio" || activeTab === "video")) {
+      void markMilestoneSeen(chapter.id, subjectId, activeTab as any);
     }
   }, [chapter, subjectId, activeTab]);
+
 
   // Show "Coming Soon" after 5 seconds if still loading and no resources have arrived
   useEffect(() => {

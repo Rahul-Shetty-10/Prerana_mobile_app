@@ -18,6 +18,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
+import { appConfig } from "../../../config";
+
 import { ensurePdfJsCached, writeSlidedeckHtml, slidedeckHtmlPath } from "../utils/pdfCache";
 import { ViewerToolbar } from "./ViewerToolbar";
 import { ContentComingSoon } from "./ContentComingSoon";
@@ -70,9 +72,10 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
     try {
       const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
       const tempPath = `${FileSystem.documentDirectory}${filename}`;
-      const headers = authToken
-        ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-        : undefined;
+        const isApiUrl = pdfUrl ? pdfUrl.startsWith(appConfig.apiBaseUrl) : false;
+        const headers = (authToken && isApiUrl)
+          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+          : undefined;
       const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
       if (downloadResult.status !== 200 && downloadResult.status !== 201) {
         throw new Error(`HTTP status ${downloadResult.status}`);
@@ -110,7 +113,8 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
         const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
         console.log(`[SUBJECTS][SlideDeckViewer] Downloading slidedeck from backend: ${pdfUrl}`);
-        const headers = authToken
+        const isApiUrl = pdfUrl ? pdfUrl.startsWith(appConfig.apiBaseUrl) : false;
+        const headers = (authToken && isApiUrl)
           ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
           : undefined;
         const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);

@@ -77,21 +77,37 @@ export async function fetchChapterResources(
 
 
     // Map raw array resources to flat ChapterResourcesPayload structure
-    const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");
-    const getAbsoluteUrl = (path?: string) => {
+    const resourceAssetProxyBase = `${appConfig.apiBaseUrl.replace("/mobile/v1", "")}/student/resource-asset`;
+
+    /**
+     * Resolve any raw asset path/URL into a fully loadable URL.
+     *
+     * Rules (in priority order):
+     *   1. Already an absolute HTTPS URL that is an S3/amazonaws URL
+     *      → route through backend resource-asset proxy.
+     *   2. Already an absolute HTTPS/HTTP URL (CDN, embed, etc.)
+     *      → return as-is.
+     *   3. Relative path (e.g. "assets/German+.../infographic.png")
+     *      → prepend appConfig.storageBaseUrl to get the full S3 URL,
+     *         then route through the proxy.
+     */
+    const getAbsoluteUrl = (path?: string): string | undefined => {
       if (!path || typeof path !== "string") return undefined;
-      if (path.startsWith("http://") || path.startsWith("https://")) return path;
+      const trimmed = path.trim();
+      if (!trimmed) return undefined;
 
-      const [pathPart, ...queryParts] = path.split("?");
-      const queryString = queryParts.length > 0 ? "?" + queryParts.join("?") : "";
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        return trimmed;
+      }
 
-      const cleanPath = pathPart
-        .split("/")
-        .map((part) => encodeURIComponent(part))
-        .join("/");
-      const separator = cleanPath.startsWith("%2F") || cleanPath.startsWith("/") ? "" : "/";
-      const fullPath = `${baseUrl}${separator}${cleanPath}`.replace(/%2F/g, "/");
-      return `${fullPath}${queryString}`;
+      // Relative asset path — build full S3 URL using configured storage base
+      const storageBase = appConfig.storageBaseUrl;
+      if (!storageBase) {
+        console.warn(`[SUBJECTS][SERVICE] EXPO_PUBLIC_STORAGE_BASE_URL is not set; cannot resolve relative path: '${trimmed}'`);
+        return undefined;
+      }
+      const separator = trimmed.startsWith("/") ? "" : "/";
+      return `${storageBase}${separator}${trimmed}`;
     };
 
     const parseCsvLine = (text: string): string[] => {
@@ -126,8 +142,8 @@ export async function fetchChapterResources(
 
     if (Array.isArray(resourcesArray)) {
       console.log(`[SUBJECTS][SERVICE] Resources returned:`, resourcesArray.map((r: any) => ({ type: r?.type, title: r?.title })));
-      resourcesArray.forEach((item: any) => {
-        if (!item || typeof item !== "object") return;
+      for (const item of resourcesArray) {
+        if (!item || typeof item !== "object") continue;
         const type = item.type;
 
         // Resource URL priority:
@@ -155,23 +171,51 @@ export async function fetchChapterResources(
         } else if (type === "pdf") {
           result.textbookNotesUrl = assetUrl;
         } else if (type === "flashcards") {
-          if (typeof item.payload === "string") {
-            const lines = item.payload.split("\n").filter((l: string) => l.trim().length > 0);
+          const parseInlineCsv = (csvText: string): FlashcardItem[] => {
+            const lines = csvText.split("\n").filter((l: string) => l.trim().length > 0);
             const cardList: FlashcardItem[] = [];
-            lines.forEach((line: string) => {
+            lines.forEach((line: string, idx: number) => {
               const parts = parseCsvLine(line);
-              if (parts.length >= 2) {
-                cardList.push({
-                  id: `fc-${cardList.length}`,
-                  frontText: parts[0],
-                  backText: parts[1],
-                });
+              const front = parts[0]?.trim() ?? "";
+              const back = parts[1]?.trim() ?? "";
+              // Skip header row (front/back, term/definition, question/answer)
+              if (
+                idx === 0 &&
+                ((front.toLowerCase() === "front" && back.toLowerCase() === "back") ||
+                  (front.toLowerCase() === "term" && back.toLowerCase() === "definition") ||
+                  (front.toLowerCase() === "question" && back.toLowerCase() === "answer"))
+              ) {
+                return;
+              }
+              if (front || back) {
+                cardList.push({ id: `fc-${cardList.length}`, frontText: front, backText: back });
               }
             });
-            result.flashcards = cardList;
+            return cardList;
+          };
+
+          if (typeof item.payload === "string" && item.payload.trim().length > 0) {
+            // Inline CSV text in payload
+            result.flashcards = parseInlineCsv(item.payload);
           } else if (Array.isArray(item.payload)) {
-            result.flashcards = item.payload;
+            result.flashcards = item.payload as FlashcardItem[];
+          } else if (assetUrl) {
+            // No inline payload — fetch remote CSV (e.g. German flashcards served via S3)
+            try {
+              console.log(`[SUBJECTS][SERVICE] Fetching remote flashcards CSV: ${assetUrl}`);
+              const csvRes = await fetch(assetUrl);
+              if (csvRes.ok) {
+                const csvText = await csvRes.text();
+                result.flashcards = parseInlineCsv(csvText);
+                console.log(`[SUBJECTS][SERVICE] Loaded ${result.flashcards.length} flashcards from remote CSV.`);
+              } else {
+                console.warn(`[SUBJECTS][SERVICE] Flashcards CSV HTTP ${csvRes.status} from ${assetUrl}`);
+              }
+            } catch (csvErr) {
+              console.error(`[SUBJECTS][SERVICE] Failed to fetch flashcards CSV from ${assetUrl}:`, csvErr);
+            }
           }
+
         } else if (type === "table") {
           if (typeof item.payload === "string") {
             const lines = item.payload.split("\n").filter((l: string) => l.trim().length > 0);
@@ -201,7 +245,11 @@ export async function fetchChapterResources(
           result.audioUrl = assetUrl;
           result.audioTitle = item.title || "Audio Summary";
           result.audioDurationSeconds = item.payload?.duration || undefined;
+        } else if (type === "video") {
+          result.videoUrl = assetUrl;
+          result.videoTitle = item.title || "Video Explanation";
         } else if (type === "puzzle") {
+
           // Chapter Word Games — payload keys match backend exactly.
           const p = item.payload;
           if (p && typeof p === "object") {
@@ -216,8 +264,9 @@ export async function fetchChapterResources(
             );
           }
         }
-      });
+      }
     }
+
 
     console.log(`[SUBJECTS][SERVICE] fetchChapterResources(): Successfully fetched and mapped chapter resources from backend. Title: '${result.chapterTitle}'`);
     return result;

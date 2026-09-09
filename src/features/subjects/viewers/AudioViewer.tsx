@@ -8,6 +8,8 @@ import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { appConfig } from "../../../config";
+
 
 export function AudioViewer({
   audioTitle,
@@ -51,7 +53,8 @@ export function AudioViewer({
         }
 
         console.log(`[SUBJECTS][AudioViewer] Downloading audio from backend: ${audioUrl}`);
-        const headers = authToken
+        const isApiUrl = audioUrl ? audioUrl.startsWith(appConfig.apiBaseUrl) : false;
+        const headers = (authToken && isApiUrl)
           ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
           : undefined;
         const result = await FileSystem.downloadAsync(audioUrl, tempPath, headers ? { headers } : undefined);

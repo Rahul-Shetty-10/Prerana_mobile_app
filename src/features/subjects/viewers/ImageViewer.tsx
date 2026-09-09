@@ -24,6 +24,8 @@ import { ViewerToolbar } from "./ViewerToolbar";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { appConfig } from "../../../config";
+
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
@@ -63,10 +65,12 @@ export function ImageViewer({
     );
   }
 
-  const resourceHeaders = authToken
+  const isApiUrl = imageUrl ? imageUrl.startsWith(appConfig.apiBaseUrl) : false;
+  const resourceHeaders = (authToken && isApiUrl)
     ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
     : undefined;
   const activeImage = resourceHeaders ? { uri: imageUrl, headers: resourceHeaders } : { uri: imageUrl };
+
   const label = isMindmap ? "MIND MAP IMAGE" : "INFOGRAPHIC";
 
   const handleZoomIn = () => setZoomScale((p) => Math.min(p + 0.25, 4));

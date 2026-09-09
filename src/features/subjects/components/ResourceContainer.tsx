@@ -4,10 +4,8 @@ import {
   AudioViewer,
   FlashcardViewer,
   ImageViewer,
-  PDFViewer,
   SlideDeckViewer,
-  TableViewer,
-  MindmapViewer,
+  VideoViewer,
 } from "../viewers";
 
 export function ResourceContainer({
@@ -31,29 +29,11 @@ export function ResourceContainer({
         />
       );
 
-    case "mindmap":
-      return (
-        <MindmapViewer
-          title={resources?.chapterTitle || `${chapterTitle} Mindmap`}
-          rootNode={resources?.mindmapRoot}
-        />
-      );
-
     case "slidedeck":
       return (
         <SlideDeckViewer
           documentTitle={resources?.chapterTitle || `${chapterTitle} Slidedeck`}
           pdfUrl={resources?.slidedeckUrl}
-          authToken={resources?.authToken}
-          tenantSlug={resources?.tenantSlug}
-        />
-      );
-
-    case "textbook":
-      return (
-        <PDFViewer
-          documentTitle={resources?.chapterTitle || `${chapterTitle} Textbook Notes`}
-          pdfUrl={resources?.textbookNotesUrl}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
         />
@@ -68,21 +48,22 @@ export function ResourceContainer({
         />
       );
 
-    case "table":
-      return (
-        <TableViewer
-          title={resources?.tableTitle || `${chapterTitle} Key Data Table`}
-          columns={resources?.tableColumns}
-          rows={resources?.tableRows}
-        />
-      );
-
     case "audio":
       return (
         <AudioViewer
           audioTitle={resources?.audioTitle || `${chapterTitle} Audio Explanation`}
           audioUrl={resources?.audioUrl}
           durationSeconds={resources?.audioDurationSeconds}
+          authToken={resources?.authToken}
+          tenantSlug={resources?.tenantSlug}
+        />
+      );
+
+    case "video":
+      return (
+        <VideoViewer
+          videoTitle={resources?.videoTitle || `${chapterTitle} Video Explanation`}
+          videoUrl={resources?.videoUrl}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
         />
@@ -99,4 +80,4 @@ export function ResourceContainer({
         />
       );
   }
-}
+}
