@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { PUZZLE_QUEST_BANK } from "../constants";
 import { PuzzleDifficulty, PuzzleItem } from "../types";
@@ -21,7 +20,6 @@ export async function fetchPuzzleQuestPuzzles(
 
       const response = await mobileApi<PuzzleQuestApiResponse>(path, {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       });
 
       if (response.puzzles && response.puzzles.length > 0) {

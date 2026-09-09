@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import {
   AssessmentHistoryPayload,
@@ -21,7 +20,6 @@ export async function fetchQuizzesHomeData(getToken?: GetToken): Promise<Quizzes
   try {
     const rawData = await mobileApi<Partial<QuizzesHomePayload>>("/student/quizzes-home", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     console.log("[ASSESSMENTS][SERVICE] fetchQuizzesHomeData rawData:", JSON.stringify(rawData, null, 2));
@@ -50,7 +48,6 @@ export async function fetchAssessmentHistoryData(
   try {
     const rawData = await mobileApi<Partial<AssessmentHistoryPayload>>("/student/assessment-history", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     return {
@@ -79,7 +76,6 @@ export async function fetchQuizLandingData(
   try {
     const rawData = await mobileApi<any>(`/student/quiz-landing?subjectId=${subjectId}&chapterId=${chapterId}`, {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     console.log("[ASSESSMENTS][SERVICE] fetchQuizLandingData rawData:", JSON.stringify(rawData, null, 2));

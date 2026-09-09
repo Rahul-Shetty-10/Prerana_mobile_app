@@ -1,5 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
+import { getMobileSession } from "../../../shared/session/sessionStore";
 import {
   FlashcardItem,
   MindmapNode,
@@ -67,7 +68,6 @@ export async function fetchChapterResources(
       `/student/chapter-resources?subjectId=${encodeURIComponent(subjectId)}&chapterId=${encodeURIComponent(chapterId)}`,
       {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       }
     );
 
@@ -120,7 +120,7 @@ export async function fetchChapterResources(
       chapterTitle: data.chapterTitle || "Chapter Resources",
       textbookNotesUrl: getAbsoluteUrl(data.textbookUrl),
       authToken: token,
-      tenantSlug: appConfig.tenantSlug,
+      tenantSlug: getMobileSession()?.tenantSlug ?? undefined,
     };
 
     const resourcesArray = (data as any).resources?.resources || (data as any).resources || [];

@@ -1,10 +1,11 @@
 import { appConfig } from "../config";
+import { getMobileSession } from "../shared/session/sessionStore";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 type MobileApiOptions = {
   getToken: GetToken;
-  tenantSlug: string;
+  tenantSlug?: string | null;
 };
 
 type MobileApiSuccess<TData> = {
@@ -66,14 +67,24 @@ export async function mobileApi<TData>(path: string, options: MobileApiOptions):
     controller.abort();
   }, 10000); // 10 seconds timeout
 
+  const resolvedTenantSlug =
+    options.tenantSlug !== undefined
+      ? options.tenantSlug
+      : getMobileSession()?.tenantSlug;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  if (resolvedTenantSlug) {
+    headers["X-Tenant-Slug"] = resolvedTenantSlug;
+  }
+
   try {
     const response = await fetch(`${appConfig.apiBaseUrl}${path}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-Tenant-Slug": options.tenantSlug,
-      },
+      headers,
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -96,3 +107,4 @@ export async function mobileApi<TData>(path: string, options: MobileApiOptions):
     throw err;
   }
 }
+

@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import {
   ChapterShelfItem,
@@ -76,7 +75,6 @@ export async function fetchLibraryData(getToken?: GetToken): Promise<LibraryPayl
   try {
     const rawData = await mobileApi<LibraryApiResponse>("/student/library", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     if (!rawData) {

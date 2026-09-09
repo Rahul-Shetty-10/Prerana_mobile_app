@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { FundamentalsDataPayload, SubjectItem, SubjectTrack } from "../types";
 import { MOCK_FUNDAMENTALS_HEADER, MOCK_FUNDAMENTALS_SUBJECTS } from "../constants";
@@ -109,7 +108,6 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
   try {
     const rawData = await mobileApi<any>("/student/fundamentals/catalog", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     console.log("[FUNDAMENTALS][DEBUG] Full catalog response:", JSON.stringify(rawData, null, 2));

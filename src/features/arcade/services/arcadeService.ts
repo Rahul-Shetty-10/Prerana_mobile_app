@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { ArcadeHomePayload } from "../types";
 import { MOCK_ARCADE_GAMES } from "../constants";
@@ -24,7 +23,6 @@ export async function fetchArcadeHomeData(getToken?: GetToken): Promise<ArcadeHo
   try {
     const rawData = await mobileApi<ArcadeHomeApiResponse>("/student/arcade-home", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     return {

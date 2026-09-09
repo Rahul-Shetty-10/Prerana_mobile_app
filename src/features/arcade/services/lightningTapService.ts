@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { LIGHTNING_QUESTION_BANK } from "../constants";
 import { LightningDifficulty, LightningQuestion } from "../types";
@@ -25,7 +24,6 @@ export async function fetchLightningQuestions(
 
       const response = await mobileApi<LightningQuestionsResponse>(path, {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       });
 
       if (response.questions && response.questions.length > 0) {

@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { ChapterItem, SubjectMeta, SubjectWorkspacePayload } from "../types";
 import { IconName } from "../../../shared/icons";
@@ -74,7 +73,6 @@ export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMet
   try {
     const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     console.log("[SUBJECTS][DEBUG] rawData =", rawData);
@@ -148,7 +146,6 @@ export async function fetchSubjectWorkspace(
   try {
     const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     let subjects: any[] = [];

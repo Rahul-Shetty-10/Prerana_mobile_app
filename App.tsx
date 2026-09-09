@@ -31,8 +31,15 @@ import { DashboardScreen } from "./src/features/dashboard";
 import { tokenCache } from "./src/lib/tokenCache";
 import { RootNavigator } from "./src/navigation";
 import { ThemeProvider } from "./src/shared/theme/ThemeContext";
-import { mobileApi, MobileSessionData } from "./src/api/mobileApi";
+import { mobileApi } from "./src/api/mobileApi";
 import { clearLearningState } from "./src/shared/services/learningStateService";
+import {
+  MobileSession,
+  clearMobileSession,
+  loadMobileSession,
+  saveMobileSession,
+} from "./src/shared/session/sessionStore";
+import { SessionProvider } from "./src/shared/session/SessionContext";
 
 export default function App() {
   useEffect(() => {
@@ -40,7 +47,6 @@ export default function App() {
     console.log("[SUBJECTS][APP] Environment config:", {
       apiBaseUrl: appConfig.apiBaseUrl,
       clerkPublishableKey: appConfig.clerkPublishableKey ? `PRESENT (${appConfig.clerkPublishableKey.substring(0, 15)}...)` : "MISSING",
-      tenantSlug: appConfig.tenantSlug
     });
   }, []);
 
@@ -61,8 +67,10 @@ export default function App() {
     <SafeAreaProvider>
       <ClerkProvider publishableKey={appConfig.clerkPublishableKey} tokenCache={tokenCache}>
         <ThemeProvider>
-          <StatusBar style="light" />
-          <Root />
+          <SessionProvider>
+            <StatusBar style="light" />
+            <Root />
+          </SessionProvider>
         </ThemeProvider>
       </ClerkProvider>
     </SafeAreaProvider>
@@ -113,23 +121,31 @@ function Root() {
       console.log("[PERF][SESSION] GET /session started");
       try {
         console.log("[SUBJECTS][APP] Fetching /session from backend...");
-        const data = await mobileApi<MobileSessionData>("/session", {
+        const data = await mobileApi<MobileSession>("/session", {
           getToken,
-          tenantSlug: appConfig.tenantSlug,
+          tenantSlug: null,
         });
         const elapsed = Date.now() - sessionStartTime;
         console.log(`[PERF][SESSION] GET /session completed: ${elapsed}ms`);
         console.log("[PERF][SESSION] status=200");
         console.log("[SUBJECTS][APP] verifyBackendSession success. Role:", data?.role);
-        if (data.role !== "student") {
+        if (!data || data.role !== "student") {
           throw new Error("User role is not student");
         }
-        await AsyncStorage.setItem("@prerana_session", JSON.stringify(data));
+        if (!data.tenantSlug) {
+          throw new Error("Tenant slug is missing in session response");
+        }
+        await saveMobileSession({
+          role: data.role,
+          tenantId: data.tenantId,
+          tenantSlug: data.tenantSlug,
+          tenantName: data.tenantName,
+        });
         setSessionState("verified");
       } catch (error: any) {
         console.error("[SUBJECTS][APP] Backend session verification error:", error?.message || error);
         if (!isBackground) {
-          await AsyncStorage.removeItem("@prerana_session");
+          await clearMobileSession();
           setSessionState("failed");
         } else {
           console.log("[SUBJECTS][APP] Background session verification failed, ignoring to prevent kicking user out.");
@@ -140,20 +156,20 @@ function Root() {
     const initializeSession = async () => {
       console.log("[SUBJECTS][APP] initializeSession starting...");
       try {
-        console.log("[SUBJECTS][APP] Reading cached session from AsyncStorage...");
-        const cachedSession = await AsyncStorage.getItem("@prerana_session");
-        console.log("[SUBJECTS][APP] cachedSession read complete:", cachedSession);
-        if (cachedSession) {
+        console.log("[SUBJECTS][APP] Reading cached session...");
+        const cachedSession = await loadMobileSession();
+        console.log("[SUBJECTS][APP] cachedSession read complete:", cachedSession?.tenantSlug);
+        if (cachedSession && cachedSession.tenantSlug && cachedSession.role === "student") {
           setSessionState("verified");
           // Background verification to ensure token/session is still active
           verifyBackendSession(true);
         } else {
-          console.log("[SUBJECTS][APP] No cached session. Setting state to verifying...");
+          console.log("[SUBJECTS][APP] No valid cached session. Setting state to verifying...");
           setSessionState("verifying");
           await verifyBackendSession(false);
         }
       } catch (e: any) {
-        console.error("[SUBJECTS][APP] initializeSession error reading AsyncStorage:", e?.message || e);
+        console.error("[SUBJECTS][APP] initializeSession error reading session:", e?.message || e);
         setSessionState("verifying");
         await verifyBackendSession(false);
       }
@@ -164,11 +180,12 @@ function Root() {
 
   const handleSignOut = async () => {
     try {
-      await AsyncStorage.removeItem("@prerana_session");
+      await clearMobileSession();
       await AsyncStorage.clear();
       await clearLearningState();
       await signOut();
     } catch (e) {
+      await clearMobileSession();
       await signOut();
     }
   };

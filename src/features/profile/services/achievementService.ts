@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { MOCK_ACHIEVEMENTS } from "../constants";
 import { AchievementItem } from "../types";
@@ -14,7 +13,6 @@ export async function fetchAchievements(getToken?: GetToken): Promise<Achievemen
     try {
       const response = await mobileApi<AchievementsApiResponse>("/student/achievements", {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       });
       if (response.achievements && response.achievements.length > 0) {
         return response.achievements;
