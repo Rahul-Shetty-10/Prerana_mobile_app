@@ -1,5 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
+import { getMobileSession } from "../../../shared/session/sessionStore";
 import {
   FlashcardItem,
   MindmapNode,
@@ -67,7 +68,6 @@ export async function fetchChapterResources(
       `/student/chapter-resources?subjectId=${encodeURIComponent(subjectId)}&chapterId=${encodeURIComponent(chapterId)}`,
       {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       }
     );
 
@@ -79,15 +79,19 @@ export async function fetchChapterResources(
     // Map raw array resources to flat ChapterResourcesPayload structure
     const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");
     const getAbsoluteUrl = (path?: string) => {
-      if (!path) return undefined;
-      if (path.startsWith("http")) return path;
-      const cleanPath = path
+      if (!path || typeof path !== "string") return undefined;
+      if (path.startsWith("http://") || path.startsWith("https://")) return path;
+
+      const [pathPart, ...queryParts] = path.split("?");
+      const queryString = queryParts.length > 0 ? "?" + queryParts.join("?") : "";
+
+      const cleanPath = pathPart
         .split("/")
         .map((part) => encodeURIComponent(part))
         .join("/");
-      // If path starts with /, keep it, else prepend /
       const separator = cleanPath.startsWith("%2F") || cleanPath.startsWith("/") ? "" : "/";
-      return `${baseUrl}${separator}${cleanPath}`.replace(/%2F/g, "/");
+      const fullPath = `${baseUrl}${separator}${cleanPath}`.replace(/%2F/g, "/");
+      return `${fullPath}${queryString}`;
     };
 
     const parseCsvLine = (text: string): string[] => {
@@ -115,7 +119,7 @@ export async function fetchChapterResources(
       chapterTitle: data.chapterTitle || "Chapter Resources",
       textbookNotesUrl: getAbsoluteUrl(data.textbookUrl),
       authToken: token,
-      tenantSlug: appConfig.tenantSlug,
+      tenantSlug: getMobileSession()?.tenantSlug ?? undefined,
     };
 
     const resourcesArray = (data as any).resources?.resources || (data as any).resources || [];
@@ -125,7 +129,20 @@ export async function fetchChapterResources(
       resourcesArray.forEach((item: any) => {
         if (!item || typeof item !== "object") return;
         const type = item.type;
-        const assetUrl = getAbsoluteUrl(item.assetUrl);
+
+        // Resource URL priority:
+        // 1. item.payload.resourceUrl (new S3 storage pipeline for Kannada/Hindi)
+        // 2. item.payload.url
+        // 3. item.assetUrl (legacy content pipeline for Science/English)
+        // 4. item.url
+        const rawUrl =
+          (typeof item.payload === "object" && item.payload !== null
+            ? item.payload.resourceUrl || item.payload.url
+            : undefined) ||
+          (typeof item.assetUrl === "string" ? item.assetUrl : undefined) ||
+          (typeof item.url === "string" ? item.url : undefined);
+
+        const assetUrl = getAbsoluteUrl(rawUrl);
 
         if (type === "infographic") {
           result.infographicUrl = assetUrl;

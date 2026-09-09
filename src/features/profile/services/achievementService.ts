@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { AchievementItem } from "../types";
 
@@ -13,7 +12,6 @@ export async function fetchAchievements(getToken?: GetToken): Promise<Achievemen
     try {
       const response = await mobileApi<AchievementsApiResponse>("/student/achievements", {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       });
       return response.achievements ?? [];
     } catch (e) {

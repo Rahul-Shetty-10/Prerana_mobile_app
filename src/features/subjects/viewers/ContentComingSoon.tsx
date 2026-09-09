@@ -13,8 +13,8 @@ interface ContentComingSoonProps {
 
 export function ContentComingSoon({
   icon = "time-outline",
-  title = "Content Coming Soon",
-  message = "This content hasn't been uploaded yet. Check back soon!",
+  title = "Yet to be updated",
+  message = "This resource has not been uploaded yet.",
 }: ContentComingSoonProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];

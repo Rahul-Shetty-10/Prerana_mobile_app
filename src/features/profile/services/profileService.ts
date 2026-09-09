@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { mobileApi } from "../../../api/mobileApi";
 import { LearningStats, StudentInfo, SubjectProgressItem } from "../types";
@@ -33,7 +32,6 @@ export async function fetchProfileData(getToken?: GetToken) {
   try {
     const response = await mobileApi<ProfileApiResponse>("/student/profile", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     if (!response) {

@@ -23,7 +23,7 @@ export function AudioViewer({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isCompleted, setIsCompleted] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [localAudioPath, setLocalAudioPath] = useState<any>(null);
+  const [localAudioPath, setLocalAudioPath] = useState<string | null>(null);
   const [audioError, setAudioError] = useState(false);
 
   useEffect(() => {
@@ -73,10 +73,10 @@ export function AudioViewer({
     };
   }, [audioUrl, authToken, tenantSlug]);
 
-  const player = useAudioPlayer(localAudioPath);
+  const player = useAudioPlayer(localAudioPath || "");
   const status = useAudioPlayerStatus(player);
 
-  const isLoading = !status.isLoaded || downloading;
+  const isLoading = (!status.isLoaded && !!localAudioPath) || downloading;
   const isPlaying = status.playing;
   const currentTime = status.currentTime ?? 0;
   const durationSeconds = status.duration ?? 0;
@@ -135,15 +135,15 @@ export function AudioViewer({
 
   const progressPercent = durationSeconds > 0 ? Math.round((currentTime / durationSeconds) * 100) : 0;
 
-  // No backend URL at all — show Coming Soon (not local mock audio)
+  // Do not render a player when the backend has no usable resource.
   if ((!audioUrl && !localAudioPath) || audioError) {
     return (
       <ContentComingSoon
         icon="headset-outline"
-        title={audioError ? "Unable to load audio" : "Audio Coming Soon"}
+        title={audioError ? "Unable to load audio" : "Yet to be updated"}
         message={audioError
           ? "The audio explanation could not be loaded. Check your connection and try again."
-          : "The audio explanation for this chapter is being prepared. Check back soon!"}
+          : "This resource has not been uploaded yet."}
       />
     );
   }

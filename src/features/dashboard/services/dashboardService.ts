@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import {
   FocusNowProps,
@@ -56,7 +55,6 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
   try {
     const rawData = await mobileApi<DashboardApiResponse>("/student/dashboard", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
     const elapsed = Date.now() - dashStartTime;
     console.log(`[PERF][DASHBOARD] GET /student/dashboard completed: ${elapsed}ms`);
@@ -70,7 +68,6 @@ export async function fetchDashboardData(getToken: GetToken): Promise<DashboardD
     try {
       const rawSnapshot = await mobileApi<any>("/student/learning-snapshot", {
         getToken,
-        tenantSlug: appConfig.tenantSlug,
       });
       if (rawSnapshot) {
         let subjects: any[] = [];

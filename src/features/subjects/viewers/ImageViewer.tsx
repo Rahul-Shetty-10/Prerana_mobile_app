@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import {
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -51,23 +52,13 @@ export function ImageViewer({
   const [isImageLoading, setIsImageLoading] = useState(false);
   const lastTap = useRef<number>(0);
 
-  // No backend URL at all — show Coming Soon screen (do NOT show local mock)
-  if (!imageUrl) {
+  // No backend URL or broken image — show an explicit unavailable state.
+  if (!imageUrl || imageError) {
     return (
       <ContentComingSoon
         icon={isMindmap ? "git-network-outline" : "image-outline"}
-        title={isMindmap ? "Mind Map Image Coming Soon" : "Infographic Coming Soon"}
-        message="This visual content is being prepared by our team. Check back soon!"
-      />
-    );
-  }
-
-  if (imageError) {
-    return (
-      <ContentComingSoon
-        icon={isMindmap ? "git-network-outline" : "image-outline"}
-        title="Unable to load visual content"
-        message="This chapter resource could not be loaded. Check your connection and try again."
+        title="Yet to be updated"
+        message={imageError ? "This chapter resource could not be loaded. Check your connection and try again." : "This resource has not been uploaded yet."}
       />
     );
   }
@@ -101,6 +92,10 @@ export function ImageViewer({
   };
 
   const handleDownload = async () => {
+    if (!imageUrl) {
+      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      return;
+    }
     try {
       let localUri = "";
       if (imageUrl && !imageError) {
@@ -127,7 +122,7 @@ export function ImageViewer({
         await Sharing.shareAsync(localUri);
       }
     } catch (_) {
-      // Share unavailable on this platform
+      Alert.alert("Download Failed", "Unable to download the requested image.");
     }
   };
 

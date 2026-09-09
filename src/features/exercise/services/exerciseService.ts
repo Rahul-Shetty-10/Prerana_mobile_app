@@ -1,5 +1,6 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
+import { getMobileSession } from "../../../shared/session/sessionStore";
 import {
   ExerciseResultData,
   ExerciseSessionPayload,
@@ -204,7 +205,7 @@ export async function fetchAllQuizQuestions(
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
-      "X-Tenant-Slug": appConfig.tenantSlug,
+      "X-Tenant-Slug": getMobileSession()?.tenantSlug ?? "",
     },
   });
 
@@ -284,11 +285,11 @@ export async function fetchExerciseSession(
     headers: {
       Authorization: `Bearer ${activeTokenSession}`,
       "Content-Type": "application/json",
-      "X-Tenant-Slug": appConfig.tenantSlug,
+      "X-Tenant-Slug": getMobileSession()?.tenantSlug ?? "",
     },
     body: JSON.stringify({
       intent: "ensure",
-      tenant: appConfig.tenantSlug,
+      tenant: getMobileSession()?.tenantSlug ?? "",
       quizId,
       questionCount: 45,
     }),
@@ -367,7 +368,6 @@ export async function fetchQuizAttemptReview(
     `/student/quiz-attempts?attemptId=${encodeURIComponent(attemptId)}`,
     {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     }
   );
 
@@ -424,7 +424,7 @@ export async function fetchFundamentalsTrack(
   try {
     data = await mobileApi<any>(
       `/student/fundamentals/track?subjectSlug=${encodeURIComponent(subjectSlug)}&trackSlug=${encodeURIComponent(trackSlug)}`,
-      { getToken, tenantSlug: appConfig.tenantSlug }
+      { getToken }
     );
   } catch (httpErr) {
     const msg = httpErr instanceof Error ? httpErr.message : String(httpErr);

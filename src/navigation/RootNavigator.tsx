@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { AssessmentsNavigator } from "./AssessmentsNavigator";
 import { FundamentalsNavigator } from "./FundamentalsNavigator";
 import { LibraryNavigator } from "./LibraryNavigator";
@@ -26,6 +26,7 @@ export interface RootNavigatorProps {
 
 function MainTabs({ getToken }: { getToken?: GetToken }) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
 
@@ -40,6 +41,8 @@ function MainTabs({ getToken }: { getToken?: GetToken }) {
           {
             backgroundColor: themeColors.surface,
             borderTopColor: themeColors.border,
+            height: 60 + (insets.bottom > 0 ? insets.bottom : 0),
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
           },
         ],
         tabBarLabelStyle: styles.tabBarLabel,

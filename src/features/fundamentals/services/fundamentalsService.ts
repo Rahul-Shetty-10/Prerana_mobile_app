@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { FundamentalsDataPayload, SubjectItem, SubjectTrack } from "../types";
 import { IconName } from "../../../shared/icons";
@@ -102,7 +101,6 @@ export async function fetchFundamentalsData(getToken?: GetToken): Promise<Fundam
   try {
     const rawData = await mobileApi<any>("/student/fundamentals/catalog", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     let rawSubjects: any[] = [];

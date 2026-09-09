@@ -184,21 +184,21 @@ export function ChapterResourceScreen({
         ) : null}
 
         {/* Loading Indicator */}
-        {isLoading && !resources && !showComingSoon ? (
+        {isLoading && !resources ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={colors.primary.main} size="large" />
             <Text style={styles.loadingText}>Fetching Chapter Resources...</Text>
           </View>
         ) : (
           <ResourceContainer
-              activeTab={activeTab}
-              chapterTitle={chapter.title}
-              resources={resources || (!isLoading ? {} as any : undefined)}
-              slidedeckPageIndex={slidedeckPageIndex}
-              onSlidedeckPageChange={setSlidedeckPageIndex}
-              flashcardIndex={flashcardIndex}
-              onFlashcardIndexChange={setFlashcardIndex}
-            />
+            activeTab={activeTab}
+            chapterTitle={chapter.title}
+            resources={resources || (!isLoading && !error ? {} as any : undefined)}
+            slidedeckPageIndex={slidedeckPageIndex}
+            onSlidedeckPageChange={setSlidedeckPageIndex}
+            flashcardIndex={flashcardIndex}
+            onFlashcardIndexChange={setFlashcardIndex}
+          />
         )}
       </ScrollView>
 

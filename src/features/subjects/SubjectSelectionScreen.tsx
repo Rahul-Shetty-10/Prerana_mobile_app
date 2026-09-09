@@ -43,7 +43,7 @@ export function SubjectSelectionScreen({
   };
 
   return (
-    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <Header
         title="Subject Selection"
         onBackPress={handleBack}

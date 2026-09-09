@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
 import {
+  Alert,
   ActivityIndicator,
   Dimensions,
   Modal,
@@ -13,7 +14,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { AppIcon } from "../../../shared/icons";
@@ -173,30 +173,29 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
   const handleFitWidth = () => setZoomScale(1.0);
   const handleFitScreen = () => setZoomScale(0.8);
   const handleDownload = async () => {
+    if (!pdfUrl || !pdfUrl.startsWith("http")) {
+      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      return;
+    }
     try {
-      let localPdfUri = "";
-      if (pdfUrl && pdfUrl.startsWith("http")) {
-        const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
-        const tempPath = `${FileSystem.documentDirectory}${filename}`;
-        const headers = authToken
-          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-          : undefined;
-        const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
-        localPdfUri = downloadResult.uri;
-      } else {
-        const asset = Asset.fromModule(require("../../../chapter/Textbook.pdf"));
-        await asset.downloadAsync();
-        localPdfUri = asset.localUri || "";
+      const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
+      const tempPath = `${FileSystem.documentDirectory}${filename}`;
+      const headers = authToken
+        ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
+        : undefined;
+      const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
+      if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+        throw new Error(`HTTP status ${downloadResult.status}`);
       }
 
-      if (localPdfUri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(localPdfUri, {
+      if (downloadResult.uri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(downloadResult.uri, {
           mimeType: "application/pdf",
           dialogTitle: "Save Textbook",
         });
       }
     } catch (_) {
-      // Share unavailable on this platform
+      Alert.alert("Download Failed", "Unable to download the textbook.");
     }
   };
 
@@ -256,7 +255,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
 
   const renderPDFContent = (width: number, height: number) => {
     if (Platform.OS === "web") {
-      const srcUri = pdfUrl || Asset.fromModule(require("../../../chapter/Textbook.pdf")).uri;
+      const srcUri = pdfUrl;
       return (
         <iframe
           src={srcUri}
@@ -366,8 +365,9 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
   if (!pdfUrl) {
     return (
       <ContentComingSoon
-        title="Textbook Coming Soon"
-        message="Textbook materials for this chapter are currently being compiled by the backend team."
+        icon="document-text-outline"
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
       />
     );
   }

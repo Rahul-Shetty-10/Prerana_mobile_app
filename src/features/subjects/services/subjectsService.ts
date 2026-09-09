@@ -1,4 +1,3 @@
-import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
 import { ChapterItem, SubjectMeta, SubjectWorkspacePayload } from "../types";
 import { IconName } from "../../../shared/icons";
@@ -43,8 +42,8 @@ function getIconForSubject(subjectCode?: string, subjectName?: string): IconName
 
   if (code.includes("eng") || name.includes("english")) return "book-outline";
   if (code.includes("sci") || name.includes("science") || name.includes("physics") || name.includes("chemistry")) return "flask-outline";
-  if (code.includes("hin") || name.includes("hindi")) return "book-outline";
-  if (code.includes("kan") || name.includes("kannada")) return "language-outline";
+  if (code.includes("hin") || name.includes("hindi")) return "document-text-outline";
+  if (code.includes("kan") || name.includes("kannada")) return "journal-outline";
   if (code.includes("mat") || name.includes("math")) return "calculator-outline";
   if (code.includes("soc") || name.includes("social")) return "earth-outline";
   return "journal-outline";
@@ -74,7 +73,6 @@ export async function fetchSubjectsList(getToken?: GetToken): Promise<SubjectMet
   try {
     const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
 
@@ -151,7 +149,6 @@ export async function fetchSubjectWorkspace(
   try {
     const rawData = await mobileApi<LearningSnapshotResponse>("/student/learning-snapshot", {
       getToken,
-      tenantSlug: appConfig.tenantSlug,
     });
 
     let subjects: any[] = [];
