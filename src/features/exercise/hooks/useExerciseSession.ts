@@ -56,9 +56,9 @@ export function useExerciseSession(
     setError(null);
 
     try {
+      currentAttemptIdRef.current = null;
       if (subjectSlug && trackSlug) {
         const payload = await fetchFundamentalsTrack(subjectSlug, trackSlug, activeGetToken);
-        currentAttemptIdRef.current = payload.id;
         setSession(payload);
         setCurrentQuestionIndex(0);
         setUserAnswers({});
@@ -147,5 +147,6 @@ export function useExerciseSession(
     goToPrevQuestion,
     jumpToQuestion,
     submitSession,
+    attemptId: currentAttemptIdRef.current,
   };
 }

@@ -15,6 +15,8 @@ import {
   TrackType,
 } from "../types";
 import { resolveQuizId } from "./quizIdResolver";
+import { isMatchFollowingAnswerCorrect } from "./matchFollowing";
+import { buildQuizAttemptAnswers } from "./quizSubmission";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -52,7 +54,7 @@ export interface RawChapterResourceResponse {
     prompt?: string;
     instructions?: string;
     mcqOptions?: Array<{ id: string; label: string; text: string }>;
-    matchPairs?: Array<{ id: string; leftText: string; rightText: string }>;
+    matchPairs?: Array<{ id: string; rightId: string; leftText: string; rightText: string }>;
     fillBlankPlaceholder?: string;
   }>;
 }
@@ -146,11 +148,16 @@ export function mapBackendQuestionToQuestionItem(backendPayload: any, number: nu
       const right = rightItems.find((r: any) => r.id === correctRightId);
       return {
         id: left.id,
-        leftText: left.text ?? left.id,
-        rightText: right?.text ?? correctRightId ?? left.id,
+        rightId: correctRightId ?? "",
+        leftText: left.text ?? "",
+        rightText: right?.text ?? "",
       };
     });
-    if (matchPairs.length === 0 || matchPairs.some((pair) => !pair.id || !pair.leftText || !pair.rightText)) {
+    if (
+      matchPairs.length === 0 ||
+      matchPairs.some((pair) => !pair.id || !pair.rightId || !pair.leftText || !pair.rightText) ||
+      new Set(matchPairs.map((pair) => pair.rightId)).size !== matchPairs.length
+    ) {
       throw new Error(`Quiz question ${number} has invalid matching choices.`);
     }
   }
@@ -237,6 +244,81 @@ export interface ExerciseSessionResponse {
   attemptId: string;
   questionOrder: string[];
   quizId: string;
+}
+
+async function postQuizAttemptMutation(
+  baseUrl: string,
+  token: string,
+  tenantSlug: string,
+  body: Record<string, unknown>,
+): Promise<any> {
+  const response = await fetchQuizWithTimeout(`${baseUrl}/api/student/quiz-attempts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "X-Tenant-Slug": tenantSlug,
+    },
+    body: JSON.stringify({ ...body, tenant: tenantSlug }),
+  });
+
+  const responseText = await response.text();
+  let payload: any = null;
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    if (shouldInvalidateSession(response.status)) await invalidateMobileSession();
+    const message = payload?.message || payload?.error?.message;
+    const error = new Error(message || `Quiz submission failed. Status: ${response.status}`);
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
+  }
+
+  return payload;
+}
+
+export async function submitQuizAttempt(
+  attemptId: string,
+  session: ExerciseSessionPayload,
+  userAnswers: Record<string, unknown>,
+  getToken?: GetToken,
+): Promise<void> {
+  if (!attemptId || !getToken) {
+    throw new Error("Quiz submission is unavailable. Please restart the quiz.");
+  }
+
+  const token = await getToken();
+  if (!token) {
+    throw new Error("Your session expired. Please sign in again.");
+  }
+  const tenantSlug = getRequiredTenantSlug();
+  const answers = buildQuizAttemptAnswers(session.questions, userAnswers);
+  const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");
+
+  try {
+    await postQuizAttemptMutation(baseUrl, token, tenantSlug, {
+      intent: "upsert",
+      attemptId,
+      answers,
+    });
+  } catch (error) {
+    // A response can be lost after the backend commits the answer rows. Retrying
+    // must still reach submit rather than leaving a successfully answered quiz
+    // stuck as an unfinished attempt.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("ATTEMPT_ANSWER_LOCKED")) {
+      throw error;
+    }
+  }
+
+  await postQuizAttemptMutation(baseUrl, token, tenantSlug, {
+    intent: "submit",
+    attemptId,
+  });
 }
 
 export async function fetchExerciseSession(
@@ -516,11 +598,16 @@ export async function fetchFundamentalsTrack(
         const right = rightItems.find((r: any) => r.id === correctRightId);
         return {
           id: left.id,
+          rightId: correctRightId ?? "",
           leftText: left.text || "",
           rightText: right?.text || "",
         };
       });
-      if (matchPairs.length === 0 || matchPairs.some((pair) => !pair.id || !pair.leftText || !pair.rightText)) {
+      if (
+        matchPairs.length === 0 ||
+        matchPairs.some((pair) => !pair.id || !pair.rightId || !pair.leftText || !pair.rightText) ||
+        new Set(matchPairs.map((pair) => pair.rightId)).size !== matchPairs.length
+      ) {
         throw new Error(`A matching question in this track has invalid choices.`);
       }
     }
@@ -644,9 +731,9 @@ export function gradeExercise(
           for (const p of pairs) {
             const matchedRightId = userAnswer[p.id];
             if (matchedRightId) {
-              const rightPair = pairs.find(rp => rp.id === matchedRightId);
+              const rightPair = pairs.find(rp => rp.rightId === matchedRightId);
               studentMatches.push(`${p.leftText} ➔ ${rightPair ? rightPair.rightText : matchedRightId}`);
-              if (matchedRightId !== p.id) {
+              if (matchedRightId !== p.rightId) {
                 matchesCorrect = false;
               }
             } else {
@@ -654,7 +741,7 @@ export function gradeExercise(
             }
           }
           studentAnswerText = studentMatches.length > 0 ? studentMatches.join(", ") : "No connections established";
-          if (matchesCorrect && leftIds.length > 0) {
+          if (matchesCorrect && leftIds.length > 0 && isMatchFollowingAnswerCorrect(pairs, userAnswer)) {
             isCorrect = true;
             status = "correct";
           }

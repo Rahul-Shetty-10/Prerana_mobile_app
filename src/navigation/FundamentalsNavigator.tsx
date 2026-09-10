@@ -63,7 +63,7 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
           <ExerciseScreen
             getToken={getToken}
             onBackPress={() => navigation.goBack()}
-            onSubmitSuccess={(resData, revData) => {
+            onSubmitSuccess={(resData, revData, attemptId) => {
               navigation.navigate("ExerciseResult", {
                 resultData: resData,
                 reviewData: revData,
@@ -72,6 +72,7 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
                 chapterId: route.params.chapterId,
                 subjectSlug: route.params.subjectSlug,
                 trackSlug: route.params.trackSlug,
+                attemptId,
               });
             }}
             trackType={route.params.trackType}
@@ -107,6 +108,7 @@ export function FundamentalsNavigator({ getToken }: FundamentalsNavigatorProps) 
                 trackSlug: route.params.trackSlug,
                 resultData: route.params.resultData,
                 reviewData: route.params.reviewData,
+                attemptId: route.params.attemptId,
               });
             }}
             resultData={route.params.resultData}

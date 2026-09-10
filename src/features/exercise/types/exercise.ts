@@ -13,6 +13,7 @@ export interface MCQOption {
 
 export interface MatchPair {
   id: string;
+  rightId: string;
   leftText: string;
   rightText: string;
 }

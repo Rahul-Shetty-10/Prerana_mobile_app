@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { MatchPair, QuestionItem } from "../../types";
 import { AppIcon } from "../../../../shared/icons";
 import { colors, radius, spacing, typography } from "../../../../shared/theme";
+import { getMatchRightItems } from "../../services/matchFollowing";
 
 export interface MatchFollowingQuestionProps {
   question: QuestionItem;
@@ -28,7 +29,7 @@ export function MatchFollowingQuestion({
 
   // Shuffle right-side column once per question load
   useEffect(() => {
-    const rightItems = pairs.map((p) => ({ id: p.id, text: p.rightText }));
+    const rightItems = getMatchRightItems(pairs);
     const shuffled = [...rightItems];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

@@ -14,7 +14,7 @@ import {
 import { useExerciseSession } from "./hooks";
 import { ExerciseResultData, QuestionItem, ReviewPayload, TrackType } from "./types";
 import { Button } from "../../shared/components";
-import { gradeExercise } from "./services";
+import { gradeExercise, submitQuizAttempt } from "./services";
 import { markQuizCompleted } from "../../shared/services/chapterProgressService";
 import { colors, radius, shadows, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
@@ -32,7 +32,7 @@ export interface ExerciseScreenProps {
   trackSlug?: string;
   getToken?: GetToken;
   onBackPress?: () => void;
-  onSubmitSuccess?: (resultData: ExerciseResultData, reviewData: ReviewPayload) => void;
+  onSubmitSuccess?: (resultData: ExerciseResultData, reviewData: ReviewPayload, attemptId?: string) => void;
 }
 
 export function ExerciseScreen({
@@ -49,6 +49,7 @@ export function ExerciseScreen({
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
   const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { userId } = useAuth();
   useActiveLearningTracker();
   const [confirmModal, setConfirmModal] = useState<{
@@ -85,6 +86,7 @@ export function ExerciseScreen({
     goToPrevQuestion,
     jumpToQuestion,
     submitSession,
+    attemptId,
   } = useExerciseSession(trackType, subjectId, chapterId, getToken, subjectSlug, trackSlug);
 
   const firstRenderLogged = React.useRef(false);
@@ -106,7 +108,25 @@ export function ExerciseScreen({
       message: `You have answered ${answeredIndices.length} of ${totalQuestions} questions. Are you ready to finish?`,
       confirmText: "Submit",
       cancelText: "Cancel",
-      onConfirm: () => {
+      onConfirm: async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        try {
+          if (attemptId) {
+            await submitQuizAttempt(attemptId, session, userAnswers, getToken);
+          }
+        } catch (submissionError) {
+          Alert.alert(
+            "Could not submit quiz",
+            submissionError instanceof Error
+              ? submissionError.message
+              : "Please check your connection and try again.",
+          );
+          return;
+        } finally {
+          setIsSubmitting(false);
+        }
+
         submitSession();
         const { resultData, reviewData } = gradeExercise(
           session,
@@ -124,7 +144,7 @@ export function ExerciseScreen({
           resultData.percentage,
           resultData.attemptedCount
         );
-        onSubmitSuccess?.(resultData, reviewData);
+        onSubmitSuccess?.(resultData, reviewData, attemptId || undefined);
       },
     });
   };
@@ -437,11 +457,12 @@ export function ExerciseScreen({
               <Button
                 onPress={() => {
                   setConfirmModal((prev) => ({ ...prev, visible: false }));
-                  confirmModal.onConfirm();
+                  void confirmModal.onConfirm();
                 }}
                 style={styles.confirmBtn}
                 title={confirmModal.confirmText}
                 variant="primary"
+                disabled={isSubmitting}
               />
             </View>
           </View>
