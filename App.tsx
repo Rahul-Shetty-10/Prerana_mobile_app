@@ -10,7 +10,6 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -39,6 +38,7 @@ import {
 } from "./src/shared/session/sessionStore";
 import { SessionProvider, useSession } from "./src/shared/session/SessionContext";
 import { normalizeBackendSession } from "./src/shared/session/sessionValidation";
+import { useTheme } from "./src/shared/theme/ThemeContext";
 
 export default function App() {
   useEffect(() => {
@@ -250,10 +250,18 @@ function SessionErrorScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
 function SignInScreen() {
   const { signIn, fetchStatus } = useSignIn();
+  const { isDark } = useTheme();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [toast]);
 
   async function handleSignIn() {
     if (fetchStatus === "fetching" || isSubmitting) {
@@ -261,7 +269,7 @@ function SignInScreen() {
     }
 
     if (!identifier.trim() || !password) {
-      Alert.alert("Missing details", "Enter your username or email and password.");
+      setToast({ title: "Missing details", message: "Enter your username or email and password." });
       return;
     }
 
@@ -284,9 +292,9 @@ function SignInScreen() {
         return;
       }
 
-      Alert.alert("More verification needed", "This account requires another sign-in step.");
+      setToast({ title: "More verification needed", message: "This account requires another sign-in step." });
     } catch (error) {
-      Alert.alert("Sign in failed", getErrorMessage(error));
+      setToast({ title: "Sign in failed", message: getErrorMessage(error) });
     } finally {
       setIsSubmitting(false);
     }
@@ -294,6 +302,36 @@ function SignInScreen() {
 
   return (
     <ScreenShell>
+      {toast ? (
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={[
+            styles.toast,
+            {
+              backgroundColor: isDark ? "#2F2220" : "#FFFFFF",
+              borderColor: isDark ? "#7A4036" : "#F3B4A6",
+            },
+          ]}
+        >
+          <View style={[styles.toastIcon, { backgroundColor: isDark ? "#5A2923" : "#FDE9E4" }]}>
+            <Ionicons color={isDark ? "#FFB3A7" : "#C84E35"} name="alert-circle-outline" size={20} />
+          </View>
+          <View style={styles.toastContent}>
+            <Text style={[styles.toastTitle, { color: isDark ? "#FFF7F3" : "#111827" }]}>{toast.title}</Text>
+            <Text style={[styles.toastMessage, { color: isDark ? "#D7C6C0" : "#6B7280" }]}>{toast.message}</Text>
+          </View>
+          <Pressable
+            accessibilityLabel="Dismiss message"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => setToast(null)}
+            style={styles.toastClose}
+          >
+            <Ionicons color={isDark ? "#D7C6C0" : "#6B7280"} name="close-outline" size={20} />
+          </Pressable>
+        </View>
+      ) : null}
       <View style={styles.brandBlock}>
         <Text style={styles.eyebrow}>PRERANA 2.0</Text>
         <Text style={styles.title}>Mobile workspace</Text>
@@ -569,6 +607,39 @@ const styles = StyleSheet.create({
     color: "#ffb3a7",
     fontSize: 14,
     lineHeight: 20,
+  },
+  toast: {
+    alignItems: "flex-start",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    width: "100%",
+  },
+  toastIcon: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  toastContent: {
+    flex: 1,
+    gap: 2,
+  },
+  toastTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  toastMessage: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  toastClose: {
+    padding: 2,
   },
   blankErrorText: {
     color: "#ffb3a7",
