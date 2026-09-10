@@ -195,20 +195,11 @@ function Root() {
     }
   };
 
-  if (!isLoaded || (isSignedIn && sessionState === "loading")) {
+  if (!isLoaded || (isSignedIn && (sessionState === "loading" || sessionState === "verifying"))) {
     return (
       <ScreenShell centered>
         <ActivityIndicator color="#f5a08d" />
         <Text style={styles.muted}>Loading session...</Text>
-      </ScreenShell>
-    );
-  }
-
-  if (isSignedIn && sessionState === "verifying") {
-    return (
-      <ScreenShell centered>
-        <ActivityIndicator color="#f5a08d" />
-        <Text style={styles.muted}>Verifying account with backend...</Text>
       </ScreenShell>
     );
   }

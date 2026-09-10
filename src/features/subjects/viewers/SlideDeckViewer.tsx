@@ -49,6 +49,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [bodyDims, setBodyDims] = useState<{ width: number; height: number } | null>(null);
 
   const pdfBase64Ref = useRef<string>("");
 
@@ -375,8 +376,16 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
           />
 
           {/* Fullscreen view area - Render only in fullscreen */}
-          <View style={styles.fullscreenBody}>
-            {isFullscreen ? renderDeckContent(SCREEN_WIDTH, Dimensions.get("window").height - 120, true) : null}
+          <View
+            style={styles.fullscreenBody}
+            onLayout={(e) => {
+              const { width: w, height: h } = e.nativeEvent.layout;
+              if (w > 0 && h > 0) {
+                setBodyDims({ width: w, height: h });
+              }
+            }}
+          >
+            {isFullscreen ? renderDeckContent(bodyDims?.width || SCREEN_WIDTH, bodyDims?.height || (Dimensions.get("window").height - 120), true) : null}
           </View>
 
           {/* Fullscreen Bottom Navigation */}

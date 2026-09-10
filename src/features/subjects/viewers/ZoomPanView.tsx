@@ -30,11 +30,9 @@ export function ZoomPanView({
 
   const lastScale = useRef(1);
   const lastTranslate = useRef({ x: 0, y: 0 });
-
-  // Swap width and height when rotated by 90 or 270 degrees to keep correct landscape aspect ratio in portrait container
-  const isRotated = rotation % 180 !== 0;
-  const innerWidth = isRotated ? height : width;
-  const innerHeight = isRotated ? width : height;
+  const pinchStartScale = useRef(1);
+  const initialDistance = useRef(0);
+  const isPinching = useRef(false);
 
   // Sync zoomScale changes from parent toolbar
   useEffect(() => {
@@ -75,7 +73,7 @@ export function ZoomPanView({
 
   const getDistance = (evt: GestureResponderEvent) => {
     const touches = evt.nativeEvent.touches;
-    if (touches.length >= 2) {
+    if (touches && touches.length >= 2) {
       const dx = touches[0].pageX - touches[1].pageX;
       const dy = touches[0].pageY - touches[1].pageY;
       return Math.sqrt(dx * dx + dy * dy);
@@ -87,9 +85,6 @@ export function ZoomPanView({
   useEffect(() => {
     zoomScaleRef.current = zoomScale;
   }, [zoomScale]);
-
-  const initialDistance = useRef(0);
-  const isPinching = useRef(false);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -108,9 +103,10 @@ export function ZoomPanView({
       },
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
-        if (touches.length >= 2) {
+        if (touches && touches.length >= 2) {
           isPinching.current = true;
           initialDistance.current = getDistance(evt);
+          pinchStartScale.current = lastScale.current;
         } else {
           isPinching.current = false;
         }
@@ -118,19 +114,21 @@ export function ZoomPanView({
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
 
-        if (touches.length >= 2) {
-          if (!isPinching.current) {
+        if (touches && touches.length >= 2) {
+          if (!isPinching.current || initialDistance.current === 0) {
             isPinching.current = true;
             initialDistance.current = getDistance(evt);
+            pinchStartScale.current = lastScale.current;
           }
           const currentDistance = getDistance(evt);
           if (initialDistance.current > 0 && currentDistance > 0) {
-            const nextScale = lastScale.current * (currentDistance / initialDistance.current);
+            const ratio = currentDistance / initialDistance.current;
+            const nextScale = pinchStartScale.current * ratio;
             const clampedScale = Math.max(0.8, Math.min(nextScale, 4.0));
             scale.setValue(clampedScale);
             setZoomScale(clampedScale);
           }
-        } else if (touches.length === 1 && !isPinching.current) {
+        } else if (touches && touches.length === 1 && !isPinching.current) {
           const dx = gestureState.dx;
           const dy = gestureState.dy;
           translateX.setValue(lastTranslate.current.x + dx);
@@ -162,8 +160,12 @@ export function ZoomPanView({
             y: lastTranslate.current.y + gestureState.dy,
           };
 
-          const maxDragX = (innerWidth * currentScale - innerWidth) / 2 + 50;
-          const maxDragY = (innerHeight * currentScale - innerHeight) / 2 + 50;
+          const isRotated = rotation % 180 !== 0;
+          const effectiveW = isRotated ? height : width;
+          const effectiveH = isRotated ? width : height;
+
+          const maxDragX = (effectiveW * currentScale - effectiveW) / 2 + 50;
+          const maxDragY = (effectiveH * currentScale - effectiveH) / 2 + 50;
 
           let boundedX = Math.max(-maxDragX, Math.min(lastTranslate.current.x, maxDragX));
           let boundedY = Math.max(-maxDragY, Math.min(lastTranslate.current.y, maxDragY));
@@ -179,6 +181,10 @@ export function ZoomPanView({
       },
     })
   ).current;
+
+  const isRotated = rotation % 180 !== 0;
+  const innerWidth = isRotated ? height : width;
+  const innerHeight = isRotated ? width : height;
 
   return (
     <View
