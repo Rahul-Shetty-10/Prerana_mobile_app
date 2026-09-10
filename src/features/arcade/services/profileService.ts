@@ -1,21 +1,28 @@
 import { ArcadeUserProfile } from "../types";
 import { EMPTY_ARCADE_PROFILE } from "../constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getMobileSession } from "../../../shared/session/sessionStore";
+import { getUserStorageKey } from "../../../shared/services/userStorage";
 
 const ARCADE_PROFILE_STORAGE_KEY = "@arcade_profile_data";
 
 let currentProfile: ArcadeUserProfile = { ...EMPTY_ARCADE_PROFILE };
-let activeUserId: string | null = null;
+let activeScopeKey: string | null = null;
 
 let isLoaded = false;
 
 function getStorageKey(userId?: string | null): string | null {
-  return userId ? `${ARCADE_PROFILE_STORAGE_KEY}:${encodeURIComponent(userId)}` : null;
+  const session = getMobileSession();
+  return userId && session?.userId === userId ? getUserStorageKey(ARCADE_PROFILE_STORAGE_KEY) : null;
 }
 
 function resetForUser(userId?: string | null): void {
-  if (activeUserId !== (userId ?? null)) {
-    activeUserId = userId ?? null;
+  const session = getMobileSession();
+  const nextScopeKey = userId && session?.userId === userId
+    ? `${userId}:${session.tenantId}`
+    : null;
+  if (activeScopeKey !== nextScopeKey) {
+    activeScopeKey = nextScopeKey;
     currentProfile = { ...EMPTY_ARCADE_PROFILE, id: userId ?? "" };
     isLoaded = false;
   }

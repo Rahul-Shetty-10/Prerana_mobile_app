@@ -35,10 +35,10 @@ export const MOCK_EXERCISE_EXPLORER: ExerciseSessionPayload = {
       prompt: "Match each thermodynamic process in Column A with its defining mathematical condition in Column B:",
       instructions: "Match the corresponding items:",
       matchPairs: [
-        { id: "pair-1", leftText: "Isothermal Process", rightText: "Temperature (T) = Constant" },
-        { id: "pair-2", leftText: "Isochoric Process", rightText: "Volume (V) = Constant" },
-        { id: "pair-3", leftText: "Isobaric Process", rightText: "Pressure (P) = Constant" },
-        { id: "pair-4", leftText: "Adiabatic Process", rightText: "Heat Transfer (Q) = 0" },
+        { id: "pair-1", rightId: "pair-1-right", leftText: "Isothermal Process", rightText: "Temperature (T) = Constant" },
+        { id: "pair-2", rightId: "pair-2-right", leftText: "Isochoric Process", rightText: "Volume (V) = Constant" },
+        { id: "pair-3", rightId: "pair-3-right", leftText: "Isobaric Process", rightText: "Pressure (P) = Constant" },
+        { id: "pair-4", rightId: "pair-4-right", leftText: "Adiabatic Process", rightText: "Heat Transfer (Q) = 0" },
       ],
     },
     {

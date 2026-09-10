@@ -6,7 +6,7 @@ export const tokenCache: TokenCache = {
     try {
       return await AsyncStorage.getItem(key);
     } catch (err) {
-      console.error(`[Clerk][tokenCache] Failed to get token from AsyncStorage:`, err);
+      console.error("[Clerk][tokenCache] Failed to read the authentication cache.");
       return null;
     }
   },
@@ -14,14 +14,14 @@ export const tokenCache: TokenCache = {
     try {
       await AsyncStorage.setItem(key, token);
     } catch (err) {
-      console.error(`[Clerk][tokenCache] Failed to save token to AsyncStorage:`, err);
+      console.error("[Clerk][tokenCache] Failed to save the authentication cache.");
     }
   },
   async clearToken(key) {
     try {
       await AsyncStorage.removeItem(key);
     } catch (err) {
-      console.error(`[Clerk][tokenCache] Failed to clear token from AsyncStorage:`, err);
+      console.error("[Clerk][tokenCache] Failed to clear the authentication cache.");
     }
   },
 };

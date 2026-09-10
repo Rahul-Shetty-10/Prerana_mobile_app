@@ -18,7 +18,7 @@ Ask the project owner for these values:
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://app.smartguru.in/api/mobile/v1
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<provided-by-owner>
-EXPO_PUBLIC_TENANT_SLUG=<staging-or-production-tenant-from-owner>
+# Do not set EXPO_PUBLIC_TENANT_SLUG. The backend resolves the tenant from Clerk membership.
 ```
 
 Create `.env`:
@@ -97,13 +97,14 @@ Then pass `getToken` into the API helper. Inside the helper/request function, cr
 const token = await getToken({ template: "convex" });
 ```
 
-Every API call must send:
+The session call must send only:
 
 ```http
 Authorization: Bearer <token>
-X-Tenant-Slug: <configured-tenant>
 Content-Type: application/json
 ```
+
+After `/session` returns and validates exactly one active student membership, tenant-scoped calls send `X-Tenant-Slug` using that returned tenant. The client must never invent or select a tenant from configuration.
 
 Do not hardcode this token. It expires.
 
@@ -128,7 +129,12 @@ Expected:
   "ok": true,
   "data": {
     "role": "student",
-    "tenantSlug": "<configured-tenant>"
+    "userId": "<clerk-user-id>",
+    "tenantId": "<tenant-id>",
+    "tenantSlug": "<backend-resolved-tenant>",
+    "tenantName": "<tenant-name>",
+    "membershipId": "<membership-id>",
+    "membership": { "status": "active", "role": "student" }
   }
 }
 ```
@@ -156,7 +162,6 @@ async function mobileApi(path: string, getToken: GetToken) {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
-      "X-Tenant-Slug": TENANT_SLUG,
       "Content-Type": "application/json",
     },
   });
@@ -314,7 +319,7 @@ Token is missing, expired, copied with quotes, or not created using the `convex`
 
 `403 ROUTE_FORBIDDEN`
 
-Logged-in user is not a student in the configured tenant.
+Logged-in user has no valid active student membership, or has more than one membership when the backend is enforcing one tenant per user.
 
 `400 VALIDATION_ERROR`
 
@@ -322,4 +327,4 @@ Required query params are missing.
 
 `500 SERVER_ERROR`
 
-Backend deployment/config issue. Share the endpoint, tenant slug, time, and response body with the project owner.
+Backend deployment/config issue. Share the endpoint, time, status code, and a redacted response summary with the project owner. Never share Clerk tokens or sensitive user data.

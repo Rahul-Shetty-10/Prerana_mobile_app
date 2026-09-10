@@ -15,6 +15,13 @@ export function useReviewData(attemptId: string, getToken?: GetToken) {
   }, [getToken]);
 
   const loadData = useCallback(async () => {
+    if (!attemptId) {
+      setData(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     const activeGetToken = getTokenRef.current;
     setIsLoading(true);
     setError(null);

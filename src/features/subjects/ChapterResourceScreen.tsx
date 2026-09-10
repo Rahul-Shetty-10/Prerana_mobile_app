@@ -91,7 +91,7 @@ export function ChapterResourceScreen({
     }
   }, [chapter, subjectName, subjectId, activeTab]);
 
-  // Track milestones (Infographic, Mindmap, Audio seen)
+  // Track milestones for the resources supported by local progress tracking.
   useEffect(() => {
     if (chapter && subjectId && (activeTab === "infographic" || activeTab === "mindmap" || activeTab === "audio")) {
       void markMilestoneSeen(chapter.id, subjectId, activeTab);

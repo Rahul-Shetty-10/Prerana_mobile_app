@@ -22,6 +22,8 @@ import { ensurePdfJsCached, writeTextbookHtml, textbookHtmlPath } from "../utils
 import { ViewerToolbar } from "./ViewerToolbar";
 import { ContentComingSoon } from "./ContentComingSoon";
 import { ZoomPanView } from "./ZoomPanView";
+import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
+import { invalidateMobileSession } from "../../../shared/session/sessionStore";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
@@ -30,10 +32,9 @@ interface PDFViewerProps {
   documentTitle: string;
   pdfUrl?: string;
   authToken?: string;
-  tenantSlug?: string;
 }
 
-export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFViewerProps) {
+export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -92,12 +93,11 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
       if (pdfUrl && pdfUrl.startsWith("http")) {
         const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
         const tempPath = `${FileSystem.documentDirectory}${filename}`;
-        console.log(`[SUBJECTS][PDFViewer] Downloading textbook notes from backend: ${pdfUrl}`);
-        const headers = authToken
-          ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-          : undefined;
+        console.log("[SUBJECTS][PDFViewer] Downloading authenticated textbook resource");
+        const headers = getResourceRequestHeaders(pdfUrl, authToken);
         const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
         if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+          if (shouldInvalidateResourceResponse(pdfUrl, downloadResult.status)) await invalidateMobileSession();
           throw new Error(`HTTP status ${downloadResult.status}`);
         }
         localPdfUri = downloadResult.uri;
@@ -180,11 +180,10 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
     try {
       const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
       const tempPath = `${FileSystem.documentDirectory}${filename}`;
-      const headers = authToken
-        ? { Authorization: `Bearer ${authToken}`, ...(tenantSlug ? { "X-Tenant-Slug": tenantSlug } : {}) }
-        : undefined;
+      const headers = getResourceRequestHeaders(pdfUrl, authToken);
       const downloadResult = await FileSystem.downloadAsync(pdfUrl, tempPath, headers ? { headers } : undefined);
       if (downloadResult.status !== 200 && downloadResult.status !== 201) {
+        if (shouldInvalidateResourceResponse(pdfUrl, downloadResult.status)) await invalidateMobileSession();
         throw new Error(`HTTP status ${downloadResult.status}`);
       }
 

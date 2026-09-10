@@ -8,6 +8,7 @@ export type ResourceTabType =
   | "flashcards"
   | "table"
   | "audio"
+  | "video"
   | "arcade";
 
 export interface ResourceTabItem {

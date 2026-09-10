@@ -28,7 +28,6 @@ if (!isProductionBuild) {
 const required = [
   "EXPO_PUBLIC_API_BASE_URL",
   "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY",
-  "EXPO_PUBLIC_TENANT_SLUG",
   "EXPO_PUBLIC_PRIVACY_POLICY_URL",
   "EXPO_PUBLIC_TERMS_URL",
   "EXPO_PUBLIC_ACCOUNT_DELETION_URL",
@@ -40,7 +39,6 @@ const missing = required.filter((name) => !process.env[name]?.trim());
 const failures = [...missing.map((name) => `${name} is missing`)];
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || "";
 const clerkKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() || "";
-const tenantSlug = process.env.EXPO_PUBLIC_TENANT_SLUG?.trim() || "";
 const legalUrls = [
   ["EXPO_PUBLIC_PRIVACY_POLICY_URL", process.env.EXPO_PUBLIC_PRIVACY_POLICY_URL?.trim() || ""],
   ["EXPO_PUBLIC_TERMS_URL", process.env.EXPO_PUBLIC_TERMS_URL?.trim() || ""],
@@ -63,8 +61,8 @@ if (clerkKey && !clerkKey.startsWith("pk_live_")) {
   failures.push("EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a live Clerk key for production");
 }
 
-if (tenantSlug === "seed-tenant-alpha" || /replace_me|placeholder|demo|test/i.test(tenantSlug)) {
-  failures.push("EXPO_PUBLIC_TENANT_SLUG still looks like a development/test tenant");
+if (process.env.EXPO_PUBLIC_TENANT_SLUG?.trim()) {
+  failures.push("EXPO_PUBLIC_TENANT_SLUG must be unset; tenant selection is backend-driven");
 }
 
 for (const [name, value] of legalUrls) {

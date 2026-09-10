@@ -79,7 +79,7 @@ export function SubjectsNavigator({ getToken }: SubjectsNavigatorProps) {
           <ExerciseScreen
             getToken={getToken}
             onBackPress={() => navigation.goBack()}
-            onSubmitSuccess={(resData, revData) => {
+            onSubmitSuccess={(resData, revData, attemptId) => {
               navigation.navigate("ExerciseResult", {
                 resultData: resData,
                 reviewData: revData,
@@ -90,6 +90,7 @@ export function SubjectsNavigator({ getToken }: SubjectsNavigatorProps) {
                 trackSlug: route.params.trackSlug,
                 chapter: route.params.chapter,
                 subjectName: route.params.subjectName,
+                attemptId,
               });
             }}
             trackType={route.params.trackType}
@@ -137,6 +138,7 @@ export function SubjectsNavigator({ getToken }: SubjectsNavigatorProps) {
                 reviewData: route.params.reviewData,
                 chapter: route.params.chapter,
                 subjectName: route.params.subjectName,
+                attemptId: route.params.attemptId,
               });
             }}
             resultData={route.params.resultData}
@@ -157,6 +159,7 @@ export function SubjectsNavigator({ getToken }: SubjectsNavigatorProps) {
                 trackSlug: route.params.trackSlug,
                 resultData: route.params.resultData,
                 reviewData: route.params.reviewData,
+                attemptId: route.params.attemptId,
                 chapter: route.params.chapter,
                 subjectName: route.params.subjectName,
               });

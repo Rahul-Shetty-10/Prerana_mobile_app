@@ -40,7 +40,7 @@ export function ReviewScreen({
   const styles = getStyles(themeColors, isDark);
 
   const { data: fetchedData, isLoading, error, refresh } = useReviewData(attemptId || "", getToken);
-  const data = reviewData || fetchedData;
+  const data = (attemptId && fetchedData) ? fetchedData : reviewData || fetchedData;
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (!data) {

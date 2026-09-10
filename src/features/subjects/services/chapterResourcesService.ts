@@ -1,6 +1,5 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import { getMobileSession } from "../../../shared/session/sessionStore";
 import {
   FlashcardItem,
   MindmapNode,
@@ -9,6 +8,8 @@ import {
   TableRowData,
   ChapterWordGames,
 } from "../types";
+import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
+import { invalidateMobileSession } from "../../../shared/session/sessionStore";
 
 export class ChapterResourcesError extends Error {
   constructor(public code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA', message: string) {
@@ -42,7 +43,6 @@ export interface ChapterResourcesPayload {
   videoUrl?: string;
   videoTitle?: string;
   authToken?: string;
-  tenantSlug?: string;
   /** Parsed payload from a `type === "puzzle"` resource (Chapter Word Games). */
   wordGames?: ChapterWordGames;
 }
@@ -80,18 +80,19 @@ export async function fetchChapterResources(
     const baseUrl = appConfig.apiBaseUrl.replace("/api/mobile/v1", "");
     const getAbsoluteUrl = (path?: string) => {
       if (!path || typeof path !== "string") return undefined;
-      if (path.startsWith("http://") || path.startsWith("https://")) return path;
+      const trimmed = path.trim();
+      if (!trimmed) return undefined;
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
 
-      const [pathPart, ...queryParts] = path.split("?");
-      const queryString = queryParts.length > 0 ? "?" + queryParts.join("?") : "";
-
-      const cleanPath = pathPart
-        .split("/")
-        .map((part) => encodeURIComponent(part))
-        .join("/");
-      const separator = cleanPath.startsWith("%2F") || cleanPath.startsWith("/") ? "" : "/";
-      const fullPath = `${baseUrl}${separator}${cleanPath}`.replace(/%2F/g, "/");
-      return `${fullPath}${queryString}`;
+      // Prefer the configured asset origin for relative S3/content paths.
+      // Keep the API origin as a backwards-compatible fallback for legacy
+      // backend paths. Neither origin contains tenant identity.
+      const origin = appConfig.storageBaseUrl.trim() || baseUrl;
+      try {
+        return new URL(trimmed, `${origin.replace(/\/+$/, "")}/`).toString();
+      } catch {
+        return undefined;
+      }
     };
 
     const parseCsvLine = (text: string): string[] => {
@@ -119,15 +120,14 @@ export async function fetchChapterResources(
       chapterTitle: data.chapterTitle || "Chapter Resources",
       textbookNotesUrl: getAbsoluteUrl(data.textbookUrl),
       authToken: token,
-      tenantSlug: getMobileSession()?.tenantSlug ?? undefined,
     };
 
     const resourcesArray = (data as any).resources?.resources || (data as any).resources || [];
 
     if (Array.isArray(resourcesArray)) {
       console.log(`[SUBJECTS][SERVICE] Resources returned:`, resourcesArray.map((r: any) => ({ type: r?.type, title: r?.title })));
-      resourcesArray.forEach((item: any) => {
-        if (!item || typeof item !== "object") return;
+      for (const item of resourcesArray) {
+        if (!item || typeof item !== "object") continue;
         const type = item.type;
 
         // Resource URL priority:
@@ -171,6 +171,32 @@ export async function fetchChapterResources(
             result.flashcards = cardList;
           } else if (Array.isArray(item.payload)) {
             result.flashcards = item.payload;
+          } else if (assetUrl) {
+            // Some content packs expose flashcards as a CSV asset. Use the
+            // same active tenant context as other resource requests when the
+            // asset is served by the API. Signed external URLs authenticate
+            // themselves and receive no Clerk token.
+            try {
+              const csvHeaders = getResourceRequestHeaders(assetUrl, token);
+              const csvRes = await fetch(assetUrl, csvHeaders ? { headers: csvHeaders } : undefined);
+              if (!csvRes.ok) {
+                if (shouldInvalidateResourceResponse(assetUrl, csvRes.status)) await invalidateMobileSession();
+              } else {
+                const lines = (await csvRes.text()).split("\n").filter((l: string) => l.trim().length > 0);
+                const cardList: FlashcardItem[] = [];
+                lines.forEach((line: string, index: number) => {
+                  const parts = parseCsvLine(line);
+                  const front = parts[0]?.trim() ?? "";
+                  const back = parts[1]?.trim() ?? "";
+                  if (index === 0 && ["front,back", "term,definition", "question,answer"].includes(`${front.toLowerCase()},${back.toLowerCase()}`)) return;
+                  if (front || back) cardList.push({ id: `fc-${cardList.length}`, frontText: front, backText: back });
+                });
+                result.flashcards = cardList;
+              }
+            } catch {
+              // A missing optional flashcard asset should show an empty state,
+              // not break the rest of the chapter resources.
+            }
           }
         } else if (type === "table") {
           if (typeof item.payload === "string") {
@@ -201,6 +227,9 @@ export async function fetchChapterResources(
           result.audioUrl = assetUrl;
           result.audioTitle = item.title || "Audio Summary";
           result.audioDurationSeconds = item.payload?.duration || undefined;
+        } else if (type === "video") {
+          result.videoUrl = assetUrl;
+          result.videoTitle = item.title || "Video Explanation";
         } else if (type === "puzzle") {
           // Chapter Word Games — payload keys match backend exactly.
           const p = item.payload;
@@ -216,13 +245,13 @@ export async function fetchChapterResources(
             );
           }
         }
-      });
+      }
     }
 
     console.log(`[SUBJECTS][SERVICE] fetchChapterResources(): Successfully fetched and mapped chapter resources from backend. Title: '${result.chapterTitle}'`);
     return result;
   } catch (error) {
-    console.error("[SUBJECTS][SERVICE] error in fetchChapterResources:", error);
+    console.error("[SUBJECTS][SERVICE] fetchChapterResources failed", error instanceof Error ? error.message : "unknown error");
     if (error instanceof ChapterResourcesError) throw error;
     if (error instanceof Error) {
       const msg = error.message.toLowerCase();

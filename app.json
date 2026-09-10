@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Prerana Mobile",
+    "name": "Prerana",
     "slug": "prerana-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,17 +13,18 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.darshu_2228.preranamobile",
+      "package": "com.ellipsonic.prerana",
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -34,7 +35,7 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Allow Prerana Mobile to access Face ID for secure sign in."
+          "faceIDPermission": "Allow Prerana to access Face ID for secure sign in."
         }
       ],
       "expo-web-browser",
@@ -53,8 +54,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "dc214ed6-8e49-4035-8651-4b796b0d250f"
+        "projectId": "d10db3ee-05c5-4a6b-b750-e7177a77a458"
       }
-    }
+    },
+    "owner": "ellipsonic1"
   }
 }

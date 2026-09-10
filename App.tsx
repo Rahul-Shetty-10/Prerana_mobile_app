@@ -7,10 +7,9 @@ import {
   useSignIn,
 } from "@clerk/expo";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -32,22 +31,21 @@ import { RootNavigator } from "./src/navigation";
 import { ThemeProvider } from "./src/shared/theme/ThemeContext";
 import { mobileApi } from "./src/api/mobileApi";
 import { performStudentSignOut } from "./src/features/profile/services/profileService";
-import { setActiveUserId } from "./src/shared/services/userStorage";
+import { clearScopedStorageForUser } from "./src/shared/services/userStorage";
 import {
-  MobileSession,
   clearMobileSession,
-  loadMobileSession,
   saveMobileSession,
 } from "./src/shared/session/sessionStore";
-import { SessionProvider } from "./src/shared/session/SessionContext";
+import { SessionProvider, useSession } from "./src/shared/session/SessionContext";
+import { normalizeBackendSession } from "./src/shared/session/sessionValidation";
+import { useTheme } from "./src/shared/theme/ThemeContext";
 
 export default function App() {
   useEffect(() => {
     console.log("[SUBJECTS][APP] App launched");
     console.log("[SUBJECTS][APP] Environment config:", {
       apiBaseUrl: appConfig.apiBaseUrl,
-      clerkPublishableKey: appConfig.clerkPublishableKey ? `PRESENT (${appConfig.clerkPublishableKey.substring(0, 15)}...)` : "MISSING",
-      tenantSlug: appConfig.tenantSlug
+      clerkPublishableKey: appConfig.clerkPublishableKey ? "PRESENT" : "MISSING",
     });
   }, []);
 
@@ -57,7 +55,7 @@ export default function App() {
         <ScreenShell centered>
           <Text style={styles.title}>Missing app configuration</Text>
           <Text style={styles.muted}>
-            Set the production API URL, Clerk publishable key, and tenant slug in the build environment before starting Expo.
+            Set the production API URL and Clerk publishable key in the build environment before starting Expo.
           </Text>
         </ScreenShell>
       </SafeAreaProvider>
@@ -83,15 +81,24 @@ console.log("[PERF][BOOT] App launch: 0ms");
 
 function Root() {
   const { isLoaded, isSignedIn, getToken, signOut, userId } = useAuth();
+  const { session } = useSession();
   const [sessionState, setSessionState] = useState<'loading' | 'verifying' | 'verified' | 'failed'>('loading');
 
   const loggedClerkReady = useRef(false);
   const loggedAuth = useRef(false);
   const loggedGetToken = useRef(false);
+  const lastAuthUserIdRef = useRef<string | null>(null);
+  const getTokenRef = useRef(getToken);
 
   useEffect(() => {
-    setActiveUserId(isSignedIn ? userId : null);
-  }, [isSignedIn, userId]);
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  // Clerk may recreate the function during auth state updates. Keep the
+  // callback identity stable so session/data effects do not restart mid-request.
+  const stableGetToken = useCallback((options?: { template?: string }) => {
+    return getTokenRef.current(options);
+  }, []);
 
   useEffect(() => {
     if (isLoaded && !loggedClerkReady.current) {
@@ -108,74 +115,49 @@ function Root() {
       console.log("[SUBJECTS][APP] getToken available");
       loggedGetToken.current = true;
     }
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
-    console.log("[SUBJECTS][APP] Root useEffect run. isLoaded:", isLoaded, "isSignedIn:", isSignedIn);
+    console.log("[SUBJECTS][APP] Root session effect. isLoaded:", isLoaded, "isSignedIn:", isSignedIn);
     if (!isLoaded) return;
-
-    if (!isSignedIn) {
-      console.log("[SUBJECTS][APP] User is not signed in. Setting sessionState to loading.");
-      setSessionState('loading');
-      return;
-    }
 
     let cancelled = false;
 
-    const verifyBackendSession = async (isBackground: boolean) => {
-      console.log(`[SUBJECTS][APP] verifyBackendSession started. isBackground: ${isBackground}`);
+    const initializeSession = async () => {
+      const nextUserId = isSignedIn ? userId : null;
+      const previousUserId = lastAuthUserIdRef.current;
+      if (previousUserId !== nextUserId) {
+        lastAuthUserIdRef.current = nextUserId;
+        await clearMobileSession(previousUserId);
+      }
+
+      if (!nextUserId) {
+        if (!cancelled) setSessionState("loading");
+        return;
+      }
+
+      if (!cancelled) setSessionState("verifying");
       const sessionStartTime = Date.now();
       console.log("[PERF][SESSION] GET /session started");
       try {
         console.log("[SUBJECTS][APP] Fetching /session from backend...");
-        const data = await mobileApi<MobileSession>("/session", {
-          getToken,
-          tenantSlug: null,
+        const data = await mobileApi<unknown>("/session", {
+          getToken: stableGetToken,
         });
         const elapsed = Date.now() - sessionStartTime;
         console.log(`[PERF][SESSION] GET /session completed: ${elapsed}ms`);
         console.log("[PERF][SESSION] status=200");
-        console.log("[SUBJECTS][APP] verifyBackendSession success. Role:", data?.role);
-        if (!data || data.role !== "student") {
-          throw new Error("User role is not student");
-        }
-        if (!data.tenantSlug) {
-          throw new Error("Tenant slug is missing in session response");
-        }
+        const validatedSession = normalizeBackendSession(data, nextUserId);
         if (cancelled) return;
-        await saveMobileSession({
-          role: data.role,
-          tenantId: data.tenantId,
-          tenantSlug: data.tenantSlug,
-          tenantName: data.tenantName,
-        });
+        await saveMobileSession(validatedSession);
         if (!cancelled) setSessionState("verified");
       } catch (error: any) {
         console.error("[SUBJECTS][APP] Backend session verification error:", error?.message || error);
-        if (!isBackground) {
-          await clearMobileSession();
-          if (!cancelled) setSessionState("failed");
-        } else {
-          console.log("[SUBJECTS][APP] Background session verification failed, ignoring to prevent kicking user out.");
-        }
-      }
-    };
-
-    const initializeSession = async () => {
-      console.log("[SUBJECTS][APP] initializeSession starting...");
-      try {
-        const cachedSession = await loadMobileSession();
-        if (cachedSession && cachedSession.tenantSlug && cachedSession.role === "student") {
-          if (!cancelled) setSessionState("verified");
-          void verifyBackendSession(true);
-        } else {
-          if (!cancelled) setSessionState("verifying");
-          await verifyBackendSession(false);
-        }
-      } catch (e: any) {
-        console.error("[SUBJECTS][APP] initializeSession error:", e?.message || e);
-        if (!cancelled) setSessionState("verifying");
-        await verifyBackendSession(false);
+        if (!cancelled) setSessionState("failed");
+        await Promise.allSettled([
+          clearScopedStorageForUser(nextUserId),
+          clearMobileSession(nextUserId),
+        ]);
       }
     };
 
@@ -184,14 +166,20 @@ function Root() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, getToken, userId]);
+  }, [isLoaded, isSignedIn, userId, stableGetToken]);
+
+  useEffect(() => {
+    if (isSignedIn && sessionState === "verified" && !session) {
+      setSessionState("failed");
+    }
+  }, [isSignedIn, session, sessionState]);
 
   const handleSignOut = async () => {
     try {
-      await clearMobileSession();
       await performStudentSignOut(signOut, userId);
+      await clearMobileSession(userId);
     } catch (e) {
-      await clearMobileSession();
+      await clearMobileSession(userId);
       await signOut();
     }
   };
@@ -219,7 +207,7 @@ function Root() {
   }
 
   return isSignedIn && sessionState === "verified" ? (
-    <SignedInHome mockGetToken={getToken} />
+    <SignedInHome mockGetToken={stableGetToken} />
   ) : (
     <SignInScreen />
   );
@@ -262,25 +250,33 @@ function SessionErrorScreen({ onSignOut }: { onSignOut: () => Promise<void> }) {
 
 function SignInScreen() {
   const { signIn, fetchStatus } = useSignIn();
-  const [email, setEmail] = useState("");
+  const { isDark } = useTheme();
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [toast]);
 
   async function handleSignIn() {
     if (fetchStatus === "fetching" || isSubmitting) {
       return;
     }
 
-    if (!email.trim() || !password) {
-      Alert.alert("Missing details", "Enter email and password.");
+    if (!identifier.trim() || !password) {
+      setToast({ title: "Missing details", message: "Enter your username or email and password." });
       return;
     }
 
     setIsSubmitting(true);
     try {
       const result = await signIn.create({
-        identifier: email.trim(),
+        identifier: identifier.trim(),
         password,
       });
 
@@ -296,9 +292,9 @@ function SignInScreen() {
         return;
       }
 
-      Alert.alert("More verification needed", "This account requires another sign-in step.");
+      setToast({ title: "More verification needed", message: "This account requires another sign-in step." });
     } catch (error) {
-      Alert.alert("Sign in failed", getErrorMessage(error));
+      setToast({ title: "Sign in failed", message: getErrorMessage(error) });
     } finally {
       setIsSubmitting(false);
     }
@@ -306,6 +302,36 @@ function SignInScreen() {
 
   return (
     <ScreenShell>
+      {toast ? (
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={[
+            styles.toast,
+            {
+              backgroundColor: isDark ? "#2F2220" : "#FFFFFF",
+              borderColor: isDark ? "#7A4036" : "#F3B4A6",
+            },
+          ]}
+        >
+          <View style={[styles.toastIcon, { backgroundColor: isDark ? "#5A2923" : "#FDE9E4" }]}>
+            <Ionicons color={isDark ? "#FFB3A7" : "#C84E35"} name="alert-circle-outline" size={20} />
+          </View>
+          <View style={styles.toastContent}>
+            <Text style={[styles.toastTitle, { color: isDark ? "#FFF7F3" : "#111827" }]}>{toast.title}</Text>
+            <Text style={[styles.toastMessage, { color: isDark ? "#D7C6C0" : "#6B7280" }]}>{toast.message}</Text>
+          </View>
+          <Pressable
+            accessibilityLabel="Dismiss message"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => setToast(null)}
+            style={styles.toastClose}
+          >
+            <Ionicons color={isDark ? "#D7C6C0" : "#6B7280"} name="close-outline" size={20} />
+          </Pressable>
+        </View>
+      ) : null}
       <View style={styles.brandBlock}>
         <Text style={styles.eyebrow}>PRERANA 2.0</Text>
         <Text style={styles.title}>Mobile workspace</Text>
@@ -313,26 +339,29 @@ function SignInScreen() {
       </View>
 
       <View style={styles.panel}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Username or email</Text>
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="name@example.com"
+          autoComplete="username"
+          onChangeText={setIdentifier}
+          placeholder="Username or email"
           placeholderTextColor="#8b7772"
           style={styles.input}
-          value={email}
+          textContentType="username"
+          value={identifier}
         />
 
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordInputShell}>
           <TextInput
+            autoComplete="password"
             onChangeText={setPassword}
             placeholder="Password"
             placeholderTextColor="#8b7772"
             secureTextEntry={!isPasswordVisible}
             style={styles.passwordInput}
+            textContentType="password"
             value={password}
           />
           <Pressable
@@ -578,6 +607,39 @@ const styles = StyleSheet.create({
     color: "#ffb3a7",
     fontSize: 14,
     lineHeight: 20,
+  },
+  toast: {
+    alignItems: "flex-start",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    width: "100%",
+  },
+  toastIcon: {
+    alignItems: "center",
+    borderRadius: 18,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
+  toastContent: {
+    flex: 1,
+    gap: 2,
+  },
+  toastTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  toastMessage: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  toastClose: {
+    padding: 2,
   },
   blankErrorText: {
     color: "#ffb3a7",
