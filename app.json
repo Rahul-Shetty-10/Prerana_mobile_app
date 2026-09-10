@@ -57,6 +57,12 @@
         "projectId": "d10db3ee-05c5-4a6b-b750-e7177a77a458"
       }
     },
-    "owner": "ellipsonic1"
+    "owner": "ellipsonic1",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d10db3ee-05c5-4a6b-b750-e7177a77a458"
+    }
   }
 }
