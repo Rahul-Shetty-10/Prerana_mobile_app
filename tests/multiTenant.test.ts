@@ -43,10 +43,17 @@ test("missing, invalid, or non-student memberships fail closed", () => {
     { ...tenantA, role: "teacher" },
     { ...tenantA, membershipId: "" },
     { ...tenantA, membershipStatus: "revoked" },
-    { ...tenantA, tenantSlug: "seed-alpha" },
   ]) {
     assert.throws(() => normalizeBackendSession(payload, "user_a"), InvalidMobileSessionError);
   }
+});
+
+test("a backend-provided seed/test slug is accepted when its membership is valid", () => {
+  const session = normalizeBackendSession(
+    { ...tenantA, tenantSlug: "seed-tenant-alpha" },
+    "user_a",
+  );
+  assert.equal(session.tenantSlug, "seed-tenant-alpha");
 });
 
 test("multiple memberships are rejected instead of silently selected", () => {

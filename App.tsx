@@ -7,7 +7,7 @@ import {
   useSignIn,
 } from "@clerk/expo";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -88,6 +88,17 @@ function Root() {
   const loggedAuth = useRef(false);
   const loggedGetToken = useRef(false);
   const lastAuthUserIdRef = useRef<string | null>(null);
+  const getTokenRef = useRef(getToken);
+
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
+
+  // Clerk may recreate the function during auth state updates. Keep the
+  // callback identity stable so session/data effects do not restart mid-request.
+  const stableGetToken = useCallback((options?: { template?: string }) => {
+    return getTokenRef.current(options);
+  }, []);
 
   useEffect(() => {
     if (isLoaded && !loggedClerkReady.current) {
@@ -104,7 +115,7 @@ function Root() {
       console.log("[SUBJECTS][APP] getToken available");
       loggedGetToken.current = true;
     }
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
     console.log("[SUBJECTS][APP] Root session effect. isLoaded:", isLoaded, "isSignedIn:", isSignedIn);
@@ -131,7 +142,7 @@ function Root() {
       try {
         console.log("[SUBJECTS][APP] Fetching /session from backend...");
         const data = await mobileApi<unknown>("/session", {
-          getToken,
+          getToken: stableGetToken,
         });
         const elapsed = Date.now() - sessionStartTime;
         console.log(`[PERF][SESSION] GET /session completed: ${elapsed}ms`);
@@ -142,9 +153,11 @@ function Root() {
         if (!cancelled) setSessionState("verified");
       } catch (error: any) {
         console.error("[SUBJECTS][APP] Backend session verification error:", error?.message || error);
-        await clearScopedStorageForUser(nextUserId);
-        await clearMobileSession(nextUserId);
         if (!cancelled) setSessionState("failed");
+        await Promise.allSettled([
+          clearScopedStorageForUser(nextUserId),
+          clearMobileSession(nextUserId),
+        ]);
       }
     };
 
@@ -153,7 +166,7 @@ function Root() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, getToken, userId]);
+  }, [isLoaded, isSignedIn, userId, stableGetToken]);
 
   useEffect(() => {
     if (isSignedIn && sessionState === "verified" && !session) {
@@ -194,7 +207,7 @@ function Root() {
   }
 
   return isSignedIn && sessionState === "verified" ? (
-    <SignedInHome mockGetToken={getToken} />
+    <SignedInHome mockGetToken={stableGetToken} />
   ) : (
     <SignInScreen />
   );

@@ -28,10 +28,6 @@ function requiredString(value: unknown, field: string): string {
   return value.trim();
 }
 
-function isNonProductionTenantSlug(slug: string): boolean {
-  return /^(seed|demo|test)([-_]|$)/i.test(slug);
-}
-
 export function normalizeBackendSession(data: unknown, clerkUserId: string): MobileSession {
   if (!clerkUserId.trim() || !isRecord(data)) {
     throw new InvalidMobileSessionError("Backend session response is invalid.");
@@ -71,10 +67,6 @@ export function normalizeBackendSession(data: unknown, clerkUserId: string): Mob
     "membershipId",
   );
 
-  if (isNonProductionTenantSlug(tenantSlug)) {
-    throw new InvalidMobileSessionError("The backend returned a non-production tenant.");
-  }
-
   return {
     userId: clerkUserId,
     membershipId,
@@ -93,7 +85,7 @@ export function isValidStoredSession(candidate: unknown, clerkUserId: string): c
     requiredString(candidate.tenantId, "tenantId");
     requiredString(candidate.tenantSlug, "tenantSlug");
     requiredString(candidate.tenantName, "tenantName");
-    if (candidate.role !== "student" || isNonProductionTenantSlug(candidate.tenantSlug)) return false;
+    if (candidate.role !== "student") return false;
     return true;
   } catch {
     return false;
