@@ -33,6 +33,7 @@ export function ViewerToolbar({
         {onZoomOut && (
           <Pressable
             accessibilityLabel="Zoom Out"
+            accessibilityRole="button"
             onPress={onZoomOut}
             style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           >
@@ -43,6 +44,7 @@ export function ViewerToolbar({
         {onZoomIn && (
           <Pressable
             accessibilityLabel="Zoom In"
+            accessibilityRole="button"
             onPress={onZoomIn}
             style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           >
@@ -53,6 +55,7 @@ export function ViewerToolbar({
         {onRotate && (
           <Pressable
             accessibilityLabel="Rotate Clockwise"
+            accessibilityRole="button"
             onPress={onRotate}
             style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           >
@@ -63,6 +66,7 @@ export function ViewerToolbar({
         {onToggleFullscreen && (
           <Pressable
             accessibilityLabel="Toggle Fullscreen"
+            accessibilityRole="button"
             onPress={onToggleFullscreen}
             style={({ pressed }) => [styles.btn, styles.accentBtn, pressed && styles.pressed]}
           >
@@ -76,7 +80,8 @@ export function ViewerToolbar({
 
         {onDownload && (
           <Pressable
-            accessibilityLabel="Download"
+            accessibilityLabel="Download resource"
+            accessibilityRole="button"
             disabled={isDownloading}
             onPress={onDownload}
             style={({ pressed }) => [

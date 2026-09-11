@@ -14,6 +14,7 @@ import { ChapterShelfItem, FeaturedResourceItem } from "./types";
 import { AppIcon } from "../../shared/icons";
 import { colors, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface MyLibraryHomeScreenProps {
@@ -64,9 +65,12 @@ export function MyLibraryHomeScreen({
 
         {/* Error Banner - shown above hero content */}
         {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
-            <Text style={styles.errorText}>⚠ {error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {/* 1. Hero Card Section */}

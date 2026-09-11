@@ -15,6 +15,7 @@ import { QuizEntryItem } from "./types";
 import { AppIcon } from "../../shared/icons";
 import { colors, radius, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface QuizzesHomeScreenProps {
@@ -98,11 +99,14 @@ export function QuizzesHomeScreen({
           </View>
         ) : null}
 
-        {/* Error Banner */}
+        {/* Error Banner with Retry */}
         {error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {/* 1. Hero Card */}

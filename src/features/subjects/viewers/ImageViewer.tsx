@@ -27,6 +27,8 @@ import { ContentComingSoon } from "./ContentComingSoon";
 import { appConfig } from "../../../config";
 
 
+import { ErrorMessageView } from "../../../shared/components/ErrorMessageView";
+
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_WIDTH = SCREEN_WIDTH - spacing.md * 2;
 
@@ -52,15 +54,31 @@ export function ImageViewer({
   const [rotation, setRotation] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const lastTap = useRef<number>(0);
 
-  // No backend URL or broken image — show an explicit unavailable state.
-  if (!imageUrl || imageError) {
+  // Reset local state when resource URL changes
+  React.useEffect(() => {
+    setImageError(false);
+    setZoomScale(1);
+    setRotation(0);
+  }, [imageUrl]);
+
+  if (!imageUrl) {
     return (
       <ContentComingSoon
         icon={isMindmap ? "git-network-outline" : "image-outline"}
         title="Yet to be updated"
-        message={imageError ? "This chapter resource could not be loaded. Check your connection and try again." : "This resource has not been uploaded yet."}
+        message="This resource has not been uploaded yet."
+      />
+    );
+  }
+
+  if (imageError) {
+    return (
+      <ErrorMessageView
+        message="This resource could not be loaded. Please check your network connection and try again."
+        onRetry={() => setImageError(false)}
       />
     );
   }
@@ -96,17 +114,19 @@ export function ImageViewer({
   };
 
   const handleDownload = async () => {
-    if (!imageUrl) {
-      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+    if (!imageUrl || isDownloading) {
+      if (!imageUrl) {
+        Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      }
       return;
     }
+    setIsDownloading(true);
     try {
       let localUri = "";
       if (imageUrl && !imageError) {
         try {
           const filename = imageUrl.split("/").pop() || "image.png";
           const tempPath = `${FileSystem.documentDirectory}${filename}`;
-          console.log(`[SUBJECTS][ImageViewer] Downloading image with headers: ${imageUrl}`);
           const downloadResult = await FileSystem.downloadAsync(
             imageUrl,
             tempPath,
@@ -117,7 +137,6 @@ export function ImageViewer({
           }
           localUri = downloadResult.uri;
         } catch (err) {
-          console.warn("[SUBJECTS][ImageViewer] Download failed:", err);
           throw err;
         }
       }
@@ -127,6 +146,8 @@ export function ImageViewer({
       }
     } catch (_) {
       Alert.alert("Download Failed", "Unable to download the requested image.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -195,6 +216,7 @@ export function ImageViewer({
         {/* Shared toolbar in modal */}
         <ViewerToolbar
           isFullscreen={true}
+          isDownloading={isDownloading}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onRotate={handleRotate}
@@ -253,6 +275,7 @@ export function ImageViewer({
       {/* Shared ViewerToolbar */}
       <ViewerToolbar
         isFullscreen={false}
+        isDownloading={isDownloading}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onRotate={handleRotate}

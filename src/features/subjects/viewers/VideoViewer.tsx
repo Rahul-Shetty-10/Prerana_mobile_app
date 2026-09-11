@@ -7,6 +7,8 @@ import { useTheme } from "../../../shared/theme/ThemeContext";
 import { colors, radius, spacing, typography } from "../../../shared/theme";
 import { appConfig } from "../../../config";
 
+import { ErrorMessageView } from "../../../shared/components/ErrorMessageView";
+
 export function VideoViewer({
   title,
   videoTitle,
@@ -21,12 +23,30 @@ export function VideoViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  if (!videoUrl || hasError) {
+  React.useEffect(() => {
+    setHasError(false);
+    setIsLoading(true);
+  }, [videoUrl]);
+
+  if (!videoUrl) {
     return (
       <ContentComingSoon
         icon="videocam-outline"
         title="Yet to be updated"
         message="This video resource is currently unavailable."
+      />
+    );
+  }
+
+  if (hasError) {
+    return (
+      <ErrorMessageView
+        icon="videocam-outline"
+        message="The video could not be loaded. Please check your network connection and try again."
+        onRetry={() => {
+          setHasError(false);
+          setIsLoading(true);
+        }}
       />
     );
   }

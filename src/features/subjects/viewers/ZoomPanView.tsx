@@ -86,98 +86,132 @@ export function ZoomPanView({
     zoomScaleRef.current = zoomScale;
   }, [zoomScale]);
 
+  const handleEndGesture = (gestureState: any) => {
+    isPinching.current = false;
+    initialDistance.current = 0;
+
+    let currentScale = 1;
+    try {
+      // @ts-ignore
+      currentScale = scale.__getValue();
+    } catch (_) {}
+
+    if (currentScale <= 1.05) {
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8, tension: 50 }),
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 8, tension: 50 }),
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8, tension: 50 }),
+      ]).start();
+      lastScale.current = 1;
+      lastTranslate.current = { x: 0, y: 0 };
+      setZoomScale(1);
+    } else {
+      lastScale.current = currentScale;
+      lastTranslate.current = {
+        x: lastTranslate.current.x + (gestureState?.dx || 0),
+        y: lastTranslate.current.y + (gestureState?.dy || 0),
+      };
+
+      const isRotated = rotation % 180 !== 0;
+      const effectiveW = isRotated ? height : width;
+      const effectiveH = isRotated ? width : height;
+
+      const maxDragX = (effectiveW * currentScale - effectiveW) / 2 + 50;
+      const maxDragY = (effectiveH * currentScale - effectiveH) / 2 + 50;
+
+      let boundedX = Math.max(-maxDragX, Math.min(lastTranslate.current.x, maxDragX));
+      let boundedY = Math.max(-maxDragY, Math.min(lastTranslate.current.y, maxDragY));
+
+      if (boundedX !== lastTranslate.current.x || boundedY !== lastTranslate.current.y) {
+        Animated.parallel([
+          Animated.spring(translateX, { toValue: boundedX, useNativeDriver: true, friction: 8, tension: 50 }),
+          Animated.spring(translateY, { toValue: boundedY, useNativeDriver: true, friction: 8, tension: 50 }),
+        ]).start();
+        lastTranslate.current = { x: boundedX, y: boundedY };
+      }
+    }
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       // Intercept gesture starts immediately at capture level if pinch-zooming or already zoomed in
       onStartShouldSetPanResponderCapture: (evt) => {
-        return evt.nativeEvent.touches.length >= 2 || zoomScaleRef.current > 1.05;
+        const numTouches = evt.nativeEvent.touches ? evt.nativeEvent.touches.length : 0;
+        return numTouches >= 2 || zoomScaleRef.current > 1.05;
       },
       onMoveShouldSetPanResponderCapture: (evt) => {
-        return evt.nativeEvent.touches.length >= 2 || zoomScaleRef.current > 1.05;
+        const numTouches = evt.nativeEvent.touches ? evt.nativeEvent.touches.length : 0;
+        return numTouches >= 2 || zoomScaleRef.current > 1.05;
       },
       onStartShouldSetPanResponder: (evt) => {
-        return evt.nativeEvent.touches.length >= 2 || zoomScaleRef.current > 1.05;
+        const numTouches = evt.nativeEvent.touches ? evt.nativeEvent.touches.length : 0;
+        return numTouches >= 2 || zoomScaleRef.current > 1.05;
       },
       onMoveShouldSetPanResponder: (evt) => {
-        return evt.nativeEvent.touches.length >= 2 || zoomScaleRef.current > 1.05;
+        const numTouches = evt.nativeEvent.touches ? evt.nativeEvent.touches.length : 0;
+        return numTouches >= 2 || zoomScaleRef.current > 1.05;
       },
-      onPanResponderGrant: (evt) => {
+      onPanResponderTerminationRequest: () => {
+        // Prevent parent ScrollView from stealing touch responder while pinching or zoomed in
+        return !(isPinching.current || zoomScaleRef.current > 1.05);
+      },
+      onPanResponderGrant: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
-        if (touches && touches.length >= 2) {
-          isPinching.current = true;
-          initialDistance.current = getDistance(evt);
-          pinchStartScale.current = lastScale.current;
+        const numTouches = touches ? touches.length : gestureState.numberActiveTouches;
+        if (numTouches >= 2) {
+          const dist = getDistance(evt);
+          if (dist > 0) {
+            isPinching.current = true;
+            initialDistance.current = dist;
+            pinchStartScale.current = lastScale.current;
+          }
         } else {
           isPinching.current = false;
+          initialDistance.current = 0;
         }
       },
       onPanResponderMove: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
+        const numTouches = touches ? touches.length : gestureState.numberActiveTouches;
 
-        if (touches && touches.length >= 2) {
-          if (!isPinching.current || initialDistance.current === 0) {
-            isPinching.current = true;
-            initialDistance.current = getDistance(evt);
-            pinchStartScale.current = lastScale.current;
-          }
+        if (numTouches >= 2) {
           const currentDistance = getDistance(evt);
-          if (initialDistance.current > 0 && currentDistance > 0) {
+          if (!isPinching.current || initialDistance.current === 0) {
+            if (currentDistance > 0) {
+              isPinching.current = true;
+              initialDistance.current = currentDistance;
+              pinchStartScale.current = lastScale.current;
+            }
+          } else if (initialDistance.current > 0 && currentDistance > 0) {
             const ratio = currentDistance / initialDistance.current;
             const nextScale = pinchStartScale.current * ratio;
             const clampedScale = Math.max(0.8, Math.min(nextScale, 4.0));
             scale.setValue(clampedScale);
             setZoomScale(clampedScale);
           }
-        } else if (touches && touches.length === 1 && !isPinching.current) {
-          const dx = gestureState.dx;
-          const dy = gestureState.dy;
-          translateX.setValue(lastTranslate.current.x + dx);
-          translateY.setValue(lastTranslate.current.y + dy);
+        } else {
+          if (isPinching.current) {
+            isPinching.current = false;
+            initialDistance.current = 0;
+            try {
+              // @ts-ignore
+              const cScale = scale.__getValue();
+              if (cScale) lastScale.current = cScale;
+            } catch (_) {}
+          }
+          if (numTouches === 1) {
+            const dx = gestureState.dx;
+            const dy = gestureState.dy;
+            translateX.setValue(lastTranslate.current.x + dx);
+            translateY.setValue(lastTranslate.current.y + dy);
+          }
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
-        isPinching.current = false;
-
-        let currentScale = 1;
-        try {
-          // @ts-ignore
-          currentScale = scale.__getValue();
-        } catch (_) {}
-
-        if (currentScale <= 1.05) {
-          Animated.parallel([
-            Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8, tension: 50 }),
-            Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 8, tension: 50 }),
-            Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8, tension: 50 }),
-          ]).start();
-          lastScale.current = 1;
-          lastTranslate.current = { x: 0, y: 0 };
-          setZoomScale(1);
-        } else {
-          lastScale.current = currentScale;
-          lastTranslate.current = {
-            x: lastTranslate.current.x + gestureState.dx,
-            y: lastTranslate.current.y + gestureState.dy,
-          };
-
-          const isRotated = rotation % 180 !== 0;
-          const effectiveW = isRotated ? height : width;
-          const effectiveH = isRotated ? width : height;
-
-          const maxDragX = (effectiveW * currentScale - effectiveW) / 2 + 50;
-          const maxDragY = (effectiveH * currentScale - effectiveH) / 2 + 50;
-
-          let boundedX = Math.max(-maxDragX, Math.min(lastTranslate.current.x, maxDragX));
-          let boundedY = Math.max(-maxDragY, Math.min(lastTranslate.current.y, maxDragY));
-
-          if (boundedX !== lastTranslate.current.x || boundedY !== lastTranslate.current.y) {
-            Animated.parallel([
-              Animated.spring(translateX, { toValue: boundedX, useNativeDriver: true, friction: 8, tension: 50 }),
-              Animated.spring(translateY, { toValue: boundedY, useNativeDriver: true, friction: 8, tension: 50 }),
-            ]).start();
-            lastTranslate.current = { x: boundedX, y: boundedY };
-          }
-        }
+        handleEndGesture(gestureState);
+      },
+      onPanResponderTerminate: (evt, gestureState) => {
+        handleEndGesture(gestureState);
       },
     })
   ).current;

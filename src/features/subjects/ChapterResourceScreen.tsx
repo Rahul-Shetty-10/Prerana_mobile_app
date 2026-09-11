@@ -9,6 +9,7 @@ import { useChapterResources } from "./hooks";
 import { ChapterItem, ResourceTabItem, ResourceTabType } from "./types";
 import { colors, spacing, typography, radius, shadows } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 import { AppIcon } from "../../shared/icons";
 import { saveLearningState } from "../../shared/services/learningStateService";
 import { markMilestoneSeen } from "../../shared/services/chapterProgressService";
@@ -177,30 +178,26 @@ export function ChapterResourceScreen({
           <Text style={styles.chapterTitleText}>{chapter.title}</Text>
         </View>
 
-        {/* Error Banner */}
+        {/* Error Banner with Retry */}
         {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
-        {/* Loading Indicator */}
-        {isLoading && !resources ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={colors.primary.main} size="large" />
-            <Text style={styles.loadingText}>Fetching Chapter Resources...</Text>
-          </View>
-        ) : (
-          <ResourceContainer
-            activeTab={activeTab}
-            chapterTitle={chapter.title}
-            resources={resources || (!isLoading && !error ? {} as any : undefined)}
-            slidedeckPageIndex={slidedeckPageIndex}
-            onSlidedeckPageChange={setSlidedeckPageIndex}
-            flashcardIndex={flashcardIndex}
-            onFlashcardIndexChange={setFlashcardIndex}
-          />
-        )}
+        {/* Active Viewer Content */}
+        <ResourceContainer
+          activeTab={activeTab}
+          chapterTitle={chapter.title}
+          resources={resources || (!isLoading && !error ? {} as any : undefined)}
+          slidedeckPageIndex={slidedeckPageIndex}
+          onSlidedeckPageChange={setSlidedeckPageIndex}
+          flashcardIndex={flashcardIndex}
+          onFlashcardIndexChange={setFlashcardIndex}
+        />
       </ScrollView>
 
       {/* Floating Quiz Button */}

@@ -7,6 +7,7 @@ import {
   SubjectStatisticsCard,
 } from "./components";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 import { useSubjectWorkspace } from "./hooks";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { ChapterItem, SubjectMeta } from "./types";
@@ -98,19 +99,15 @@ export function SubjectWorkspaceScreen({
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Loading Indicator */}
-        {isLoading && !workspace ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={colors.primary.main} size="large" />
-            <Text style={styles.loadingText}>Loading Subject Workspace...</Text>
-          </View>
-        ) : null}
 
-        {/* Error Banner */}
+        {/* Error Banner with Retry */}
         {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {workspace ? (

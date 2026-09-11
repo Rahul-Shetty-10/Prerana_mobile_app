@@ -51,6 +51,8 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
   const [rotation, setRotation] = useState(0);
   const [bodyDims, setBodyDims] = useState<{ width: number; height: number } | null>(null);
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const pdfBase64Ref = useRef<string>("");
 
 
@@ -66,10 +68,13 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
   };
 
   const handleDownload = async () => {
-    if (!pdfUrl || !pdfUrl.startsWith("http")) {
-      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+    if (!pdfUrl || !pdfUrl.startsWith("http") || isDownloading) {
+      if (!pdfUrl || !pdfUrl.startsWith("http")) {
+        Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      }
       return;
     }
+    setIsDownloading(true);
     try {
       const filename = pdfUrl.split("/").pop() || "Slidedeck.pdf";
       const tempPath = `${FileSystem.documentDirectory}${filename}`;
@@ -90,6 +95,8 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
       }
     } catch (_) {
       Alert.alert("Download Failed", "Unable to download the slide deck.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -332,6 +339,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
       {/* Shared ViewerToolbar */}
       <ViewerToolbar
         isFullscreen={false}
+        isDownloading={isDownloading}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onRotate={handleRotate}
@@ -368,6 +376,7 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, tenantSlug }
           {/* Modal Toolbar */}
           <ViewerToolbar
             isFullscreen={true}
+            isDownloading={isDownloading}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onRotate={handleRotate}

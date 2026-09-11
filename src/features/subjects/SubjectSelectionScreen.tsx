@@ -8,6 +8,7 @@ import { useSubjectsList } from "./hooks";
 import { SubjectMeta } from "./types";
 import { colors, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface SubjectSelectionScreenProps {
@@ -80,11 +81,14 @@ export function SubjectSelectionScreen({
           </View>
         ) : null}
 
-        {/* Error Banner */}
+        {/* Error Banner with Retry */}
         {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {/* Subjects List */}

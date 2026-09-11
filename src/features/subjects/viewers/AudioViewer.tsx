@@ -8,6 +8,7 @@ import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import * as FileSystem from "expo-file-system/legacy";
 import { ContentComingSoon } from "./ContentComingSoon";
+import { ErrorMessageView } from "../../../shared/components/ErrorMessageView";
 import { appConfig } from "../../../config";
 
 
@@ -139,14 +140,25 @@ export function AudioViewer({
   const progressPercent = durationSeconds > 0 ? Math.round((currentTime / durationSeconds) * 100) : 0;
 
   // Do not render a player when the backend has no usable resource.
-  if ((!audioUrl && !localAudioPath) || audioError) {
+  if (!audioUrl && !localAudioPath) {
     return (
       <ContentComingSoon
         icon="headset-outline"
-        title={audioError ? "Unable to load audio" : "Yet to be updated"}
-        message={audioError
-          ? "The audio explanation could not be loaded. Check your connection and try again."
-          : "This resource has not been uploaded yet."}
+        title="Yet to be updated"
+        message="This resource has not been uploaded yet."
+      />
+    );
+  }
+
+  if (audioError) {
+    return (
+      <ErrorMessageView
+        icon="headset-outline"
+        message="The audio explanation could not be loaded. Please check your connection and try again."
+        onRetry={() => {
+          setAudioError(false);
+          setLocalAudioPath(null);
+        }}
       />
     );
   }

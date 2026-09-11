@@ -11,6 +11,7 @@ import {
   WelcomeCard,
 } from "./components";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 import { useDashboardData } from "./hooks";
 import { colors, spacing, typography } from "../../shared/theme";
 import { getLearningState } from "../../shared/services/learningStateService";
@@ -210,11 +211,14 @@ export function DashboardScreen({ getToken }: DashboardScreenProps) {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* Error Notification if API request fails */}
+        {/* Error Notification with Retry */}
         {error ? (
-          <View style={[styles.errorBanner, { backgroundColor: isDark ? "#3B1818" : "#FFF0F0", borderColor: isDark ? "#7A2E2E" : "#FFCDD2" }]}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {/* 1. Welcome Card Component */}

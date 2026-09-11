@@ -172,11 +172,16 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
   };
   const handleFitWidth = () => setZoomScale(1.0);
   const handleFitScreen = () => setZoomScale(0.8);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const handleDownload = async () => {
-    if (!pdfUrl || !pdfUrl.startsWith("http")) {
-      Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+    if (!pdfUrl || !pdfUrl.startsWith("http") || isDownloading) {
+      if (!pdfUrl || !pdfUrl.startsWith("http")) {
+        Alert.alert("Resource Unavailable", "This resource is not currently available for download.");
+      }
       return;
     }
+    setIsDownloading(true);
     try {
       const filename = pdfUrl.split("/").pop() || "Textbook.pdf";
       const tempPath = `${FileSystem.documentDirectory}${filename}`;
@@ -196,6 +201,8 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
       }
     } catch (_) {
       Alert.alert("Download Failed", "Unable to download the textbook.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -344,6 +351,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
 
         <ViewerToolbar
           isFullscreen={true}
+          isDownloading={isDownloading}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onRotate={handleRotate}
@@ -377,6 +385,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, tenantSlug }: PDFV
       {/* Shared ViewerToolbar */}
       <ViewerToolbar
         isFullscreen={false}
+        isDownloading={isDownloading}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onRotate={handleRotate}

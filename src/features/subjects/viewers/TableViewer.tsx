@@ -298,30 +298,40 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
         <Text style={styles.zoomIndicator}>ZOOM: {Math.round(zoomScale * 100)}%</Text>
         <View style={styles.controlsRow}>
           <Pressable
+            accessibilityLabel="Zoom Out Table"
+            accessibilityRole="button"
             onPress={handleZoomOut}
             style={({ pressed }) => [styles.toolBtn, pressed && styles.pressed]}
           >
             <AppIcon color={themeColors.textPrimary} name="remove-outline" size={16} />
           </Pressable>
           <Pressable
+            accessibilityLabel="Zoom In Table"
+            accessibilityRole="button"
             onPress={handleZoomIn}
             style={({ pressed }) => [styles.toolBtn, pressed && styles.pressed]}
           >
             <AppIcon color={themeColors.textPrimary} name="add-outline" size={16} />
           </Pressable>
           <Pressable
+            accessibilityLabel="Rotate Table"
+            accessibilityRole="button"
             onPress={handleRotate}
             style={({ pressed }) => [styles.toolBtn, pressed && styles.pressed]}
           >
             <AppIcon color={themeColors.textPrimary} name="sync-outline" size={16} />
           </Pressable>
           <Pressable
+            accessibilityLabel="Fullscreen Table"
+            accessibilityRole="button"
             onPress={() => setIsFullScreen(true)}
             style={({ pressed }) => [styles.toolBtn, pressed && styles.pressed]}
           >
             <AppIcon color={themeColors.textPrimary} name="expand-outline" size={16} />
           </Pressable>
           <Pressable
+            accessibilityLabel="Download CSV Table"
+            accessibilityRole="button"
             onPress={handleDownload}
             style={({ pressed }) => [styles.toolBtn, pressed && styles.pressed]}
           >

@@ -9,6 +9,7 @@ import { SubjectDetailPlaceholderScreen } from "./SubjectDetailPlaceholderScreen
 import { SubjectItem } from "./types";
 import { colors, spacing, typography } from "../../shared/theme";
 import { Header } from "../../shared/components/Header";
+import { ErrorMessageView } from "../../shared/components/ErrorMessageView";
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
 export interface FundamentalsHomeScreenProps {
@@ -74,19 +75,15 @@ export function FundamentalsHomeScreen({
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Loading Indicator */}
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={colors.primary.main} size="large" />
-            <Text style={styles.loadingText}>Loading Fundamentals...</Text>
-          </View>
-        ) : null}
 
-        {/* Error Banner */}
+        {/* Error Banner with Retry */}
         {error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
+          <ErrorMessageView
+            compact
+            isRetrying={isLoading}
+            message={error}
+            onRetry={() => void refresh()}
+          />
         ) : null}
 
         {/* 1. Hero Section */}
