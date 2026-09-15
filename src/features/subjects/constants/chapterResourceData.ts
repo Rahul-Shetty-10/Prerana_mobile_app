@@ -1,4 +1,4 @@
-import { ResourceTabItem } from "../types";
+import type { ResourceTabItem } from "../types/chapterResource.ts";
 
 export const RESOURCE_TABS_LIST: ResourceTabItem[] = [
   { id: "infographic", label: "Infographic", iconName: "image-outline" },

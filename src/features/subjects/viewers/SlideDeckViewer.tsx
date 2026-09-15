@@ -32,6 +32,7 @@ interface SlideDeckViewerProps {
   documentTitle: string;
   pdfUrl?: string;
   authToken?: string;
+  tenantSlug?: string;
 }
 
 export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckViewerProps) {

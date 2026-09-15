@@ -1,20 +1,22 @@
 import { appConfig } from "../../../config";
 import { mobileApi } from "../../../api/mobileApi";
-import {
+import type {
   FlashcardItem,
   MindmapNode,
   PDFPageItem,
   TableColumn,
   TableRowData,
-  ChapterWordGames,
-} from "../types";
+} from "../types/viewers";
+import type { ChapterWordGames } from "../types/wordGames";
 import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../../../shared/session/resourceAuth";
 import { invalidateMobileSession } from "../../../shared/session/sessionStore";
 
 export class ChapterResourcesError extends Error {
-  constructor(public code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA', message: string) {
+  public code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA';
+  constructor(code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA', message: string) {
     super(message);
     this.name = 'ChapterResourcesError';
+    this.code = code;
   }
 }
 
@@ -43,6 +45,7 @@ export interface ChapterResourcesPayload {
   videoUrl?: string;
   videoTitle?: string;
   authToken?: string;
+  tenantSlug?: string;
   /** Parsed payload from a `type === "puzzle"` resource (Chapter Word Games). */
   wordGames?: ChapterWordGames;
 }

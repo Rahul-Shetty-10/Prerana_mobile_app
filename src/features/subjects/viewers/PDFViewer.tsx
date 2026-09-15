@@ -32,6 +32,8 @@ interface PDFViewerProps {
   documentTitle: string;
   pdfUrl?: string;
   authToken?: string;
+  tenantSlug?: string;
+  isSlidedeck?: boolean;
 }
 
 export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) {

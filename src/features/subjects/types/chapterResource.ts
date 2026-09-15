@@ -1,4 +1,5 @@
-import { IconName } from "../../../shared/icons";
+import type { IconName } from "../../../shared/icons/types.ts";
+import type { ChapterResourcesPayload } from "../services/chapterResourcesService.ts";
 
 export type ResourceTabType =
   | "infographic"
@@ -37,8 +38,6 @@ export interface ResourceTabButtonProps {
   onPress: (tabId: ResourceTabType) => void;
 }
 
-import { ChapterResourcesPayload } from "../services";
-
 export interface ResourceContainerProps {
   activeTab: ResourceTabType;
   chapterTitle: string;
@@ -48,4 +47,3 @@ export interface ResourceContainerProps {
   flashcardIndex: number;
   onFlashcardIndexChange: (index: number) => void;
 }
-

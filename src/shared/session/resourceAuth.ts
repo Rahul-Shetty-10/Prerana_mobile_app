@@ -1,6 +1,6 @@
-import { appConfig } from "../../config";
-import { shouldInvalidateSession } from "../../api/mobileApiPolicy";
-import { getTenantAuthHeaders } from "./tenantHeaders";
+import { appConfig } from "../../config.ts";
+import { shouldInvalidateSession } from "../../api/mobileApiPolicy.ts";
+import { getTenantAuthHeaders } from "./tenantHeaders.ts";
 
 /**
  * Clerk credentials are sent only to the configured API origin. External or
@@ -9,8 +9,9 @@ import { getTenantAuthHeaders } from "./tenantHeaders";
  */
 export function isTrustedApiResourceUrl(resourceUrl: string): boolean {
   try {
-    const apiUrl = new URL(appConfig.apiBaseUrl);
-    const targetUrl = new URL(resourceUrl, appConfig.apiBaseUrl);
+    const apiBase = appConfig.apiBaseUrl.trim() || "https://app.smartguru.in/api/mobile/v1";
+    const apiUrl = new URL(apiBase);
+    const targetUrl = new URL(resourceUrl, apiBase);
     return targetUrl.origin === apiUrl.origin;
   } catch {
     return false;

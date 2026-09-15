@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getStorageKeyForIdentity, type StorageIdentity } from "./storageScope";
+import { getStorageKeyForIdentity, type StorageIdentity } from "./storageScope.ts";
 
-export type { StorageIdentity } from "./storageScope";
+export type { StorageIdentity } from "./storageScope.ts";
 
 let activeIdentity: StorageIdentity | null = null;
 

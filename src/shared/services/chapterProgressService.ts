@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ResourceTabType } from "../../features/subjects/types";
-import { SubjectProgressItem } from "../../features/profile/types";
-import { getUserStorageKey } from "./userStorage";
+import type { ResourceTabType } from "../../features/subjects/types/chapterResource.ts";
+import type { SubjectProgressItem } from "../../features/profile/types/profile.ts";
+import { getUserStorageKey } from "./userStorage.ts";
 
 export const MILESTONES_STORAGE_KEY = "@prerana_chapter_milestones";
 
@@ -20,10 +20,16 @@ export interface ChapterMilestones {
   subjectId: string;
   infographicSeen?: boolean;
   mindmapSeen?: boolean;
+  slidedeckSeen?: boolean;
+  textbookSeen?: boolean;
+  flashcardsSeen?: boolean;
+  tableSeen?: boolean;
   audioSeen?: boolean;
+  videoSeen?: boolean;
   quizCompleted?: boolean;
   quizScorePercent?: number;
   questionsSolvedCount?: number;
+  seenResources?: string[];
 }
 
 export async function getAllMilestones(): Promise<Record<string, ChapterMilestones>> {
@@ -76,14 +82,43 @@ export async function markMilestoneSeen(
   subjectId: string,
   milestone: ResourceTabType
 ): Promise<void> {
-  const updates: Partial<ChapterMilestones> = {};
-  if (milestone === "infographic") updates.infographicSeen = true;
-  else if (milestone === "mindmap") updates.mindmapSeen = true;
-  else if (milestone === "audio") updates.audioSeen = true;
+  const all = await getAllMilestones();
+  const current = all[chapterId] || { chapterId, subjectId: normalizeSubjectId(subjectId) };
+  const seenSet = new Set<string>(current.seenResources || []);
+  seenSet.add(milestone);
 
-  if (Object.keys(updates).length > 0) {
-    await saveMilestones(chapterId, subjectId, updates);
+  const updates: Partial<ChapterMilestones> = {
+    seenResources: Array.from(seenSet),
+  };
+
+  switch (milestone) {
+    case "infographic":
+      updates.infographicSeen = true;
+      break;
+    case "mindmap":
+      updates.mindmapSeen = true;
+      break;
+    case "slidedeck":
+      updates.slidedeckSeen = true;
+      break;
+    case "textbook":
+      updates.textbookSeen = true;
+      break;
+    case "flashcards":
+      updates.flashcardsSeen = true;
+      break;
+    case "table":
+      updates.tableSeen = true;
+      break;
+    case "audio":
+      updates.audioSeen = true;
+      break;
+    case "video":
+      updates.videoSeen = true;
+      break;
   }
+
+  await saveMilestones(chapterId, subjectId, updates);
 }
 
 export async function markQuizCompleted(
@@ -99,11 +134,18 @@ export async function markQuizCompleted(
   });
 }
 
+export function isMilestoneCompleted(m?: ChapterMilestones): boolean {
+  if (!m) return false;
+  const hasSeenAnyResource =
+    Boolean(m.infographicSeen || m.mindmapSeen || m.slidedeckSeen || m.textbookSeen || m.flashcardsSeen || m.tableSeen || m.audioSeen || m.videoSeen) ||
+    (Array.isArray(m.seenResources) && m.seenResources.length > 0);
+  return Boolean(hasSeenAnyResource && m.quizCompleted);
+}
+
 export async function isChapterCompleted(chapterId: string): Promise<boolean> {
   const all = await getAllMilestones();
   const m = all[chapterId];
-  if (!m) return false;
-  return !!(m.infographicSeen && m.mindmapSeen && m.audioSeen && m.quizCompleted);
+  return isMilestoneCompleted(m);
 }
 
 export async function getCompletedChaptersCount(subjectId: string): Promise<number> {
@@ -111,7 +153,7 @@ export async function getCompletedChaptersCount(subjectId: string): Promise<numb
   const normalized = normalizeSubjectId(subjectId);
   let count = 0;
   for (const m of Object.values(all)) {
-    if (m.subjectId === normalized && m.infographicSeen && m.mindmapSeen && m.audioSeen && m.quizCompleted) {
+    if (m.subjectId === normalized && isMilestoneCompleted(m)) {
       count++;
     }
   }
@@ -124,8 +166,10 @@ export async function getSeenChaptersCount(subjectId: string): Promise<number> {
   let count = 0;
   for (const m of Object.values(all)) {
     if (m.subjectId === normalized) {
-      // Visited means at least one resource was opened
-      if (m.infographicSeen || m.mindmapSeen || m.audioSeen || m.quizCompleted) {
+      const hasSeenAny =
+        Boolean(m.infographicSeen || m.mindmapSeen || m.slidedeckSeen || m.textbookSeen || m.flashcardsSeen || m.tableSeen || m.audioSeen || m.videoSeen || m.quizCompleted) ||
+        (Array.isArray(m.seenResources) && m.seenResources.length > 0);
+      if (hasSeenAny) {
         count++;
       }
     }
@@ -152,7 +196,7 @@ export async function getCalculatedStats(): Promise<CalculatedStats> {
       quizCount++;
       questionsSolved += m.questionsSolvedCount ?? 0;
     }
-    if (m.infographicSeen && m.mindmapSeen && m.audioSeen && m.quizCompleted) {
+    if (isMilestoneCompleted(m)) {
       completedChaptersCount++;
     }
   }
