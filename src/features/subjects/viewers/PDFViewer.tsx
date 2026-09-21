@@ -34,9 +34,10 @@ interface PDFViewerProps {
   authToken?: string;
   tenantSlug?: string;
   isSlidedeck?: boolean;
+  onResourceDisplayed?: () => void;
 }
 
-export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) {
+export function PDFViewer({ documentTitle, pdfUrl, authToken, onResourceDisplayed }: PDFViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -56,6 +57,12 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) 
   const targetPageTimeoutRef = useRef<any>(null);
 
 
+
+  useEffect(() => {
+    if (loadState === "ready") {
+      onResourceDisplayed?.();
+    }
+  }, [loadState, onResourceDisplayed]);
 
   useEffect(() => {
     return () => {

@@ -46,4 +46,5 @@ export interface ResourceContainerProps {
   onSlidedeckPageChange: (index: number) => void;
   flashcardIndex: number;
   onFlashcardIndexChange: (index: number) => void;
+  onResourceDisplayed?: (tab: ResourceTabType) => void;
 }

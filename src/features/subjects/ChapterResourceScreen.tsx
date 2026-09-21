@@ -91,12 +91,12 @@ export function ChapterResourceScreen({
     }
   }, [chapter, subjectName, subjectId, activeTab]);
 
-  // Track milestones (Infographic, Mindmap, Slidedeck, Textbook, Flashcards, Table, Audio, Video seen)
-  useEffect(() => {
-    if (chapter && subjectId) {
-      void markMilestoneSeen(chapter.id, subjectId, activeTab);
+  // Track milestones only when a viewer successfully loads and displays a resource
+  const handleResourceDisplayed = (tab: ResourceTabType) => {
+    if (chapter && subjectId && !isLoading && !error && resources) {
+      void markMilestoneSeen(chapter.id, subjectId, tab);
     }
-  }, [chapter, subjectId, activeTab]);
+  };
 
   // Show "Coming Soon" after 5 seconds if still loading and no resources have arrived
   useEffect(() => {
@@ -125,7 +125,7 @@ export function ChapterResourceScreen({
     );
     
     if (hasGames) {
-      return [...RESOURCE_TABS_LIST, { id: "arcade" as any, label: "Arcade", iconName: "game-controller-outline" }];
+      return [...RESOURCE_TABS_LIST, { id: "arcade", label: "Arcade", iconName: "game-controller-outline" }];
     }
     
     return RESOURCE_TABS_LIST;
@@ -133,7 +133,7 @@ export function ChapterResourceScreen({
 
   const handleTabSelect = (tab: ResourceTabType) => {
     // Game tabs navigate immediately rather than switching content pane
-    if (tab === ("arcade" as any)) {
+    if (tab === "arcade") {
       navigateToGame();
       return;
     }
@@ -198,6 +198,7 @@ export function ChapterResourceScreen({
             onSlidedeckPageChange={setSlidedeckPageIndex}
             flashcardIndex={flashcardIndex}
             onFlashcardIndexChange={setFlashcardIndex}
+            onResourceDisplayed={handleResourceDisplayed}
           />
         )}
       </ScrollView>

@@ -5,6 +5,7 @@ export interface ImageViewerProps {
   isMindmap?: boolean;
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
 export interface MindmapNode {
@@ -20,6 +21,7 @@ export interface MindmapViewerProps {
   rootNode?: MindmapNode;
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
 export interface PDFPageItem {
@@ -38,6 +40,7 @@ export interface PDFViewerProps {
   isSlidedeck?: boolean;
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
 export interface FlashcardItem {
@@ -64,6 +67,7 @@ export interface TableViewerProps {
   rows?: TableRowData[];
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
 export interface AudioViewerProps {
@@ -73,6 +77,7 @@ export interface AudioViewerProps {
   speakerName?: string;
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
 export interface VideoViewerProps {
@@ -82,4 +87,5 @@ export interface VideoViewerProps {
   description?: string;
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }

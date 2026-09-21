@@ -33,9 +33,10 @@ interface SlideDeckViewerProps {
   pdfUrl?: string;
   authToken?: string;
   tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
-export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckViewerProps) {
+export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, onResourceDisplayed }: SlideDeckViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -51,6 +52,12 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckV
   const [rotation, setRotation] = useState(0);
 
   const pdfBase64Ref = useRef<string>("");
+
+  useEffect(() => {
+    if (loadState === "ready") {
+      onResourceDisplayed?.();
+    }
+  }, [loadState, onResourceDisplayed]);
 
 
 

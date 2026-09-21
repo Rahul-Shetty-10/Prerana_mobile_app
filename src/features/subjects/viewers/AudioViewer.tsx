@@ -16,6 +16,7 @@ export function AudioViewer({
   audioUrl,
   speakerName = "SmartGuru Audio Tutor",
   authToken,
+  onResourceDisplayed,
 }: AudioViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
@@ -80,6 +81,12 @@ export function AudioViewer({
   const isPlaying = status.playing;
   const currentTime = status.currentTime ?? 0;
   const durationSeconds = status.duration ?? 0;
+
+  useEffect(() => {
+    if (audioUrl && !audioError && !downloading && localAudioPath) {
+      onResourceDisplayed?.();
+    }
+  }, [audioUrl, audioError, downloading, localAudioPath, onResourceDisplayed]);
 
   useEffect(() => {
     setAudioModeAsync({

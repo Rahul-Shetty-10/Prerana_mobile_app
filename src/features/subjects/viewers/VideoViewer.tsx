@@ -10,7 +10,7 @@ import { ContentComingSoon } from "./ContentComingSoon";
 import { AppIcon } from "../../../shared/icons";
 import { escapeHtmlUrl } from "./videoUtils.ts";
 
-export function VideoViewer({ title, videoTitle, videoUrl, description, authToken }: VideoViewerProps) {
+export function VideoViewer({ title, videoTitle, videoUrl, description, authToken, onResourceDisplayed }: VideoViewerProps) {
   const displayTitle = title || videoTitle || "Video Explanation";
   const { theme } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
@@ -19,6 +19,12 @@ export function VideoViewer({ title, videoTitle, videoUrl, description, authToke
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  React.useEffect(() => {
+    if (videoUrl && !isLoading && !hasError) {
+      onResourceDisplayed?.();
+    }
+  }, [videoUrl, isLoading, hasError, onResourceDisplayed]);
 
   const requestHeaders = useMemo(
     () => (videoUrl ? getResourceRequestHeaders(videoUrl, authToken) : undefined),

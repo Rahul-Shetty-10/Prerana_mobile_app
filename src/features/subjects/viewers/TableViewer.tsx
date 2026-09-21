@@ -18,7 +18,7 @@ import { Badge } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ContentComingSoon } from "./ContentComingSoon";
-export function TableViewer({ title, columns: propsColumns, rows: propsRows }: TableViewerProps) {
+export function TableViewer({ title, columns: propsColumns, rows: propsRows, onResourceDisplayed }: TableViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -116,11 +116,12 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
       setColumns(propsColumns);
       setRows(propsRows);
       setIsLoading(false);
+      onResourceDisplayed?.();
       return;
     }
     // No backend data — show Coming Soon state.
     setIsLoading(false);
-  }, [propsColumns, propsRows]);
+  }, [propsColumns, propsRows, onResourceDisplayed]);
 
 
   const handleZoomIn = () => {

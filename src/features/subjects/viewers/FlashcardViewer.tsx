@@ -27,6 +27,7 @@ export interface FlashcardViewerProps {
   currentIndex: number;
   onIndexChange: (index: number) => void;
   flashcards?: FlashcardItem[];
+  onResourceDisplayed?: () => void;
 }
 
 // ─── CSV Parser ──────────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: FlashcardViewerProps) {
+export function FlashcardViewer({ currentIndex, onIndexChange, flashcards, onResourceDisplayed }: FlashcardViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -117,12 +118,15 @@ export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: Fla
       setOriginalCards(flashcards);
       setDisplayCards(flashcards);
       setIsLoading(false);
+      if (flashcards.length > 0) {
+        onResourceDisplayed?.();
+      }
       return;
     }
     // flashcards === undefined means backend has no data for this chapter.
     // Do NOT fall back to local mock CSV — just mark loading done.
     setIsLoading(false);
-  }, [flashcards]);
+  }, [flashcards, onResourceDisplayed]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
 

@@ -20,7 +20,12 @@ export function ResourceContainer({
   onSlidedeckPageChange,
   flashcardIndex,
   onFlashcardIndexChange,
+  onResourceDisplayed,
 }: ResourceContainerProps) {
+  const handleDisplayed = () => {
+    onResourceDisplayed?.(activeTab);
+  };
+
   switch (activeTab) {
     case "infographic":
       if (!resources?.infographicUrl) {
@@ -39,6 +44,7 @@ export function ResourceContainer({
           title={resources?.chapterTitle || `${chapterTitle} Infographic`}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -58,6 +64,7 @@ export function ResourceContainer({
           rootNode={resources?.mindmapRoot || ({ resourceUrl: resources?.mindmapUrl } as any)}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -77,6 +84,7 @@ export function ResourceContainer({
           pdfUrl={resources?.slidedeckUrl}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -98,6 +106,7 @@ export function ResourceContainer({
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
           isSlidedeck={false}
+          onResourceDisplayed={handleDisplayed}
         />
       );
     }
@@ -117,6 +126,7 @@ export function ResourceContainer({
           currentIndex={flashcardIndex}
           onIndexChange={onFlashcardIndexChange}
           flashcards={resources?.flashcards}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -137,6 +147,7 @@ export function ResourceContainer({
           rows={resources?.tableRows}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -157,6 +168,7 @@ export function ResourceContainer({
           durationSeconds={resources?.audioDurationSeconds}
           authToken={resources?.authToken}
           tenantSlug={resources?.tenantSlug}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -176,6 +188,7 @@ export function ResourceContainer({
           videoTitle={resources?.videoTitle || `${chapterTitle} Video Explanation`}
           videoUrl={resources?.videoUrl}
           authToken={resources?.authToken}
+          onResourceDisplayed={handleDisplayed}
         />
       );
 
@@ -186,6 +199,7 @@ export function ResourceContainer({
           imageUrl={resources?.infographicUrl}
           title={resources?.chapterTitle || `${chapterTitle} Infographic`}
           authToken={resources?.authToken}
+          onResourceDisplayed={handleDisplayed}
         />
       );
   }

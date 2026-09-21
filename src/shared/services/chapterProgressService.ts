@@ -5,9 +5,12 @@ import { getUserStorageKey } from "./userStorage.ts";
 
 export const MILESTONES_STORAGE_KEY = "@prerana_chapter_milestones";
 
+let memoryMilestonesCache: Record<string, Record<string, ChapterMilestones>> = {};
+
 export async function clearAllMilestones(): Promise<void> {
   const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
   if (!storageKey) return;
+  delete memoryMilestonesCache[storageKey];
   try {
     await AsyncStorage.removeItem(storageKey);
   } catch (e) {
@@ -37,9 +40,14 @@ export async function getAllMilestones(): Promise<Record<string, ChapterMileston
   if (!storageKey) return {};
   try {
     const json = await AsyncStorage.getItem(storageKey);
-    return json ? JSON.parse(json) : {};
+    if (json) {
+      const parsed = JSON.parse(json);
+      memoryMilestonesCache[storageKey] = parsed;
+      return parsed;
+    }
+    return memoryMilestonesCache[storageKey] || {};
   } catch (e) {
-    return {};
+    return memoryMilestonesCache[storageKey] || {};
   }
 }
 
@@ -48,6 +56,7 @@ export async function saveMilestones(
   subjectId: string,
   updates: Partial<ChapterMilestones>
 ): Promise<ChapterMilestones> {
+  const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
   try {
     const all = await getAllMilestones();
     const current = all[chapterId] || { chapterId, subjectId: normalizeSubjectId(subjectId) };
@@ -57,11 +66,26 @@ export async function saveMilestones(
       subjectId: normalizeSubjectId(updates.subjectId || current.subjectId),
     };
     all[chapterId] = updated;
-    const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
-    if (storageKey) await AsyncStorage.setItem(storageKey, JSON.stringify(all));
+    if (storageKey) {
+      memoryMilestonesCache[storageKey] = all;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(all));
+    }
     return updated;
   } catch (e) {
-    return { chapterId, subjectId, ...updates };
+    const current = (storageKey && memoryMilestonesCache[storageKey]?.[chapterId]) || {
+      chapterId,
+      subjectId: normalizeSubjectId(subjectId),
+    };
+    const updated: ChapterMilestones = {
+      ...current,
+      ...updates,
+      subjectId: normalizeSubjectId(updates.subjectId || current.subjectId),
+    };
+    if (storageKey) {
+      if (!memoryMilestonesCache[storageKey]) memoryMilestonesCache[storageKey] = {};
+      memoryMilestonesCache[storageKey][chapterId] = updated;
+    }
+    return updated;
   }
 }
 
@@ -134,18 +158,61 @@ export async function markQuizCompleted(
   });
 }
 
-export function isMilestoneCompleted(m?: ChapterMilestones): boolean {
+export function isMilestoneCompleted(
+  m?: ChapterMilestones,
+  availableResources?: ResourceTabType[]
+): boolean {
   if (!m) return false;
+  if (!m.quizCompleted) return false;
+
+  if (availableResources && availableResources.length > 0) {
+    const seenSet = new Set(m.seenResources || []);
+    const isSeen = (type: ResourceTabType) => {
+      switch (type) {
+        case "infographic":
+          return Boolean(m.infographicSeen);
+        case "mindmap":
+          return Boolean(m.mindmapSeen);
+        case "slidedeck":
+          return Boolean(m.slidedeckSeen);
+        case "textbook":
+          return Boolean(m.textbookSeen);
+        case "flashcards":
+          return Boolean(m.flashcardsSeen);
+        case "table":
+          return Boolean(m.tableSeen);
+        case "audio":
+          return Boolean(m.audioSeen);
+        case "video":
+          return Boolean(m.videoSeen);
+        default:
+          return seenSet.has(type);
+      }
+    };
+    return availableResources.every((res) => isSeen(res) || seenSet.has(res));
+  }
+
   const hasSeenAnyResource =
-    Boolean(m.infographicSeen || m.mindmapSeen || m.slidedeckSeen || m.textbookSeen || m.flashcardsSeen || m.tableSeen || m.audioSeen || m.videoSeen) ||
-    (Array.isArray(m.seenResources) && m.seenResources.length > 0);
+    Boolean(
+      m.infographicSeen ||
+        m.mindmapSeen ||
+        m.slidedeckSeen ||
+        m.textbookSeen ||
+        m.flashcardsSeen ||
+        m.tableSeen ||
+        m.audioSeen ||
+        m.videoSeen
+    ) || (Array.isArray(m.seenResources) && m.seenResources.length > 0);
   return Boolean(hasSeenAnyResource && m.quizCompleted);
 }
 
-export async function isChapterCompleted(chapterId: string): Promise<boolean> {
+export async function isChapterCompleted(
+  chapterId: string,
+  availableResources?: ResourceTabType[]
+): Promise<boolean> {
   const all = await getAllMilestones();
   const m = all[chapterId];
-  return isMilestoneCompleted(m);
+  return isMilestoneCompleted(m, availableResources);
 }
 
 export async function getCompletedChaptersCount(subjectId: string): Promise<number> {

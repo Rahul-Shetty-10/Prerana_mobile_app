@@ -96,6 +96,7 @@ export function ZoomPanView({
   const initialDistance = useRef(0);
   const pinchStartScale = useRef(1);
   const isPinching = useRef(false);
+  const panStartTranslate = useRef({ x: 0, y: 0 });
 
   const panResponder = useRef(
     PanResponder.create({
@@ -127,6 +128,7 @@ export function ZoomPanView({
           pinchStartScale.current = lastScale.current;
         } else {
           isPinching.current = false;
+          panStartTranslate.current = { x: lastTranslate.current.x, y: lastTranslate.current.y };
         }
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -150,8 +152,8 @@ export function ZoomPanView({
         } else if (numTouches === 1 && !isPinching.current) {
           const dx = gestureState.dx;
           const dy = gestureState.dy;
-          translateX.setValue(lastTranslate.current.x + dx);
-          translateY.setValue(lastTranslate.current.y + dy);
+          translateX.setValue(panStartTranslate.current.x + dx);
+          translateY.setValue(panStartTranslate.current.y + dy);
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
@@ -176,12 +178,12 @@ export function ZoomPanView({
           setZoomScale(1);
         } else {
           lastScale.current = currentScale;
-          if (!wasPinching) {
-            lastTranslate.current = {
-              x: lastTranslate.current.x + (gestureState.dx || 0),
-              y: lastTranslate.current.y + (gestureState.dy || 0),
-            };
-          }
+          const targetX = wasPinching
+            ? lastTranslate.current.x
+            : panStartTranslate.current.x + (gestureState.dx || 0);
+          const targetY = wasPinching
+            ? lastTranslate.current.y
+            : panStartTranslate.current.y + (gestureState.dy || 0);
 
           const currentRotation = rotationRef.current;
           const currentIsRotated = currentRotation % 180 !== 0;
@@ -191,15 +193,19 @@ export function ZoomPanView({
           const maxDragX = (effW * currentScale - effW) / 2 + 50;
           const maxDragY = (effH * currentScale - effH) / 2 + 50;
 
-          let boundedX = Math.max(-maxDragX, Math.min(lastTranslate.current.x, maxDragX));
-          let boundedY = Math.max(-maxDragY, Math.min(lastTranslate.current.y, maxDragY));
+          let boundedX = Math.max(-maxDragX, Math.min(targetX, maxDragX));
+          let boundedY = Math.max(-maxDragY, Math.min(targetY, maxDragY));
 
-          if (boundedX !== lastTranslate.current.x || boundedY !== lastTranslate.current.y) {
+          lastTranslate.current = { x: boundedX, y: boundedY };
+
+          if (boundedX !== targetX || boundedY !== targetY) {
             Animated.parallel([
               Animated.spring(translateX, { toValue: boundedX, useNativeDriver: true, friction: 8, tension: 50 }),
               Animated.spring(translateY, { toValue: boundedY, useNativeDriver: true, friction: 8, tension: 50 }),
             ]).start();
-            lastTranslate.current = { x: boundedX, y: boundedY };
+          } else {
+            translateX.setValue(boundedX);
+            translateY.setValue(boundedY);
           }
         }
       },
