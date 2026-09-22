@@ -1,13 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ResourceTabType } from "../../features/subjects/types";
-import { SubjectProgressItem } from "../../features/profile/types";
-import { getUserStorageKey } from "./userStorage";
+import type { ResourceTabType } from "../../features/subjects/types/chapterResource.ts";
+import type { SubjectProgressItem } from "../../features/profile/types/profile.ts";
+import { getUserStorageKey } from "./userStorage.ts";
 
 export const MILESTONES_STORAGE_KEY = "@prerana_chapter_milestones";
+
+let memoryMilestonesCache: Record<string, Record<string, ChapterMilestones>> = {};
 
 export async function clearAllMilestones(): Promise<void> {
   const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
   if (!storageKey) return;
+  delete memoryMilestonesCache[storageKey];
   try {
     await AsyncStorage.removeItem(storageKey);
   } catch (e) {
@@ -20,10 +23,16 @@ export interface ChapterMilestones {
   subjectId: string;
   infographicSeen?: boolean;
   mindmapSeen?: boolean;
+  slidedeckSeen?: boolean;
+  textbookSeen?: boolean;
+  flashcardsSeen?: boolean;
+  tableSeen?: boolean;
   audioSeen?: boolean;
+  videoSeen?: boolean;
   quizCompleted?: boolean;
   quizScorePercent?: number;
   questionsSolvedCount?: number;
+  seenResources?: string[];
 }
 
 export async function getAllMilestones(): Promise<Record<string, ChapterMilestones>> {
@@ -31,9 +40,14 @@ export async function getAllMilestones(): Promise<Record<string, ChapterMileston
   if (!storageKey) return {};
   try {
     const json = await AsyncStorage.getItem(storageKey);
-    return json ? JSON.parse(json) : {};
+    if (json) {
+      const parsed = JSON.parse(json);
+      memoryMilestonesCache[storageKey] = parsed;
+      return parsed;
+    }
+    return memoryMilestonesCache[storageKey] || {};
   } catch (e) {
-    return {};
+    return memoryMilestonesCache[storageKey] || {};
   }
 }
 
@@ -42,6 +56,7 @@ export async function saveMilestones(
   subjectId: string,
   updates: Partial<ChapterMilestones>
 ): Promise<ChapterMilestones> {
+  const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
   try {
     const all = await getAllMilestones();
     const current = all[chapterId] || { chapterId, subjectId: normalizeSubjectId(subjectId) };
@@ -51,11 +66,26 @@ export async function saveMilestones(
       subjectId: normalizeSubjectId(updates.subjectId || current.subjectId),
     };
     all[chapterId] = updated;
-    const storageKey = getUserStorageKey(MILESTONES_STORAGE_KEY);
-    if (storageKey) await AsyncStorage.setItem(storageKey, JSON.stringify(all));
+    if (storageKey) {
+      memoryMilestonesCache[storageKey] = all;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(all));
+    }
     return updated;
   } catch (e) {
-    return { chapterId, subjectId, ...updates };
+    const current = (storageKey && memoryMilestonesCache[storageKey]?.[chapterId]) || {
+      chapterId,
+      subjectId: normalizeSubjectId(subjectId),
+    };
+    const updated: ChapterMilestones = {
+      ...current,
+      ...updates,
+      subjectId: normalizeSubjectId(updates.subjectId || current.subjectId),
+    };
+    if (storageKey) {
+      if (!memoryMilestonesCache[storageKey]) memoryMilestonesCache[storageKey] = {};
+      memoryMilestonesCache[storageKey][chapterId] = updated;
+    }
+    return updated;
   }
 }
 
@@ -76,14 +106,43 @@ export async function markMilestoneSeen(
   subjectId: string,
   milestone: ResourceTabType
 ): Promise<void> {
-  const updates: Partial<ChapterMilestones> = {};
-  if (milestone === "infographic") updates.infographicSeen = true;
-  else if (milestone === "mindmap") updates.mindmapSeen = true;
-  else if (milestone === "audio") updates.audioSeen = true;
+  const all = await getAllMilestones();
+  const current = all[chapterId] || { chapterId, subjectId: normalizeSubjectId(subjectId) };
+  const seenSet = new Set<string>(current.seenResources || []);
+  seenSet.add(milestone);
 
-  if (Object.keys(updates).length > 0) {
-    await saveMilestones(chapterId, subjectId, updates);
+  const updates: Partial<ChapterMilestones> = {
+    seenResources: Array.from(seenSet),
+  };
+
+  switch (milestone) {
+    case "infographic":
+      updates.infographicSeen = true;
+      break;
+    case "mindmap":
+      updates.mindmapSeen = true;
+      break;
+    case "slidedeck":
+      updates.slidedeckSeen = true;
+      break;
+    case "textbook":
+      updates.textbookSeen = true;
+      break;
+    case "flashcards":
+      updates.flashcardsSeen = true;
+      break;
+    case "table":
+      updates.tableSeen = true;
+      break;
+    case "audio":
+      updates.audioSeen = true;
+      break;
+    case "video":
+      updates.videoSeen = true;
+      break;
   }
+
+  await saveMilestones(chapterId, subjectId, updates);
 }
 
 export async function markQuizCompleted(
@@ -99,19 +158,117 @@ export async function markQuizCompleted(
   });
 }
 
-export async function isChapterCompleted(chapterId: string): Promise<boolean> {
-  const all = await getAllMilestones();
-  const m = all[chapterId];
-  if (!m) return false;
-  return !!(m.infographicSeen && m.mindmapSeen && m.audioSeen && m.quizCompleted);
+export function extractChapterResourceTypes(ch: any): ResourceTabType[] | undefined {
+  if (!ch || typeof ch !== "object") return undefined;
+  if (Array.isArray(ch.resourceTypes) && ch.resourceTypes.length > 0) {
+    return ch.resourceTypes;
+  }
+  if (Array.isArray(ch.availableResources) && ch.availableResources.length > 0) {
+    return ch.availableResources;
+  }
+  if (Array.isArray(ch.resources) && ch.resources.length > 0) {
+    const types: ResourceTabType[] = [];
+    for (const r of ch.resources) {
+      const type = typeof r === "string" ? r : r?.type;
+      if (type && !types.includes(type as ResourceTabType)) {
+        types.push(type as ResourceTabType);
+      }
+    }
+    if (types.length > 0) return types;
+  }
+  if (ch.resources && typeof ch.resources === "object") {
+    const types: ResourceTabType[] = [];
+    if (ch.resources.infographicUrl || ch.resources.infographic) types.push("infographic");
+    if (ch.resources.mindmapUrl || ch.resources.mindmapRoot || ch.resources.mindmap) types.push("mindmap");
+    if (ch.resources.slidedeckUrl || ch.resources.slidedeck) types.push("slidedeck");
+    if (ch.resources.textbookNotesUrl || ch.resources.textbookUrl || ch.resources.textbook) types.push("textbook");
+    if (ch.resources.flashcards && Array.isArray(ch.resources.flashcards) && ch.resources.flashcards.length > 0) types.push("flashcards");
+    if (ch.resources.tableColumns || ch.resources.table) types.push("table");
+    if (ch.resources.audioUrl || ch.resources.audio) types.push("audio");
+    if (ch.resources.videoUrl || ch.resources.video) types.push("video");
+    if (types.length > 0) return types;
+  }
+  return undefined;
 }
 
-export async function getCompletedChaptersCount(subjectId: string): Promise<number> {
+export function isMilestoneCompleted(
+  m?: ChapterMilestones,
+  availableResources?: (ResourceTabType | string)[]
+): boolean {
+  if (!m || !m.quizCompleted) return false;
+
+  const validResources = availableResources
+    ? availableResources.filter((r) => r !== "arcade" && r !== "quiz")
+    : undefined;
+
+  if (validResources && validResources.length > 0) {
+    const seenSet = new Set(m.seenResources || []);
+    const isSeen = (type: ResourceTabType | string) => {
+      switch (type) {
+        case "infographic":
+          return Boolean(m.infographicSeen);
+        case "mindmap":
+          return Boolean(m.mindmapSeen);
+        case "slidedeck":
+          return Boolean(m.slidedeckSeen);
+        case "textbook":
+          return Boolean(m.textbookSeen);
+        case "flashcards":
+          return Boolean(m.flashcardsSeen);
+        case "table":
+          return Boolean(m.tableSeen);
+        case "audio":
+          return Boolean(m.audioSeen);
+        case "video":
+          return Boolean(m.videoSeen);
+        default:
+          return seenSet.has(type);
+      }
+    };
+    return validResources.every((res) => isSeen(res) || seenSet.has(res));
+  }
+
+  const hasSeenAnyResource =
+    Boolean(
+      m.infographicSeen ||
+        m.mindmapSeen ||
+        m.slidedeckSeen ||
+        m.textbookSeen ||
+        m.flashcardsSeen ||
+        m.tableSeen ||
+        m.audioSeen ||
+        m.videoSeen
+    ) || (Array.isArray(m.seenResources) && m.seenResources.length > 0);
+  return Boolean(hasSeenAnyResource && m.quizCompleted);
+}
+
+export async function isChapterCompleted(
+  chapterId: string,
+  availableResources?: (ResourceTabType | string)[]
+): Promise<boolean> {
   const all = await getAllMilestones();
+  const m = all[chapterId];
+  return isMilestoneCompleted(m, availableResources);
+}
+
+export async function getCompletedChaptersCount(
+  subjectId: string,
+  chapters?: { id: string; resourceTypes?: (ResourceTabType | string)[] }[]
+): Promise<number> {
   const normalized = normalizeSubjectId(subjectId);
+  if (chapters && chapters.length > 0) {
+    let count = 0;
+    for (const ch of chapters) {
+      const isComp = await isChapterCompleted(ch.id, ch.resourceTypes);
+      if (isComp) count++;
+    }
+    return count;
+  }
+
+  const all = await getAllMilestones();
   let count = 0;
   for (const m of Object.values(all)) {
-    if (m.subjectId === normalized && m.infographicSeen && m.mindmapSeen && m.audioSeen && m.quizCompleted) {
+    if (m.subjectId === normalized && isMilestoneCompleted(m)) {
       count++;
     }
   }
@@ -124,8 +281,10 @@ export async function getSeenChaptersCount(subjectId: string): Promise<number> {
   let count = 0;
   for (const m of Object.values(all)) {
     if (m.subjectId === normalized) {
-      // Visited means at least one resource was opened
-      if (m.infographicSeen || m.mindmapSeen || m.audioSeen || m.quizCompleted) {
+      const hasSeenAny =
+        Boolean(m.infographicSeen || m.mindmapSeen || m.slidedeckSeen || m.textbookSeen || m.flashcardsSeen || m.tableSeen || m.audioSeen || m.videoSeen || m.quizCompleted) ||
+        (Array.isArray(m.seenResources) && m.seenResources.length > 0);
+      if (hasSeenAny) {
         count++;
       }
     }
@@ -152,7 +311,7 @@ export async function getCalculatedStats(): Promise<CalculatedStats> {
       quizCount++;
       questionsSolved += m.questionsSolvedCount ?? 0;
     }
-    if (m.infographicSeen && m.mindmapSeen && m.audioSeen && m.quizCompleted) {
+    if (isMilestoneCompleted(m)) {
       completedChaptersCount++;
     }
   }

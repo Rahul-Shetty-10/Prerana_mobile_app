@@ -15,19 +15,7 @@ import { Badge, Button } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ContentComingSoon } from "./ContentComingSoon";
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface FlashcardItem {
-  id: string;
-  frontText: string;
-  backText: string;
-}
-
-export interface FlashcardViewerProps {
-  currentIndex: number;
-  onIndexChange: (index: number) => void;
-  flashcards?: FlashcardItem[];
-}
+import { FlashcardItem, FlashcardViewerProps } from "../types";
 
 // ─── CSV Parser ──────────────────────────────────────────────────────────────
 // Handles quoted fields containing commas and newlines
@@ -91,7 +79,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: FlashcardViewerProps) {
+export function FlashcardViewer({ currentIndex, onIndexChange, flashcards, onResourceDisplayed }: FlashcardViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -110,6 +98,8 @@ export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: Fla
 
   // ── Load CSV ──────────────────────────────────────────────────────────────
 
+  const displayedRef = useRef<boolean>(false);
+
   useEffect(() => {
     // If backend explicitly provided flashcards (even empty array), use them.
     // If backend provided NO flashcards (undefined), show Coming Soon — do NOT load local mock.
@@ -117,12 +107,16 @@ export function FlashcardViewer({ currentIndex, onIndexChange, flashcards }: Fla
       setOriginalCards(flashcards);
       setDisplayCards(flashcards);
       setIsLoading(false);
+      if (flashcards.length > 0 && !displayedRef.current) {
+        displayedRef.current = true;
+        onResourceDisplayed?.();
+      }
       return;
     }
     // flashcards === undefined means backend has no data for this chapter.
     // Do NOT fall back to local mock CSV — just mark loading done.
     setIsLoading(false);
-  }, [flashcards]);
+  }, [flashcards, onResourceDisplayed]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
 

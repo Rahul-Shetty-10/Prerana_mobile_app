@@ -164,7 +164,7 @@ function layoutMindmap(rootNode: MindmapNode) {
   return { nodes, connections, details };
 }
 
-export function MindmapViewer({ title, rootNode, authToken }: MindmapViewerProps) {
+export function MindmapViewer({ title, rootNode, authToken, onResourceDisplayed }: MindmapViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
@@ -189,6 +189,12 @@ export function MindmapViewer({ title, rootNode, authToken }: MindmapViewerProps
   const [rotation, setRotation] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isWebViewLoading, setIsWebViewLoading] = useState(true);
+
+  useEffect(() => {
+    if (activeRoot && !isLoadingRemote && !fetchError) {
+      onResourceDisplayed?.();
+    }
+  }, [activeRoot, isLoadingRemote, fetchError, onResourceDisplayed]);
 
   // 3. Remote JSON fetching effect
   useEffect(() => {
@@ -249,12 +255,14 @@ export function MindmapViewer({ title, rootNode, authToken }: MindmapViewerProps
     };
   }, [rootNode, authToken]);
 
-  // 4. Sync selectedNodeId when activeRoot changes
+  const displayedRef = useRef<boolean>(false);
+
   useEffect(() => {
-    if (activeRoot?.id) {
-      setSelectedNodeId(activeRoot.id);
+    if (activeRoot && !isLoadingRemote && !fetchError && !displayedRef.current) {
+      displayedRef.current = true;
+      onResourceDisplayed?.();
     }
-  }, [activeRoot]);
+  }, [activeRoot, isLoadingRemote, fetchError, onResourceDisplayed]);
 
   // 5. Compute Layout unconditionally
   const { nodes, connections, details } = useMemo(() => {

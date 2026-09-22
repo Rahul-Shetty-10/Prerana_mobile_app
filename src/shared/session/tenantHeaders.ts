@@ -1,4 +1,4 @@
-import { getRequiredTenantSlug } from "./sessionStore";
+import { getRequiredTenantSlug } from "./sessionStore.ts";
 
 export function getTenantAuthHeaders(authToken: string): Record<string, string> {
   return {

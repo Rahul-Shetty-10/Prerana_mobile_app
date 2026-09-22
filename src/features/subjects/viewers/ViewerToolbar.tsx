@@ -26,6 +26,7 @@ export function ViewerToolbar({
   const { theme } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors);
+  const touchHitSlop = { top: 6, bottom: 6, left: 6, right: 6 };
 
   return (
     <View style={styles.container}>
@@ -33,6 +34,8 @@ export function ViewerToolbar({
         {onZoomOut && (
           <Pressable
             accessibilityLabel="Zoom Out"
+            accessibilityRole="button"
+            hitSlop={touchHitSlop}
             onPress={onZoomOut}
             style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           >
@@ -43,6 +46,8 @@ export function ViewerToolbar({
         {onZoomIn && (
           <Pressable
             accessibilityLabel="Zoom In"
+            accessibilityRole="button"
+            hitSlop={touchHitSlop}
             onPress={onZoomIn}
             style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           >
@@ -53,6 +58,8 @@ export function ViewerToolbar({
         {onRotate && (
           <Pressable
             accessibilityLabel="Rotate Clockwise"
+            accessibilityRole="button"
+            hitSlop={touchHitSlop}
             onPress={onRotate}
             style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           >
@@ -62,7 +69,9 @@ export function ViewerToolbar({
 
         {onToggleFullscreen && (
           <Pressable
-            accessibilityLabel="Toggle Fullscreen"
+            accessibilityLabel={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            accessibilityRole="button"
+            hitSlop={touchHitSlop}
             onPress={onToggleFullscreen}
             style={({ pressed }) => [styles.btn, styles.accentBtn, pressed && styles.pressed]}
           >
@@ -76,8 +85,10 @@ export function ViewerToolbar({
 
         {onDownload && (
           <Pressable
-            accessibilityLabel="Download"
+            accessibilityLabel="Download Resource"
+            accessibilityRole="button"
             disabled={isDownloading}
+            hitSlop={touchHitSlop}
             onPress={onDownload}
             style={({ pressed }) => [
               styles.btn,

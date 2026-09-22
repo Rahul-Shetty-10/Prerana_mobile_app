@@ -32,9 +32,11 @@ interface SlideDeckViewerProps {
   documentTitle: string;
   pdfUrl?: string;
   authToken?: string;
+  tenantSlug?: string;
+  onResourceDisplayed?: () => void;
 }
 
-export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckViewerProps) {
+export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, onResourceDisplayed }: SlideDeckViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -50,6 +52,12 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckV
   const [rotation, setRotation] = useState(0);
 
   const pdfBase64Ref = useRef<string>("");
+
+  useEffect(() => {
+    if (loadState === "ready") {
+      onResourceDisplayed?.();
+    }
+  }, [loadState, onResourceDisplayed]);
 
 
 
@@ -147,12 +155,18 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken }: SlideDeckV
     loadSlidedeck();
   }, [pdfUrl]);
 
+  const displayedRef = useRef<boolean>(false);
+
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "PDF_LOADED") {
         setTotalPages(data.totalPages);
         setLoadState("ready");
+        if (!displayedRef.current) {
+          displayedRef.current = true;
+          onResourceDisplayed?.();
+        }
       } else if (data.type === "SLIDE_CHANGE") {
         setCurrentPage(data.current);
       } else if (data.type === "ERROR") {

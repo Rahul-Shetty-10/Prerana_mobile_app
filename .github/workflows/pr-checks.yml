@@ -1,0 +1,45 @@
+name: PR Production Readiness Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify:
+    name: Run Automated Tests & Release Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: Run Automated Unit Tests
+        run: npm test
+
+      - name: Expo Doctor Check
+        run: npx expo-doctor
+
+      - name: Release Validator Check
+        run: npm run release:validate
+        env:
+          EAS_BUILD_PROFILE: production
+          EXPO_PUBLIC_API_BASE_URL: https://app.smartguru.in/api/mobile/v1
+          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsuc21hcnRndXJ1LmluJA
+          EXPO_PUBLIC_STORAGE_BASE_URL: https://murshidaudio.s3.ap-south-1.amazonaws.com
+          EXPO_PUBLIC_PRIVACY_POLICY_URL: https://prerana.smartguru.in/privacy-policy
+          EXPO_PUBLIC_TERMS_URL: https://prerana.smartguru.in/terms-and-conditions
+          EXPO_PUBLIC_ACCOUNT_DELETION_URL: https://prerana.smartguru.in/delete-account
+          EXPO_PUBLIC_PRIVACY_EMAIL: murshidsmartguru@gmail.com
+          EXPO_PUBLIC_SUPPORT_EMAIL: murshidsmartguru@gmail.com

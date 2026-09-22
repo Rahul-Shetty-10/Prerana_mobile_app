@@ -41,6 +41,7 @@ export function ImageViewer({
   imageUrl,
   isMindmap = false,
   authToken,
+  onResourceDisplayed,
 }: ImageViewerProps) {
   const { theme } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
@@ -136,6 +137,16 @@ export function ImageViewer({
     }
   };
 
+  const displayedUriRef = useRef<string | null>(null);
+
+  const handleImageSuccess = () => {
+    setIsImageLoading(false);
+    if (imageUrl && displayedUriRef.current !== imageUrl) {
+      displayedUriRef.current = imageUrl;
+      onResourceDisplayed?.();
+    }
+  };
+
   const renderScrollableImage = (height: number) => (
     <View style={{ width: CARD_WIDTH, height, justifyContent: "center", alignItems: "center" }}>
       {isImageLoading && (
@@ -157,6 +168,7 @@ export function ImageViewer({
               resizeMode="contain"
               source={activeImage}
               onLoadStart={() => setIsImageLoading(true)}
+              onLoad={handleImageSuccess}
               onLoadEnd={() => setIsImageLoading(false)}
               onError={() => {
                 setIsImageLoading(false);

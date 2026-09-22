@@ -3,13 +3,13 @@ import {
   clearActiveStorageIdentity,
   clearScopedStorageForIdentity,
   setActiveStorageIdentity,
-} from "../services/userStorage";
+} from "../services/userStorage.ts";
 import {
   isValidStoredSession,
   type MobileSession,
-} from "./sessionValidation";
+} from "./sessionValidation.ts";
 
-export type { MobileSession } from "./sessionValidation";
+export type { MobileSession } from "./sessionValidation.ts";
 
 const SESSION_STORAGE_KEY_PREFIX = "@prerana_session:";
 const LEGACY_SESSION_STORAGE_KEY = "@prerana_session";

@@ -61,10 +61,6 @@ if (clerkKey && !clerkKey.startsWith("pk_live_")) {
   failures.push("EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY must be a live Clerk key for production");
 }
 
-if (process.env.EXPO_PUBLIC_TENANT_SLUG?.trim()) {
-  failures.push("EXPO_PUBLIC_TENANT_SLUG must be unset; tenant selection is backend-driven");
-}
-
 for (const [name, value] of legalUrls) {
   if (!value) continue;
   try {
