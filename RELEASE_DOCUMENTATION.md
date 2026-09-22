@@ -112,7 +112,19 @@ An installed build only receives OTA updates if it was itself built with `expo-u
 
 App icons carry no alpha channel, which the App Store requires.
 
-## 9. Release verification checklist
+## 9. Known backend gaps in this release
+
+These features are gated off in `src/featureFlags.ts` because the backend does not serve them. Nothing in the app links to them, so there are no dead ends, but they are absent from the shipped build. Turn the flag on and rebuild once the route exists.
+
+| Gated | Missing route | User-visible effect |
+| --- | --- | --- |
+| Quizzes Home, Assessment History, Quiz Landing | `/student/quizzes-home`, `/student/assessment-history`, `/student/quiz-landing` | The "View Quizzes" shortcut is not shown in the subject workspace. |
+| Profile achievements | `/student/achievements` | The achievements section shows its empty state. |
+| Chapter quizzes beyond the mapped chapter | none resolves a chapter's `quizId` | "Quiz Yourself" appears only on chapters listed in `quizIdResolver.ts`. Other chapters complete on their resources alone. |
+
+The single highest-value backend change for this app is an endpoint returning a chapter's quiz for the signed-in student — the Convex query `assessments/quizzes:getStudentChapterQuiz` already implements the logic, or `/student/chapter-resources` could include the `quizId`. That alone would restore quizzes across every chapter.
+
+## 10. Release verification checklist
 
 - [ ] `dev` merged to `main` and CI green on the merge commit.
 - [ ] Correct EAS account active and project ID matches section 2.
@@ -121,9 +133,11 @@ App icons carry no alpha channel, which the App Store requires.
 - [ ] Backend `/session` returns a student session and rejects multiple memberships.
 - [ ] Dashboard loads from the production API.
 - [ ] Subjects and chapter resources load; all eight resource types render.
-- [ ] Chapter completion requires every resource the chapter offers, plus the quiz.
+- [ ] Chapter completion requires every resource the chapter offers, plus the quiz where the chapter has one.
+- [ ] A chapter with no quiz completes once all its resources have been viewed.
+- [ ] "Quiz Yourself" appears only on chapters that can actually start a quiz.
 - [ ] Dashboard, Profile, and the subject workspace report the same completed-chapter count.
-- [ ] Quiz/exercise flow works.
+- [ ] Fundamentals exercise flow works end to end (the quiz path that does not depend on a quizId map).
 - [ ] Library featured resources open the correct tab.
 - [ ] Arcade screens open.
 - [ ] Sign-out, account switch, and relaunch work without leaking the previous tenant's data.
@@ -134,7 +148,7 @@ App icons carry no alpha channel, which the App Store requires.
 - [ ] Store declarations and listings complete.
 - [ ] Release submitted/published.
 
-## 10. Release record
+## 11. Release record
 
 - Android EAS build ID: `PENDING`
 - Android build URL: `PENDING`
@@ -152,7 +166,7 @@ App icons carry no alpha channel, which the App Store requires.
 - Production publication date: `PENDING`
 - Final status: `PENDING`
 
-## 11. Reference documentation
+## 12. Reference documentation
 
 - Expo Android production build: https://docs.expo.dev/tutorial/eas/android-production-build/
 - Expo iOS production build: https://docs.expo.dev/tutorial/eas/ios-production-build/

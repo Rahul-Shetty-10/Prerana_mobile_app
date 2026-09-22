@@ -67,6 +67,28 @@ npm run ota:production -- --message "Describe the change"
 
 An installed build only receives OTA updates if it was itself built with `expo-updates` present; a build produced before OTA was configured must be replaced first. OTA is appropriate for JavaScript, styling, and bundled asset changes. Changes to Expo/RN versions, native dependencies, permissions, app configuration, icons, or native code require a new native build on both platforms. Never put secrets in an OTA update; `EXPO_PUBLIC_*` values are public by design.
 
+## Backend coverage
+
+The mobile API implements these routes and no others:
+
+```txt
+/session                        /student/library
+/student/dashboard              /student/profile
+/student/learning-snapshot      /student/chapter-resources
+/student/fundamentals/catalog   /student/quiz-attempts   (GET only)
+/student/fundamentals/track     /student/content-requests
+```
+
+Features that need anything else are gated off in [src/featureFlags.ts](src/featureFlags.ts), which records the route each one waits on. The screens are still in the codebase, so enabling a flag is the only change needed once its route ships. Currently gated:
+
+| Flag | Waiting on |
+| --- | --- |
+| `assessmentsHub` | `/student/quizzes-home`, `/student/assessment-history`, `/student/quiz-landing` |
+| `achievements` | `/student/achievements` |
+| `chapterQuizForAllChapters` | any route resolving a chapter's quiz for the signed-in student |
+
+Creating and submitting a quiz attempt goes to `POST /api/student/quiz-attempts`, a web route authenticated with the raw Clerk session token rather than the `convex` template token. That is deliberate: the mobile `/student/quiz-attempts` route is read-only. No route returns a chapter's `quizId`, so a chapter offers a quiz only when [quizIdResolver.ts](src/features/exercise/services/quizIdResolver.ts) has an entry for it, and a chapter without one completes on its resources alone.
+
 ## Quality gate
 
 Run these before opening a pull request. CI runs the same sequence on every PR into `main` or `dev`, and EAS runs `release:validate` again before every production build.
