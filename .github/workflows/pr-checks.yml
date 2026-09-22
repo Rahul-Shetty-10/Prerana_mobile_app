@@ -4,11 +4,32 @@ on:
   pull_request:
     branches:
       - main
+      - dev
+  push:
+    branches:
+      - dev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     name: Run Automated Tests & Release Validation
     runs-on: ubuntu-latest
+
+    # Public EXPO_PUBLIC_* values only. These are inlined into the JS bundle at
+    # build time and are not secrets; nothing private may be added here.
+    env:
+      EXPO_PUBLIC_API_BASE_URL: https://app.smartguru.in/api/mobile/v1
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsuc21hcnRndXJ1LmluJA
+      EXPO_PUBLIC_STORAGE_BASE_URL: https://murshidaudio.s3.ap-south-1.amazonaws.com
+      EXPO_PUBLIC_PRIVACY_POLICY_URL: https://prerana.smartguru.in/privacy-policy
+      EXPO_PUBLIC_TERMS_URL: https://prerana.smartguru.in/terms-and-conditions
+      EXPO_PUBLIC_ACCOUNT_DELETION_URL: https://prerana.smartguru.in/delete-account
+      EXPO_PUBLIC_PRIVACY_EMAIL: murshidsmartguru@gmail.com
+      EXPO_PUBLIC_SUPPORT_EMAIL: murshidsmartguru@gmail.com
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -23,23 +44,28 @@ jobs:
         run: npm ci
 
       - name: TypeScript Check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Run Automated Unit Tests
         run: npm test
 
+      # Installed from the lockfile rather than fetched by npx, so the result
+      # depends only on the committed dependency set.
       - name: Expo Doctor Check
-        run: npx expo-doctor
+        run: npx --no-install expo-doctor
 
       - name: Release Validator Check
         run: npm run release:validate
         env:
           EAS_BUILD_PROFILE: production
-          EXPO_PUBLIC_API_BASE_URL: https://app.smartguru.in/api/mobile/v1
-          EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsuc21hcnRndXJ1LmluJA
-          EXPO_PUBLIC_STORAGE_BASE_URL: https://murshidaudio.s3.ap-south-1.amazonaws.com
-          EXPO_PUBLIC_PRIVACY_POLICY_URL: https://prerana.smartguru.in/privacy-policy
-          EXPO_PUBLIC_TERMS_URL: https://prerana.smartguru.in/terms-and-conditions
-          EXPO_PUBLIC_ACCOUNT_DELETION_URL: https://prerana.smartguru.in/delete-account
-          EXPO_PUBLIC_PRIVACY_EMAIL: murshidsmartguru@gmail.com
-          EXPO_PUBLIC_SUPPORT_EMAIL: murshidsmartguru@gmail.com
+
+      - name: OTA Configuration Check
+        run: npm run ota:validate
+
+      # The check that actually proves the app still builds: type errors and
+      # unit tests do not catch a broken import or a missing native module.
+      - name: Bundle Android
+        run: npx --no-install expo export --platform android --output-dir .expo/export-android
+
+      - name: Bundle iOS
+        run: npx --no-install expo export --platform ios --output-dir .expo/export-ios

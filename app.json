@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "ios": {
+      "bundleIdentifier": "com.ellipsonic.prerana",
       "supportsTablet": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -14,7 +15,8 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/android-icon-foreground.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.ellipsonic.prerana",

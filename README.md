@@ -65,7 +65,24 @@ Publish to production only after testing the preview build:
 npm run ota:production -- --message "Describe the change"
 ```
 
-The current AAB that was built before `expo-updates` was added cannot receive OTA updates. A new OTA-enabled Android build must be installed or released first. OTA is appropriate for JavaScript, styling, and bundled asset changes. Changes to Expo/RN versions, native dependencies, permissions, app configuration, or native code require a new Android build. Never put secrets in an OTA update; `EXPO_PUBLIC_*` values are public by design.
+An installed build only receives OTA updates if it was itself built with `expo-updates` present; a build produced before OTA was configured must be replaced first. OTA is appropriate for JavaScript, styling, and bundled asset changes. Changes to Expo/RN versions, native dependencies, permissions, app configuration, icons, or native code require a new native build on both platforms. Never put secrets in an OTA update; `EXPO_PUBLIC_*` values are public by design.
+
+## Quality gate
+
+Run these before opening a pull request. CI runs the same sequence on every PR into `main` or `dev`, and EAS runs `release:validate` again before every production build.
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npx expo-doctor
+npm run ota:validate
+EAS_BUILD_PROFILE=production npm run release:validate
+npx expo export --platform android --output-dir .expo/export-android
+npx expo export --platform ios --output-dir .expo/export-ios
+```
+
+Work merges into `dev` first; `dev` is what gets proposed to `main` for a release. Build and release steps for both stores are in [RELEASE_DOCUMENTATION.md](RELEASE_DOCUMENTATION.md).
 
 ## API testing
 

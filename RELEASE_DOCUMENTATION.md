@@ -1,123 +1,163 @@
-# Prerana Mobile Android Release Documentation
+# Prerana Mobile Release Documentation
 
-This is the living release record for publishing Prerana Mobile to Google Play. Update the pending sections as the company EAS account, package ID, credentials, builds, testing, and Play Console release are completed.
+Living release record for publishing Prerana Mobile to Google Play and the App Store. Update the pending sections as builds, testing, and store releases are completed.
 
 ## 1. Repository baseline
 
 - Repository: `https://github.com/Rahul-Shetty-10/Prerana_mobile_app.git`
-- Branch: `main`
-- Baseline commit at handoff: `b02c6eb`
+- Release branch: `main`
+- Integration branch: `dev`
 - App technology: Expo / React Native
 - Expo SDK: 57
+- Node: 22.x, npm: 10.x (enforced by `engines` and pinned in each EAS build profile)
 - Production build profile: `production` in `eas.json`
-- Current worktree validation: `npm run typecheck` passes
-- Dependency validation: `npm ci --ignore-scripts` passes after refreshing `package-lock.json`
 
-## 2. Changes completed during release preparation
+## 2. Application identifiers
 
-- Cloned the repository into the workspace.
-- Installed project dependencies.
-- Installed the EAS CLI globally.
-- Refreshed `package-lock.json` because the original lockfile was missing optional `lightningcss` platform packages required by `npm ci`.
-- Confirmed the Expo configuration resolves successfully.
-- Confirmed the TypeScript check passes.
-- Multi-tenant session and request isolation have been implemented in the mobile client; backend contract work remains separately tracked.
+These are configured and must not be changed casually. Once an app exists in either store, its identifier is effectively permanent.
+
+| Item | Value |
+| --- | --- |
+| EAS owner | `ellipsonic1` |
+| EAS project ID | `d10db3ee-05c5-4a6b-b750-e7177a77a458` |
+| Android application ID | `com.ellipsonic.prerana` |
+| iOS bundle identifier | `com.ellipsonic.prerana` |
+| App Store Connect app ID | `6812982050` |
+| App name | Prerana |
+| Version name | `1.0.0` (`expo.version` in `app.json`) |
+
+Build numbers (`android.versionCode`, `ios.buildNumber`) are deliberately absent from `app.json`. `eas.json` sets `cli.appVersionSource: "remote"`, so EAS stores and auto-increments them; values in app config would be ignored.
 
 ## 3. Environment variables
 
-The production environment must contain these values:
+The EAS `production` environment must contain:
 
 ```env
 EXPO_PUBLIC_API_BASE_URL=https://app.smartguru.in/api/mobile/v1
-EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<real production Clerk publishable key>
-# Do not set EXPO_PUBLIC_TENANT_SLUG. Tenant selection is backend-driven.
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<production Clerk publishable key, pk_live_...>
+EXPO_PUBLIC_STORAGE_BASE_URL=https://murshidaudio.s3.ap-south-1.amazonaws.com
+EXPO_PUBLIC_PRIVACY_POLICY_URL=https://prerana.smartguru.in/privacy-policy
+EXPO_PUBLIC_TERMS_URL=https://prerana.smartguru.in/terms-and-conditions
+EXPO_PUBLIC_ACCOUNT_DELETION_URL=https://prerana.smartguru.in/delete-account
+EXPO_PUBLIC_PRIVACY_EMAIL=<privacy contact address>
+EXPO_PUBLIC_SUPPORT_EMAIL=<support contact address>
 ```
 
-Do not commit `.env` or paste the real Clerk key into source control. For an EAS build, add these variables to the EAS `production` environment. The Clerk project and backend must use the matching production configuration and the `convex` JWT template.
+Do not set `EXPO_PUBLIC_TENANT_SLUG`. Tenant selection is backend-driven, and `scripts/validate-release.mjs` fails the production build if that variable is present.
 
-## 4. Company ownership and identifiers — pending confirmation
+`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle and are public by design. Never place a secret in one. Do not commit `.env`.
 
-These values must be confirmed before the first Play Console release:
+## 4. Pre-build verification
 
-- Company EAS account/owner: `PENDING`
-- Company EAS project ID: `PENDING`
-- Permanent Android application ID: `PENDING`
-- Play Console app name: `PENDING`
-- Google Play developer account: `PENDING`
-- Android signing owner/credentials: `PENDING`
+`npm run eas-build-pre-install` runs `scripts/validate-release.mjs` on every EAS build, so a misconfigured production environment fails before the native build starts.
 
-The current application ID is `com.darshu_2228.preranamobile`. This is an intern/personal-looking identifier and should be replaced with a company-approved reverse-domain identifier before the first Play Console app is created. Do not invent a replacement. Once the first app is uploaded, the package name is effectively permanent and cannot be casually changed.
+Run the full gate locally before raising a release PR:
 
-After the company approves the new ID, update `expo.android.package` in `app.json`, reconnect the project to the company EAS project, and regenerate/verify Android credentials before building.
+```bash
+npm ci
+npm run typecheck
+npm test
+npx expo-doctor
+npm run ota:validate
+EAS_BUILD_PROFILE=production npm run release:validate
+npx expo export --platform android --output-dir .expo/export-android
+npx expo export --platform ios --output-dir .expo/export-ios
+```
 
-## 5. Recommended EAS build flow
+CI (`.github/workflows/pr-checks.yml`) runs the same sequence on every pull request into `main` or `dev`.
 
-After the company EAS account and identifiers are ready:
+## 5. Build flow
 
 ```bash
 eas login
-eas project:info
-eas build --platform android --profile production
+eas project:info          # confirm owner and project ID match section 2
+eas build --platform android --profile production   # .aab
+eas build --platform ios --profile production       # .ipa
 ```
 
-The production profile is configured to produce an Android App Bundle (`.aab`) and auto-increment the Android version code. Download the completed `.aab` from the EAS build page or from the CLI output.
+Other profiles: `preview` (internal distribution), `apk` (installable Android APK for manual testing), `development` (dev client).
 
-Before the first build, confirm that the EAS project shown by `eas project:info` belongs to the company account and that its Android application identifier matches `app.json`.
+iOS builds require an Apple Developer Program membership on the company account and an App Store Connect API key or Apple ID with access to app `6812982050`. EAS can manage the distribution certificate and provisioning profile.
 
 ## 6. Signing
 
-For a brand-new Play Console app, EAS can create and manage the Android keystore. The senior/company owner must approve this choice and retain access to the credentials.
+- **Android** — EAS manages the upload keystore. The company owner must retain access to these credentials. Never replace an existing production keystore without explicit approval.
+- **iOS** — EAS manages the distribution certificate and provisioning profile against the company Apple Developer account.
 
-If the company already has a keystore for this application ID, use that existing upload/signing setup. Never replace an existing production keystore without explicit approval.
+## 7. Over-the-air updates
 
-## 7. Play Console first release
+The app ships with `expo-updates`. `runtimeVersion.policy` is `fingerprint`, and each build profile maps to a matching EAS Update channel.
 
-1. In Play Console, choose **Create app**.
-2. Use the approved app name, default language, app/game type, free/paid status, and support email.
-3. Ensure the package name matches the built `.aab` exactly.
-4. Configure Play App Signing.
-5. Complete the store listing, screenshots, privacy policy, content rating, target audience, Data Safety, and declarations.
-6. Upload the `.aab` to Internal testing first.
-7. Install and test the internal release on a real Android device.
-8. Fix any Play Console warnings or policy issues.
-9. Promote to closed/open testing or production according to the company release plan.
+OTA is appropriate for JavaScript, styling, and bundled asset changes only. Changes to the Expo SDK, React Native, native dependencies, permissions, app configuration, or icons require a new native build. See the README for the publishing commands.
 
-## 8. Release verification checklist
+An installed build only receives OTA updates if it was itself built with `expo-updates` present. Builds produced before OTA was configured cannot be updated over the air.
 
-- [ ] Correct company EAS account is active.
-- [ ] Correct company EAS project ID is in `app.json`.
-- [ ] Approved company Android application ID is in `app.json`.
-- [ ] Production environment variables are configured in EAS.
+## 8. Store submission
+
+### Google Play
+
+1. Confirm the `.aab` package name matches `com.ellipsonic.prerana`.
+2. Configure Play App Signing.
+3. Complete the store listing, screenshots, privacy policy, content rating, target audience, Data Safety, and declarations. Store listing icon source art is in `assets/store/`.
+4. Upload to Internal testing first and install on a real device.
+5. Resolve any Play Console warnings, then promote to closed/open testing or production.
+
+### App Store
+
+1. Confirm the `.ipa` bundle identifier matches `com.ellipsonic.prerana`.
+2. `eas submit --platform ios --profile production` uploads to App Store Connect app `6812982050`.
+3. Complete the App Store listing, screenshots for every required device size, privacy nutrition labels, and the account deletion declaration (the app exposes `EXPO_PUBLIC_ACCOUNT_DELETION_URL`).
+4. Distribute via TestFlight and test on a real device before submitting for review.
+5. Submit for review.
+
+App icons carry no alpha channel, which the App Store requires.
+
+## 9. Release verification checklist
+
+- [ ] `dev` merged to `main` and CI green on the merge commit.
+- [ ] Correct EAS account active and project ID matches section 2.
+- [ ] Production environment variables configured in EAS; `EXPO_PUBLIC_TENANT_SLUG` absent.
 - [ ] Clerk production login works.
-- [ ] Backend `/session` returns a student session.
+- [ ] Backend `/session` returns a student session and rejects multiple memberships.
 - [ ] Dashboard loads from the production API.
-- [ ] Subjects and chapter resources load.
+- [ ] Subjects and chapter resources load; all eight resource types render.
+- [ ] Chapter completion requires every resource the chapter offers, plus the quiz.
+- [ ] Dashboard, Profile, and the subject workspace report the same completed-chapter count.
 - [ ] Quiz/exercise flow works.
-- [ ] Library and profile load.
+- [ ] Library featured resources open the correct tab.
 - [ ] Arcade screens open.
-- [ ] Android production build completes.
-- [ ] `.aab` package name matches the Play Console app.
-- [ ] Internal testing installation succeeds.
-- [ ] Sign-out and relaunch work.
-- [ ] Play Console declarations and store listing are complete.
-- [ ] Release is submitted/published.
+- [ ] Sign-out, account switch, and relaunch work without leaking the previous tenant's data.
+- [ ] Android production build completes; `.aab` package name matches Play Console.
+- [ ] iOS production build completes; `.ipa` bundle ID matches App Store Connect.
+- [ ] Internal testing / TestFlight installation succeeds on real devices.
+- [ ] OTA preview update publishes and applies on a relaunch.
+- [ ] Store declarations and listings complete.
+- [ ] Release submitted/published.
 
-## 9. Release record
+## 10. Release record
 
-- EAS build ID: `PENDING`
-- EAS build URL: `PENDING`
+- Android EAS build ID: `PENDING`
+- Android build URL: `PENDING`
 - `.aab` filename: `PENDING`
+- iOS EAS build ID: `PENDING`
+- iOS build URL: `PENDING`
+- `.ipa` filename: `PENDING`
 - Version name: `PENDING`
-- Version code: `PENDING`
+- Android version code: `PENDING`
+- iOS build number: `PENDING`
 - SHA-256/upload certificate: `PENDING`
 - Play Console app URL: `PENDING`
-- Internal testing date: `PENDING`
+- App Store Connect URL: `PENDING`
+- Internal testing / TestFlight date: `PENDING`
 - Production publication date: `PENDING`
 - Final status: `PENDING`
 
-## 10. Reference documentation
+## 11. Reference documentation
 
-- Expo Android submission: https://docs.expo.dev/submit/android/
 - Expo Android production build: https://docs.expo.dev/tutorial/eas/android-production-build/
+- Expo iOS production build: https://docs.expo.dev/tutorial/eas/ios-production-build/
+- Expo Android submission: https://docs.expo.dev/submit/android/
+- Expo iOS submission: https://docs.expo.dev/submit/ios/
+- EAS app versions: https://docs.expo.dev/build-reference/app-versions/
+- EAS Update: https://docs.expo.dev/eas-update/introduction/
 - Google Play app setup: https://support.google.com/googleplay/android-developer/answer/9859152
-- Google Play release preparation: https://support.google.com/googleplay/android-developer/answer/9859348
