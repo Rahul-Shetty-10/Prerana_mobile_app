@@ -190,11 +190,6 @@ export function MindmapViewer({ title, rootNode, authToken, onResourceDisplayed 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isWebViewLoading, setIsWebViewLoading] = useState(true);
 
-  useEffect(() => {
-    if (activeRoot && !isLoadingRemote && !fetchError) {
-      onResourceDisplayed?.();
-    }
-  }, [activeRoot, isLoadingRemote, fetchError, onResourceDisplayed]);
 
   // 3. Remote JSON fetching effect
   useEffect(() => {

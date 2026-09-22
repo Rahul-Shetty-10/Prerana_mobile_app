@@ -3,7 +3,6 @@ import test from "node:test";
 import { isTrustedApiResourceUrl, getResourceRequestHeaders } from "../src/shared/session/resourceAuth.ts";
 import { setMobileSession } from "../src/shared/session/sessionStore.ts";
 import { isMilestoneCompleted, type ChapterMilestones } from "../src/shared/services/chapterProgressService.ts";
-import { escapeHtmlUrl } from "../src/features/subjects/viewers/videoUtils.ts";
 import { RESOURCE_TABS_LIST } from "../src/features/subjects/constants/chapterResourceData.ts";
 
 test("RESOURCE_TABS_LIST contains all 8 supported resource types", () => {
@@ -87,31 +86,3 @@ test("isMilestoneCompleted allows brand-new users to complete chapter with prese
   assert.equal(isMilestoneCompleted(multiResourceChapter), true);
 });
 
-test("escapeHtmlUrl properly escapes special HTML characters to prevent XSS", () => {
-  const rawUrl = 'https://example.com/video.mp4?title="test"&id=<123>';
-  const escaped = escapeHtmlUrl(rawUrl);
-  assert.equal(escaped.includes('"'), false);
-  assert.equal(escaped.includes('<'), false);
-  assert.equal(escaped.includes('>'), false);
-  assert.ok(escaped.includes("&quot;"));
-  assert.ok(escaped.includes("&lt;"));
-  assert.ok(escaped.includes("&gt;"));
-  assert.ok(escaped.includes("&amp;"));
-});
-
-test("rotation-aware aspect math swaps width and height correctly", () => {
-  const width = 400;
-  const height = 300;
-
-  const isRotated0 = 0 % 180 !== 0; // false
-  const effW0 = isRotated0 ? height : width;
-  const effH0 = isRotated0 ? width : height;
-  assert.equal(effW0, 400);
-  assert.equal(effH0, 300);
-
-  const isRotated90 = 90 % 180 !== 0; // true
-  const effW90 = isRotated90 ? height : width;
-  const effH90 = isRotated90 ? width : height;
-  assert.equal(effW90, 300);
-  assert.equal(effH90, 400);
-});

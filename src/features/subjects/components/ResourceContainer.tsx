@@ -1,5 +1,6 @@
 import React from "react";
 import { ResourceContainerProps } from "../types";
+import { isResourceAvailable } from "../services/resourceAvailability.ts";
 import {
   AudioViewer,
   ContentComingSoon,
@@ -22,13 +23,15 @@ export function ResourceContainer({
   onFlashcardIndexChange,
   onResourceDisplayed,
 }: ResourceContainerProps) {
-  const handleDisplayed = () => {
+  // Stable per tab: viewers use this in effect dependencies, so a fresh
+  // identity on every render would re-fire progress tracking continuously.
+  const handleDisplayed = React.useCallback(() => {
     onResourceDisplayed?.(activeTab);
-  };
+  }, [onResourceDisplayed, activeTab]);
 
   switch (activeTab) {
     case "infographic":
-      if (!resources?.infographicUrl) {
+      if (!isResourceAvailable("infographic", resources)) {
         return (
           <ContentComingSoon
             icon="image-outline"
@@ -49,7 +52,7 @@ export function ResourceContainer({
       );
 
     case "mindmap":
-      if (!resources?.mindmapUrl && !resources?.mindmapRoot) {
+      if (!isResourceAvailable("mindmap", resources)) {
         return (
           <ContentComingSoon
             icon="git-network-outline"
@@ -69,7 +72,7 @@ export function ResourceContainer({
       );
 
     case "slidedeck":
-      if (!resources?.slidedeckUrl) {
+      if (!isResourceAvailable("slidedeck", resources)) {
         return (
           <ContentComingSoon
             icon="easel-outline"
@@ -90,7 +93,7 @@ export function ResourceContainer({
 
     case "textbook": {
       const textbookPdf = resources?.textbookUrl || resources?.textbookNotesUrl;
-      if (!textbookPdf) {
+      if (!isResourceAvailable("textbook", resources)) {
         return (
           <ContentComingSoon
             icon="book-outline"
@@ -112,7 +115,7 @@ export function ResourceContainer({
     }
 
     case "flashcards":
-      if (!resources?.flashcards || resources.flashcards.length === 0) {
+      if (!isResourceAvailable("flashcards", resources)) {
         return (
           <ContentComingSoon
             icon="card-outline"
@@ -131,7 +134,7 @@ export function ResourceContainer({
       );
 
     case "table":
-      if (!resources?.tableColumns || resources.tableColumns.length === 0) {
+      if (!isResourceAvailable("table", resources)) {
         return (
           <ContentComingSoon
             icon="grid-outline"
@@ -152,7 +155,7 @@ export function ResourceContainer({
       );
 
     case "audio":
-      if (!resources?.audioUrl) {
+      if (!isResourceAvailable("audio", resources)) {
         return (
           <ContentComingSoon
             icon="headset-outline"
@@ -173,7 +176,7 @@ export function ResourceContainer({
       );
 
     case "video":
-      if (!resources?.videoUrl) {
+      if (!isResourceAvailable("video", resources)) {
         return (
           <ContentComingSoon
             icon="videocam-outline"
@@ -193,13 +196,13 @@ export function ResourceContainer({
       );
 
     default:
+      // Never silently substitute the infographic for an unhandled tab: that
+      // shows the wrong content and would credit the wrong resource.
       return (
-        <ImageViewer
-          description={resources?.infographicDescription || "Visual concept flowchart and summary diagram."}
-          imageUrl={resources?.infographicUrl}
-          title={resources?.chapterTitle || `${chapterTitle} Infographic`}
-          authToken={resources?.authToken}
-          onResourceDisplayed={handleDisplayed}
+        <ContentComingSoon
+          icon="albums-outline"
+          title="Resource Unavailable"
+          message="This resource type is not supported in this version of the app."
         />
       );
   }

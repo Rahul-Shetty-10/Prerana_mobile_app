@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { setMobileSession } from "../src/shared/session/sessionStore.ts";
 import { getResourceRequestHeaders, isTrustedApiResourceUrl } from "../src/shared/session/resourceAuth.ts";
 import { shouldInvalidateSession } from "../src/api/mobileApiPolicy.ts";
@@ -11,104 +13,39 @@ import {
   markQuizCompleted,
 } from "../src/shared/services/chapterProgressService.ts";
 import type { ResourceTabType } from "../src/features/subjects/types/chapterResource.ts";
+import { RESOURCE_TABS_LIST } from "../src/features/subjects/constants/chapterResourceData.ts";
 
-// Helper representing the viewer mapping registry in ResourceContainer
-function getViewerComponentName(tab: ResourceTabType, hasData: boolean): string {
-  if (!hasData) return "ContentComingSoon";
-  switch (tab) {
-    case "infographic":
-      return "ImageViewer";
-    case "slidedeck":
-      return "SlideDeckViewer";
-    case "flashcards":
-      return "FlashcardViewer";
-    case "audio":
-      return "AudioViewer";
-    case "video":
-      return "VideoViewer";
-    case "mindmap":
-      return "MindmapViewer";
-    case "textbook":
-      return "PDFViewer";
-    case "table":
-      return "TableViewer";
-    case "arcade":
-      return "ArcadeViewer";
-    default:
-      return "ImageViewer";
-  }
-}
+// ─── FLOW A/B: LIBRARY FEATURED RESOURCE → CORRECT TAB ────────────────
+//
+// These read the real navigation and data modules rather than a local copy of
+// the mapping, so a regression in either is caught here.
 
-// ─── FLOW A: BACKEND RESOURCE → CORRECT VIEWER ─────────────────────────────
+const LIBRARY_NAVIGATOR = readFileSync(join(process.cwd(), "src/navigation/LibraryNavigator.tsx"), "utf8");
+const LIBRARY_DATA = readFileSync(join(process.cwd(), "src/features/library/constants/libraryData.ts"), "utf8");
 
-test("FLOW A: selects correct viewer for each of the 8 supported resource types without fallback", () => {
-  const mapTestCases: { type: ResourceTabType; expectedViewer: string }[] = [
-    { type: "infographic", expectedViewer: "ImageViewer" },
-    { type: "slidedeck", expectedViewer: "SlideDeckViewer" },
-    { type: "flashcards", expectedViewer: "FlashcardViewer" },
-    { type: "audio", expectedViewer: "AudioViewer" },
-    { type: "video", expectedViewer: "VideoViewer" },
-    { type: "mindmap", expectedViewer: "MindmapViewer" },
-    { type: "textbook", expectedViewer: "PDFViewer" },
-    { type: "table", expectedViewer: "TableViewer" },
-  ];
+test("FLOW A: every featured library resource targets a supported resource tab", () => {
+  const supported = new Set<string>(RESOURCE_TABS_LIST.map((tab) => tab.id));
+  const declared = [...LIBRARY_DATA.matchAll(/resourceTab:\s*"([a-z]+)"/g)].map((m) => m[1]);
 
-  for (const { type, expectedViewer } of mapTestCases) {
-    const viewer = getViewerComponentName(type, true);
-    assert.equal(
-      viewer,
-      expectedViewer,
-      `Resource type '${type}' should map to '${expectedViewer}', got '${viewer}'`
-    );
-    assert.notEqual(
-      type === "infographic" ? "" : viewer,
-      "ImageViewer",
-      `Resource type '${type}' must NOT fall back silently to ImageViewer`
-    );
+  assert.ok(declared.length > 0, "expected featured library resources to declare a resourceTab");
+  for (const tab of declared) {
+    assert.ok(supported.has(tab), `featured library resource targets unsupported tab '${tab}'`);
   }
 });
 
-// ─── FLOW B: LIBRARY FEATURED RESOURCE → CORRECT TAB ───────────────────────
-
-test("FLOW B: Library featured resource opens the exact target initialTab for all 8 types", () => {
-  const supportedTabs: ResourceTabType[] = [
-    "infographic",
-    "slidedeck",
-    "flashcards",
-    "audio",
-    "video",
-    "mindmap",
-    "textbook",
-    "table",
-  ];
-
-  for (const targetTab of supportedTabs) {
-    const featuredResource = {
-      id: `feat-${targetTab}`,
-      title: `Sample ${targetTab}`,
-      subjectId: "subj-1",
-      subjectName: "Science",
-      chapterId: "chap-1",
-      chapterName: "Chapter 1: Energy",
-      resourceBadge: (targetTab.charAt(0).toUpperCase() + targetTab.slice(1)) as any,
-      resourceTab: targetTab,
-    };
-
-    // Navigation payload mapping
-    const navParams = {
-      chapter: { id: featuredResource.chapterId, title: featuredResource.chapterName },
-      subjectName: featuredResource.subjectName,
-      subjectId: featuredResource.subjectId,
-      initialTab: featuredResource.resourceTab,
-    };
-
-    assert.equal(navParams.initialTab, targetTab);
-    assert.notEqual(
-      targetTab === "infographic" ? "" : navParams.initialTab,
-      "infographic",
-      `Library resource '${targetTab}' must not fall back to 'infographic'`
-    );
-  }
+test("FLOW B: the library forwards the resource tab instead of defaulting it", () => {
+  assert.ok(
+    LIBRARY_NAVIGATOR.includes("initialTab: resource.resourceTab"),
+    "LibraryNavigator must pass the featured resource tab through as initialTab"
+  );
+  assert.ok(
+    !/initialTab:\s*resource\.resourceTab\s*(\|\||\?\?)/.test(LIBRARY_NAVIGATOR),
+    "initialTab must not fall back to another tab when resourceTab is set"
+  );
+  assert.ok(
+    LIBRARY_NAVIGATOR.includes("screen: \"ChapterResource\""),
+    "featured resources should open the chapter resource screen"
+  );
 });
 
 // ─── FLOW C: AUTHENTICATED RESOURCE LOADING & SECURITY ─────────────────────

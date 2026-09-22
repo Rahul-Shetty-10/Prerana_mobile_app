@@ -8,7 +8,6 @@ import { getResourceRequestHeaders, shouldInvalidateResourceResponse } from "../
 import { VideoViewerProps } from "../types";
 import { ContentComingSoon } from "./ContentComingSoon";
 import { AppIcon } from "../../../shared/icons";
-import { escapeHtmlUrl } from "./videoUtils.ts";
 
 export function VideoViewer({ title, videoTitle, videoUrl, description, authToken, onResourceDisplayed }: VideoViewerProps) {
   const displayTitle = title || videoTitle || "Video Explanation";
@@ -34,20 +33,33 @@ export function VideoViewer({ title, videoTitle, videoUrl, description, authToke
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MEDIA_ERROR', error: String(err || '') }));
         }
       }
-      function checkMedia() {
-        const v = document.querySelector('video');
-        if (v) {
-          if (v.readyState >= 3) {
-            notifyReady();
-          } else {
-            v.addEventListener('canplay', notifyReady, { once: true });
-            v.addEventListener('loadeddata', notifyReady, { once: true });
-            v.addEventListener('playing', notifyReady, { once: true });
-          }
-          v.addEventListener('error', function(e) { notifyError(e); });
-        } else {
+      function attach(v) {
+        if (v.readyState >= 3) {
           notifyReady();
+        } else {
+          v.addEventListener('canplay', notifyReady, { once: true });
+          v.addEventListener('loadeddata', notifyReady, { once: true });
+          v.addEventListener('playing', notifyReady, { once: true });
         }
+        v.addEventListener('error', function(e) { notifyError(e); });
+      }
+      // A document that loads but never produces a playable element is not a
+      // watched video - an HTML error page served with status 200 must not
+      // count as progress. Poll briefly, because the element is often created
+      // by the player script after load.
+      var attempts = 0;
+      function checkMedia() {
+        var v = document.querySelector('video');
+        if (v) { attach(v); return; }
+        attempts++;
+        if (attempts > 40) {
+          // Cross-origin embed players expose no inspectable video element;
+          // treat a rendered iframe as playable rather than failing it.
+          if (document.querySelector('iframe')) { notifyReady(); }
+          else { notifyError('no playable media found'); }
+          return;
+        }
+        setTimeout(checkMedia, 250);
       }
       if (document.readyState === 'complete') {
         checkMedia();
@@ -80,8 +92,6 @@ export function VideoViewer({ title, videoTitle, videoUrl, description, authToke
     () => (videoUrl ? getResourceRequestHeaders(videoUrl, authToken) : undefined),
     [videoUrl, authToken],
   );
-
-  const safeUrl = useMemo(() => (videoUrl ? escapeHtmlUrl(videoUrl) : ""), [videoUrl]);
 
   if (!videoUrl) {
     return (

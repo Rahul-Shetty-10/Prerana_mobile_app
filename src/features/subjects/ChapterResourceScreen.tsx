@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,7 +11,8 @@ import { colors, spacing, typography, radius, shadows } from "../../shared/theme
 import { Header } from "../../shared/components/Header";
 import { AppIcon } from "../../shared/icons";
 import { saveLearningState } from "../../shared/services/learningStateService";
-import { markMilestoneSeen } from "../../shared/services/chapterProgressService";
+import { markMilestoneSeen, recordAvailableResources } from "../../shared/services/chapterProgressService";
+import { listAvailableResourceTypes } from "./services/resourceAvailability.ts";
 import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
@@ -91,12 +92,22 @@ export function ChapterResourceScreen({
     }
   }, [chapter, subjectName, subjectId, activeTab]);
 
+  // Record what this chapter offers as soon as its resources resolve, so every
+  // screen evaluates completion against the same requirement.
+  useEffect(() => {
+    if (!chapter || !subjectId || isLoading || error || !resources) return;
+    void recordAvailableResources(chapter.id, subjectId, listAvailableResourceTypes(resources));
+  }, [chapter, subjectId, isLoading, error, resources]);
+
   // Track milestones only when a viewer successfully loads and displays a resource
-  const handleResourceDisplayed = (tab: ResourceTabType) => {
-    if (chapter && subjectId && !isLoading && !error && resources) {
-      void markMilestoneSeen(chapter.id, subjectId, tab);
-    }
-  };
+  const handleResourceDisplayed = useCallback(
+    (tab: ResourceTabType) => {
+      if (chapter && subjectId && !isLoading && !error && resources) {
+        void markMilestoneSeen(chapter.id, subjectId, tab);
+      }
+    },
+    [chapter, subjectId, isLoading, error, resources]
+  );
 
   // Show "Coming Soon" after 5 seconds if still loading and no resources have arrived
   useEffect(() => {

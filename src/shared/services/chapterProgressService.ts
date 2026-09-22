@@ -33,6 +33,14 @@ export interface ChapterMilestones {
   quizScorePercent?: number;
   questionsSolvedCount?: number;
   seenResources?: string[];
+  /**
+   * The resource types this chapter actually offered, recorded the first time
+   * the chapter's resources loaded. Screens that have no chapter list of their
+   * own (Dashboard, Profile) read it so their completion count matches the
+   * subject workspace exactly. Absent for chapters last opened by an older
+   * build, which fall back to the legacy rule below.
+   */
+  availableResources?: ResourceTabType[];
 }
 
 export async function getAllMilestones(): Promise<Record<string, ChapterMilestones>> {
@@ -145,6 +153,32 @@ export async function markMilestoneSeen(
   await saveMilestones(chapterId, subjectId, updates);
 }
 
+/**
+ * Records which resources a chapter offers, so chapter completion can be
+ * evaluated identically on every screen. Only rewrites storage when the list
+ * actually changes, since this is called each time a chapter's resources load.
+ */
+export async function recordAvailableResources(
+  chapterId: string,
+  subjectId: string,
+  availableResources: ResourceTabType[]
+): Promise<void> {
+  if (availableResources.length === 0) return;
+
+  const all = await getAllMilestones();
+  const current = all[chapterId];
+  const previous = current?.availableResources;
+  if (
+    previous &&
+    previous.length === availableResources.length &&
+    previous.every((type, index) => type === availableResources[index])
+  ) {
+    return;
+  }
+
+  await saveMilestones(chapterId, subjectId, { availableResources });
+}
+
 export async function markQuizCompleted(
   chapterId: string,
   subjectId: string,
@@ -197,8 +231,13 @@ export function isMilestoneCompleted(
 ): boolean {
   if (!m || !m.quizCompleted) return false;
 
-  const validResources = availableResources
-    ? availableResources.filter((r) => r !== "arcade" && r !== "quiz")
+  // Prefer the caller's list (the subject workspace has one), then the list
+  // recorded on the chapter itself. Screens without a chapter list therefore
+  // apply exactly the same requirement instead of a looser one.
+  const resourceRequirement = availableResources ?? m.availableResources;
+
+  const validResources = resourceRequirement
+    ? resourceRequirement.filter((r) => r !== "arcade" && r !== "quiz")
     : undefined;
 
   if (validResources && validResources.length > 0) {

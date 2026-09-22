@@ -8,8 +8,11 @@ import { getTenantAuthHeaders } from "./tenantHeaders.ts";
  * token in a request header.
  */
 export function isTrustedApiResourceUrl(resourceUrl: string): boolean {
+  // Fail closed: without a configured API origin there is no origin we can
+  // vouch for, so no request may carry Clerk credentials.
+  const apiBase = appConfig.apiBaseUrl?.trim();
+  if (!apiBase) return false;
   try {
-    const apiBase = appConfig.apiBaseUrl.trim() || "https://app.smartguru.in/api/mobile/v1";
     const apiUrl = new URL(apiBase);
     const targetUrl = new URL(resourceUrl, apiBase);
     return targetUrl.origin === apiUrl.origin;

@@ -10,7 +10,11 @@ import {
   markQuizCompleted,
   saveMilestones,
   extractChapterResourceTypes,
+  getAllMilestones,
+  isMilestoneCompleted,
+  recordAvailableResources,
 } from "../src/shared/services/chapterProgressService.ts";
+import type { ResourceTabType } from "../src/features/subjects/types/chapterResource.ts";
 
 test("Chapter Completion & Progress Tracking Test Suite", async (t) => {
   await t.test("Chapter with 3 available resources requires all 3 + quiz to complete", async () => {
@@ -120,5 +124,83 @@ test("Chapter Completion & Progress Tracking Test Suite", async (t) => {
     assert.equal(stats.overallAccuracy, 90);
     assert.equal(stats.questionsSolved, 10);
     assert.equal(stats.completedChaptersCount, 1);
+  });
+});
+
+// ─── Dashboard / Profile consistency ────────────────────────────────────────
+//
+// Dashboard and Profile have no chapter list, so they evaluate completion with
+// no explicit resource list. Before the requirement was recorded on the
+// chapter itself they applied a looser rule and reported more completed
+// chapters than the subject workspace for the same data.
+
+test("recorded available resources make every screen agree on completion", async (t) => {
+  await t.test("a partially viewed chapter is incomplete with or without a caller list", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-consistency-1";
+    const subjectId = "subj-science";
+    const available: ResourceTabType[] = ["infographic", "audio", "video"];
+
+    await recordAvailableResources(chapterId, subjectId, available);
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+    await markQuizCompleted(chapterId, subjectId, 80, 10);
+
+    const milestones = (await getAllMilestones())[chapterId];
+
+    // Subject workspace passes the chapter's resource list explicitly.
+    assert.equal(isMilestoneCompleted(milestones, available), false);
+    // Dashboard and Profile pass nothing and must reach the same verdict.
+    assert.equal(isMilestoneCompleted(milestones), false);
+  });
+
+  await t.test("viewing every available resource completes the chapter on both paths", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-consistency-2";
+    const subjectId = "subj-science";
+    const available: ResourceTabType[] = ["infographic", "audio"];
+
+    await recordAvailableResources(chapterId, subjectId, available);
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+    await markMilestoneSeen(chapterId, subjectId, "audio");
+    await markQuizCompleted(chapterId, subjectId, 90, 10);
+
+    const milestones = (await getAllMilestones())[chapterId];
+
+    assert.equal(isMilestoneCompleted(milestones, available), true);
+    assert.equal(isMilestoneCompleted(milestones), true);
+  });
+
+  await t.test("an explicit caller list still wins over the recorded one", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-consistency-3";
+    const subjectId = "subj-maths";
+
+    await recordAvailableResources(chapterId, subjectId, ["infographic", "audio"]);
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+    await markQuizCompleted(chapterId, subjectId, 70, 10);
+
+    const milestones = (await getAllMilestones())[chapterId];
+
+    // Backend now reports only the infographic for this chapter.
+    assert.equal(isMilestoneCompleted(milestones, ["infographic"]), true);
+    assert.equal(isMilestoneCompleted(milestones), false);
+  });
+
+  await t.test("chapters stored by an older build keep the legacy rule", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-legacy";
+    const subjectId = "subj-english";
+
+    // No recordAvailableResources() call: simulates a pre-upgrade milestone.
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+    await markQuizCompleted(chapterId, subjectId, 75, 10);
+
+    const milestones = (await getAllMilestones())[chapterId];
+    assert.equal(milestones.availableResources, undefined);
+    assert.equal(isMilestoneCompleted(milestones), true);
   });
 });

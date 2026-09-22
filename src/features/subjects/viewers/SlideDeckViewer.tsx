@@ -54,11 +54,6 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, onResourceDi
 
   const pdfBase64Ref = useRef<string>("");
 
-  useEffect(() => {
-    if (loadState === "ready") {
-      onResourceDisplayed?.();
-    }
-  }, [loadState, onResourceDisplayed]);
 
 
 

@@ -58,11 +58,6 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, onResourceDisplaye
 
 
 
-  useEffect(() => {
-    if (loadState === "ready") {
-      onResourceDisplayed?.();
-    }
-  }, [loadState, onResourceDisplayed]);
 
   useEffect(() => {
     return () => {
