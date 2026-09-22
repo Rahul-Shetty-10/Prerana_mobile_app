@@ -13,18 +13,24 @@ export function QuickActionsCard({
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
 
-  const actions: { label: string; iconName: IconName; onPress?: () => void }[] = [
+  // An action without a handler is one the caller has chosen not to offer, so
+  // it is left out rather than rendered as a row that does nothing on tap.
+  const actions: { label: string; iconName: IconName; onPress: () => void }[] = [
     {
       label: "Open Fundamentals",
-      iconName: "book-outline",
+      iconName: "book-outline" as IconName,
       onPress: onOpenFundamentals,
     },
     {
       label: "View Quizzes",
-      iconName: "help-circle-outline",
+      iconName: "help-circle-outline" as IconName,
       onPress: onViewQuizzes,
     },
-  ];
+  ].filter((action): action is { label: string; iconName: IconName; onPress: () => void } =>
+    typeof action.onPress === "function"
+  );
+
+  if (actions.length === 0) return null;
 
   return (
     <View style={styles.card}>
@@ -36,7 +42,7 @@ export function QuickActionsCard({
             key={idx}
             accessibilityRole="button"
             onPress={act.onPress}
-            style={({ pressed }) => [styles.actionRow, pressed && act.onPress && styles.pressed]}
+            style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}
           >
             <View style={styles.iconShell}>
               <AppIcon color={colors.primary.light} name={act.iconName} size={18} />

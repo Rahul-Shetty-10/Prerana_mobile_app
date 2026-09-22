@@ -41,6 +41,14 @@ export interface ChapterMilestones {
    * build, which fall back to the legacy rule below.
    */
   availableResources?: ResourceTabType[];
+  /**
+   * Whether this chapter offers a quiz at all, recorded alongside
+   * `availableResources`. Chapters with no quiz complete on their resources
+   * alone; requiring a quiz that cannot be started would leave them
+   * permanently incomplete. Absent for chapters last opened by an older
+   * build, which keep requiring the quiz.
+   */
+  quizAvailable?: boolean;
 }
 
 export async function getAllMilestones(): Promise<Record<string, ChapterMilestones>> {
@@ -161,7 +169,8 @@ export async function markMilestoneSeen(
 export async function recordAvailableResources(
   chapterId: string,
   subjectId: string,
-  availableResources: ResourceTabType[]
+  availableResources: ResourceTabType[],
+  quizAvailable: boolean
 ): Promise<void> {
   if (availableResources.length === 0) return;
 
@@ -171,12 +180,13 @@ export async function recordAvailableResources(
   if (
     previous &&
     previous.length === availableResources.length &&
-    previous.every((type, index) => type === availableResources[index])
+    previous.every((type, index) => type === availableResources[index]) &&
+    current?.quizAvailable === quizAvailable
   ) {
     return;
   }
 
-  await saveMilestones(chapterId, subjectId, { availableResources });
+  await saveMilestones(chapterId, subjectId, { availableResources, quizAvailable });
 }
 
 export async function markQuizCompleted(
@@ -229,7 +239,13 @@ export function isMilestoneCompleted(
   m?: ChapterMilestones,
   availableResources?: (ResourceTabType | string)[]
 ): boolean {
-  if (!m || !m.quizCompleted) return false;
+  if (!m) return false;
+
+  // A chapter the backend offers no quiz for must still be completable, or it
+  // stays permanently unfinished. Milestones written before this was recorded
+  // leave the field undefined and keep requiring the quiz.
+  const quizRequired = m.quizAvailable !== false;
+  if (quizRequired && !m.quizCompleted) return false;
 
   // Prefer the caller's list (the subject workspace has one), then the list
   // recorded on the chapter itself. Screens without a chapter list therefore
@@ -278,7 +294,7 @@ export function isMilestoneCompleted(
         m.audioSeen ||
         m.videoSeen
     ) || (Array.isArray(m.seenResources) && m.seenResources.length > 0);
-  return Boolean(hasSeenAnyResource && m.quizCompleted);
+  return hasSeenAnyResource;
 }
 
 export async function isChapterCompleted(

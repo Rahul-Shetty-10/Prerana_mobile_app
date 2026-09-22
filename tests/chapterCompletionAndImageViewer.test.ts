@@ -204,3 +204,73 @@ test("recorded available resources make every screen agree on completion", async
     assert.equal(isMilestoneCompleted(milestones), true);
   });
 });
+
+// ─── Chapters the backend offers no quiz for ────────────────────────────────
+//
+// No mobile route resolves a chapter's quizId, so most chapters cannot start
+// a quiz at all. Requiring one would leave them permanently incomplete.
+
+test("a chapter with no quiz completes on its resources alone", async (t) => {
+  await t.test("all available resources seen is enough when no quiz exists", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-noquiz-1";
+    const subjectId = "subj-science";
+    const available: ResourceTabType[] = ["infographic", "audio"];
+
+    await recordAvailableResources(chapterId, subjectId, available, false);
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+    await markMilestoneSeen(chapterId, subjectId, "audio");
+
+    const milestones = (await getAllMilestones())[chapterId];
+    assert.equal(milestones.quizCompleted, undefined);
+    assert.equal(isMilestoneCompleted(milestones, available), true);
+    assert.equal(isMilestoneCompleted(milestones), true);
+  });
+
+  await t.test("a partially viewed chapter is still incomplete without a quiz", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-noquiz-2";
+    const subjectId = "subj-science";
+    const available: ResourceTabType[] = ["infographic", "audio", "video"];
+
+    await recordAvailableResources(chapterId, subjectId, available, false);
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+
+    const milestones = (await getAllMilestones())[chapterId];
+    assert.equal(isMilestoneCompleted(milestones), false);
+  });
+
+  await t.test("a chapter that does have a quiz still requires it", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-withquiz";
+    const subjectId = "subj-science";
+    const available: ResourceTabType[] = ["infographic"];
+
+    await recordAvailableResources(chapterId, subjectId, available, true);
+    await markMilestoneSeen(chapterId, subjectId, "infographic");
+
+    let milestones = (await getAllMilestones())[chapterId];
+    assert.equal(isMilestoneCompleted(milestones), false);
+
+    await markQuizCompleted(chapterId, subjectId, 80, 10);
+    milestones = (await getAllMilestones())[chapterId];
+    assert.equal(isMilestoneCompleted(milestones), true);
+  });
+
+  await t.test("quiz availability is recorded even when the resource list is unchanged", async () => {
+    await clearAllMilestones();
+
+    const chapterId = "chap-flip";
+    const subjectId = "subj-maths";
+    const available: ResourceTabType[] = ["infographic"];
+
+    await recordAvailableResources(chapterId, subjectId, available, true);
+    assert.equal((await getAllMilestones())[chapterId].quizAvailable, true);
+
+    await recordAvailableResources(chapterId, subjectId, available, false);
+    assert.equal((await getAllMilestones())[chapterId].quizAvailable, false);
+  });
+});

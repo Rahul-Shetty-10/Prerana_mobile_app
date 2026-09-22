@@ -14,6 +14,8 @@ import { saveLearningState } from "../../shared/services/learningStateService";
 import { markMilestoneSeen, recordAvailableResources } from "../../shared/services/chapterProgressService";
 import { listAvailableResourceTypes } from "./services/resourceAvailability.ts";
 import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
+import { hasChapterQuiz } from "../exercise/services/quizIdResolver.ts";
+import { featureFlags } from "../../featureFlags.ts";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -39,6 +41,10 @@ export function ChapterResourceScreen({
   const styles = getStyles(themeColors);
   const navigation = useNavigation<any>();
   useActiveLearningTracker();
+
+  // Only offer the quiz when one can actually be started for this chapter.
+  // Without it the student hits an error and the chapter can never complete.
+  const quizAvailable = featureFlags.chapterQuizForAllChapters || hasChapterQuiz(chapter.id);
 
   const handleStartQuiz = () => {
     navigation.navigate("Exercise", {
@@ -96,8 +102,13 @@ export function ChapterResourceScreen({
   // screen evaluates completion against the same requirement.
   useEffect(() => {
     if (!chapter || !subjectId || isLoading || error || !resources) return;
-    void recordAvailableResources(chapter.id, subjectId, listAvailableResourceTypes(resources));
-  }, [chapter, subjectId, isLoading, error, resources]);
+    void recordAvailableResources(
+      chapter.id,
+      subjectId,
+      listAvailableResourceTypes(resources),
+      quizAvailable
+    );
+  }, [chapter, subjectId, isLoading, error, resources, quizAvailable]);
 
   // Track milestones only when a viewer successfully loads and displays a resource
   const handleResourceDisplayed = useCallback(
@@ -214,7 +225,8 @@ export function ChapterResourceScreen({
         )}
       </ScrollView>
 
-      {/* Floating Quiz Button */}
+      {/* Floating Quiz Button - only when this chapter actually has a quiz */}
+      {quizAvailable ? (
       <Pressable
         accessibilityLabel="Quiz Yourself"
         accessibilityRole="button"
@@ -227,6 +239,7 @@ export function ChapterResourceScreen({
         <AppIcon color="#FFFFFF" name="clipboard-outline" size={18} />
         <Text style={styles.floatingQuizBtnText}>Quiz Yourself</Text>
       </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
