@@ -90,7 +90,16 @@ The app ships with `expo-updates`. `runtimeVersion.policy` is `fingerprint`, and
 
 OTA is appropriate for JavaScript, styling, and bundled asset changes only. Changes to the Expo SDK, React Native, native dependencies, permissions, app configuration, or icons require a new native build. See the README for the publishing commands.
 
-An installed build only receives OTA updates if it was itself built with `expo-updates` present. Builds produced before OTA was configured cannot be updated over the air.
+An update reaches an installed build only when their runtime versions match. Because the policy is `fingerprint`, that hash covers the native side of the project, including the working tree at build time — two builds from the same commit can differ if one was made with uncommitted dependency changes. Confirm with `eas build:list` before publishing; if the installed build's runtime version differs from the current tree, those users can only be reached by a new store release.
+
+Android build history for reference:
+
+| versionCode | Commit | Channel | Runtime version | OTA-capable |
+| --- | --- | --- | --- | --- |
+| 2 | `1b44baf` | none | none | No — predates `expo-updates` |
+| 4 | `8fdd55b` | `production` | `3af85efa…` | Yes |
+| 5 | `8fdd55b` | `production` | `6be97348…` | Yes |
+| 5 (apk) | `18ba6f6` | `apk` | `85d6cb7e…` | Yes |
 
 ## 8. Store submission
 

@@ -65,7 +65,22 @@ Publish to production only after testing the preview build:
 npm run ota:production -- --message "Describe the change"
 ```
 
-An installed build only receives OTA updates if it was itself built with `expo-updates` present; a build produced before OTA was configured must be replaced first. OTA is appropriate for JavaScript, styling, and bundled asset changes. Changes to Expo/RN versions, native dependencies, permissions, app configuration, icons, or native code require a new native build on both platforms. Never put secrets in an OTA update; `EXPO_PUBLIC_*` values are public by design.
+OTA is appropriate for JavaScript, styling, and bundled asset changes. Changes to Expo/RN versions, native dependencies, permissions, app configuration, icons, or native code require a new native build on both platforms. Never put secrets in an OTA update; `EXPO_PUBLIC_*` values are public by design.
+
+### An update only reaches builds with a matching runtime version
+
+`runtimeVersion.policy` is `fingerprint`, so EAS hashes the native side of the project — dependencies, `app.json`, plugins — and delivers an update only to installed builds carrying that same hash. Change anything native and the hash changes, and the update reaches nobody. It does not fail; it simply never arrives.
+
+Check before publishing. The fingerprint of an installed build is its `Runtime Version`:
+
+```bash
+npx eas-cli build:list --platform android --limit 5   # Runtime Version per build
+npx eas-cli channel:list                              # what each channel is serving
+```
+
+Two builds from the same commit can still differ here: the fingerprint covers the working tree, so uncommitted dependency changes produce a different hash. Build from a clean checkout.
+
+If the installed build's runtime version differs from the current tree's, the only way to reach those users is a new store release.
 
 ## Backend coverage
 
