@@ -137,11 +137,15 @@ export function ImageViewer({
     }
   };
 
-  React.useEffect(() => {
-    if (imageUrl && !imageError && !isImageLoading) {
+  const displayedUriRef = useRef<string | null>(null);
+
+  const handleImageSuccess = () => {
+    setIsImageLoading(false);
+    if (imageUrl && displayedUriRef.current !== imageUrl) {
+      displayedUriRef.current = imageUrl;
       onResourceDisplayed?.();
     }
-  }, [imageUrl, imageError, isImageLoading, onResourceDisplayed]);
+  };
 
   const renderScrollableImage = (height: number) => (
     <View style={{ width: CARD_WIDTH, height, justifyContent: "center", alignItems: "center" }}>
@@ -164,7 +168,7 @@ export function ImageViewer({
               resizeMode="contain"
               source={activeImage}
               onLoadStart={() => setIsImageLoading(true)}
-              onLoad={() => onResourceDisplayed?.()}
+              onLoad={handleImageSuccess}
               onLoadEnd={() => setIsImageLoading(false)}
               onError={() => {
                 setIsImageLoading(false);

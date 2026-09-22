@@ -46,12 +46,12 @@ export function SubjectWorkspaceScreen({
     if (!isFocused || !workspace) return;
 
     const loadChapterStats = async () => {
-      const count = await getCompletedChaptersCount(workspace.subject.id || subject.id);
+      const count = await getCompletedChaptersCount(workspace.subject.id || subject.id, workspace.chapters);
       setCompletedCount(count);
 
       const completedIds: string[] = [];
       for (const ch of workspace.chapters) {
-        const isComp = await isChapterCompleted(ch.id);
+        const isComp = await isChapterCompleted(ch.id, ch.resourceTypes);
         if (isComp) {
           completedIds.push(ch.id);
         }

@@ -155,12 +155,18 @@ export function SlideDeckViewer({ documentTitle, pdfUrl, authToken, onResourceDi
     loadSlidedeck();
   }, [pdfUrl]);
 
+  const displayedRef = useRef<boolean>(false);
+
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "PDF_LOADED") {
         setTotalPages(data.totalPages);
         setLoadState("ready");
+        if (!displayedRef.current) {
+          displayedRef.current = true;
+          onResourceDisplayed?.();
+        }
       } else if (data.type === "SLIDE_CHANGE") {
         setCurrentPage(data.current);
       } else if (data.type === "ERROR") {

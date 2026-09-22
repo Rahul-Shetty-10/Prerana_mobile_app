@@ -43,11 +43,26 @@ export interface PDFViewerProps {
   onResourceDisplayed?: () => void;
 }
 
+export interface SlideDeckViewerProps {
+  documentTitle: string;
+  pdfUrl?: string;
+  authToken?: string;
+  tenantSlug?: string;
+  onResourceDisplayed?: () => void;
+}
+
 export interface FlashcardItem {
   id: string;
   frontText: string;
   backText: string;
   category?: string;
+}
+
+export interface FlashcardViewerProps {
+  currentIndex: number;
+  onIndexChange: (index: number) => void;
+  flashcards?: FlashcardItem[];
+  onResourceDisplayed?: () => void;
 }
 
 export interface TableColumn {

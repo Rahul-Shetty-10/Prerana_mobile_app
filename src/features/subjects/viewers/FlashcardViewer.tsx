@@ -15,20 +15,7 @@ import { Badge, Button } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ContentComingSoon } from "./ContentComingSoon";
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-interface FlashcardItem {
-  id: string;
-  frontText: string;
-  backText: string;
-}
-
-export interface FlashcardViewerProps {
-  currentIndex: number;
-  onIndexChange: (index: number) => void;
-  flashcards?: FlashcardItem[];
-  onResourceDisplayed?: () => void;
-}
+import { FlashcardItem, FlashcardViewerProps } from "../types";
 
 // ─── CSV Parser ──────────────────────────────────────────────────────────────
 // Handles quoted fields containing commas and newlines
@@ -111,6 +98,8 @@ export function FlashcardViewer({ currentIndex, onIndexChange, flashcards, onRes
 
   // ── Load CSV ──────────────────────────────────────────────────────────────
 
+  const displayedRef = useRef<boolean>(false);
+
   useEffect(() => {
     // If backend explicitly provided flashcards (even empty array), use them.
     // If backend provided NO flashcards (undefined), show Coming Soon — do NOT load local mock.
@@ -118,7 +107,8 @@ export function FlashcardViewer({ currentIndex, onIndexChange, flashcards, onRes
       setOriginalCards(flashcards);
       setDisplayCards(flashcards);
       setIsLoading(false);
-      if (flashcards.length > 0) {
+      if (flashcards.length > 0 && !displayedRef.current) {
+        displayedRef.current = true;
         onResourceDisplayed?.();
       }
       return;

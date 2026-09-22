@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../../shared/theme/ThemeContext";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from "expo-audio";
 import { AudioViewerProps } from "../types";
 import { Badge } from "../../../shared/components";
@@ -82,11 +82,14 @@ export function AudioViewer({
   const currentTime = status.currentTime ?? 0;
   const durationSeconds = status.duration ?? 0;
 
+  const displayedRef = useRef<boolean>(false);
+
   useEffect(() => {
-    if (audioUrl && !audioError && !downloading && localAudioPath) {
+    if (audioUrl && !audioError && !downloading && localAudioPath && (status.isLoaded || Platform.OS === 'web') && !displayedRef.current) {
+      displayedRef.current = true;
       onResourceDisplayed?.();
     }
-  }, [audioUrl, audioError, downloading, localAudioPath, onResourceDisplayed]);
+  }, [audioUrl, audioError, downloading, localAudioPath, status.isLoaded, onResourceDisplayed]);
 
   useEffect(() => {
     setAudioModeAsync({

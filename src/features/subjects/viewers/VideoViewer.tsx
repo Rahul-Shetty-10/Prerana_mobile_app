@@ -20,11 +20,61 @@ export function VideoViewer({ title, videoTitle, videoUrl, description, authToke
   const [hasError, setHasError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  React.useEffect(() => {
-    if (videoUrl && !isLoading && !hasError) {
-      onResourceDisplayed?.();
+  const displayedRef = React.useRef<boolean>(false);
+
+  const injectedJS = `
+    (function() {
+      function notifyReady() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MEDIA_READY' }));
+        }
+      }
+      function notifyError(err) {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MEDIA_ERROR', error: String(err || '') }));
+        }
+      }
+      function checkMedia() {
+        const v = document.querySelector('video');
+        if (v) {
+          if (v.readyState >= 3) {
+            notifyReady();
+          } else {
+            v.addEventListener('canplay', notifyReady, { once: true });
+            v.addEventListener('loadeddata', notifyReady, { once: true });
+            v.addEventListener('playing', notifyReady, { once: true });
+          }
+          v.addEventListener('error', function(e) { notifyError(e); });
+        } else {
+          notifyReady();
+        }
+      }
+      if (document.readyState === 'complete') {
+        checkMedia();
+      } else {
+        window.addEventListener('load', checkMedia);
+      }
+    })();
+    true;
+  `;
+
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "MEDIA_READY") {
+        setIsLoading(false);
+        if (!displayedRef.current) {
+          displayedRef.current = true;
+          onResourceDisplayed?.();
+        }
+      } else if (data.type === "MEDIA_ERROR") {
+        setIsLoading(false);
+        setHasError(true);
+      }
+    } catch (e) {
+      // Ignored
     }
-  }, [videoUrl, isLoading, hasError, onResourceDisplayed]);
+  };
 
   const requestHeaders = useMemo(
     () => (videoUrl ? getResourceRequestHeaders(videoUrl, authToken) : undefined),
@@ -67,6 +117,7 @@ export function VideoViewer({ title, videoTitle, videoUrl, description, authToke
           onPress={() => {
             setHasError(false);
             setIsLoading(true);
+            displayedRef.current = false;
             setReloadKey((prev) => prev + 1);
           }}
           style={styles.retryButton}
@@ -103,8 +154,12 @@ export function VideoViewer({ title, videoTitle, videoUrl, description, authToke
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
           domStorageEnabled
+          injectedJavaScript={injectedJS}
+          onMessage={handleMessage}
           onLoadStart={() => setIsLoading(true)}
-          onLoadEnd={() => setIsLoading(false)}
+          onLoadEnd={() => {
+            // Document load finished; actual media readiness is handled via onMessage
+          }}
           onHttpError={(event) => {
             const status = event.nativeEvent.statusCode;
             if (shouldInvalidateResourceResponse(videoUrl, status)) void invalidateMobileSession();

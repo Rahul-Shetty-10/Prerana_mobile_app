@@ -255,12 +255,14 @@ export function MindmapViewer({ title, rootNode, authToken, onResourceDisplayed 
     };
   }, [rootNode, authToken]);
 
-  // 4. Sync selectedNodeId when activeRoot changes
+  const displayedRef = useRef<boolean>(false);
+
   useEffect(() => {
-    if (activeRoot?.id) {
-      setSelectedNodeId(activeRoot.id);
+    if (activeRoot && !isLoadingRemote && !fetchError && !displayedRef.current) {
+      displayedRef.current = true;
+      onResourceDisplayed?.();
     }
-  }, [activeRoot]);
+  }, [activeRoot, isLoadingRemote, fetchError, onResourceDisplayed]);
 
   // 5. Compute Layout unconditionally
   const { nodes, connections, details } = useMemo(() => {

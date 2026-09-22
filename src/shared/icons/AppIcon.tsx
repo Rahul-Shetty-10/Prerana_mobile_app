@@ -2,7 +2,8 @@ import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { TextStyle } from "react-native";
 
-export type IconName = keyof typeof Ionicons.glyphMap;
+import type { IconName } from "./types";
+export type { IconName };
 
 export interface AppIconProps {
   name: IconName;

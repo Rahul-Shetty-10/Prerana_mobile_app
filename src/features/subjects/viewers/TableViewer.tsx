@@ -110,13 +110,18 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows, onR
     }
   };
 
+  const displayedRef = React.useRef<boolean>(false);
+
   useEffect(() => {
     // If backend provided columns, use them directly. No local XLSX fallback.
     if (propsColumns !== undefined && propsRows !== undefined && propsColumns.length > 0) {
       setColumns(propsColumns);
       setRows(propsRows);
       setIsLoading(false);
-      onResourceDisplayed?.();
+      if (!displayedRef.current) {
+        displayedRef.current = true;
+        onResourceDisplayed?.();
+      }
       return;
     }
     // No backend data — show Coming Soon state.

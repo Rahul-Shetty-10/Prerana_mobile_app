@@ -2,6 +2,7 @@ import { mobileApi } from "../../../api/mobileApi";
 import { ChapterItem, SubjectMeta, SubjectWorkspacePayload } from "../types";
 import { IconName } from "../../../shared/icons";
 import { StatCardVariant } from "../../dashboard/types";
+import { extractChapterResourceTypes } from "../../../shared/services/chapterProgressService";
 
 export class SubjectsError extends Error {
   constructor(public code: 'NETWORK_FAILURE' | 'UNAUTHORIZED' | 'SERVER_ERROR' | 'EMPTY_DATA', message: string) {
@@ -199,6 +200,7 @@ export async function fetchSubjectWorkspace(
       partNumber: ch.partNumber,
       title: ch.chapterName,
       subtitle: ch.partName || "Open this chapter for a focused student view.",
+      resourceTypes: extractChapterResourceTypes(ch),
     }));
 
     console.log(`[SUBJECTS][SERVICE] fetchSubjectWorkspace(): Workspace loaded successfully with ${chapters.length} chapters.`);

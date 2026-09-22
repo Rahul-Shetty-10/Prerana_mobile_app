@@ -10,12 +10,15 @@ export interface SubjectMeta {
   colorVariant?: StatCardVariant;
 }
 
+import { ResourceTabType } from "./chapterResource";
+
 export interface ChapterItem {
   id: string;
   number?: number;
   partNumber?: number;
   title: string;
   subtitle: string;
+  resourceTypes?: ResourceTabType[];
 }
 
 export interface SubjectWorkspacePayload {

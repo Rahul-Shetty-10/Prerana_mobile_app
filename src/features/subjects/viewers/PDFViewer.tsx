@@ -139,12 +139,18 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken, onResourceDisplaye
     loadTextbook();
   }, [pdfUrl]);
 
+  const displayedRef = useRef<boolean>(false);
+
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "PDF_LOADED") {
         setTotalPages(data.totalPages);
         setLoadState("ready");
+        if (!displayedRef.current) {
+          displayedRef.current = true;
+          onResourceDisplayed?.();
+        }
         setTimeout(() => {
           const inject = `if (typeof goToPage === 'function') { goToPage(${currentPage}); }`;
           webViewRef.current?.injectJavaScript(inject);

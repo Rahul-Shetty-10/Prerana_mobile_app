@@ -20,7 +20,7 @@ export function getActiveStorageIdentity(): StorageIdentity | null {
 export function getUserStorageKey(baseKey: string): string | null {
   return activeIdentity
     ? getStorageKeyForIdentity(baseKey, activeIdentity.userId, activeIdentity.tenantId)
-    : null;
+    : baseKey;
 }
 
 export async function clearScopedStorageForIdentity(userId: string, tenantId: string): Promise<void> {

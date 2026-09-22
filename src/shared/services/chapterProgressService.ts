@@ -158,16 +158,52 @@ export async function markQuizCompleted(
   });
 }
 
+export function extractChapterResourceTypes(ch: any): ResourceTabType[] | undefined {
+  if (!ch || typeof ch !== "object") return undefined;
+  if (Array.isArray(ch.resourceTypes) && ch.resourceTypes.length > 0) {
+    return ch.resourceTypes;
+  }
+  if (Array.isArray(ch.availableResources) && ch.availableResources.length > 0) {
+    return ch.availableResources;
+  }
+  if (Array.isArray(ch.resources) && ch.resources.length > 0) {
+    const types: ResourceTabType[] = [];
+    for (const r of ch.resources) {
+      const type = typeof r === "string" ? r : r?.type;
+      if (type && !types.includes(type as ResourceTabType)) {
+        types.push(type as ResourceTabType);
+      }
+    }
+    if (types.length > 0) return types;
+  }
+  if (ch.resources && typeof ch.resources === "object") {
+    const types: ResourceTabType[] = [];
+    if (ch.resources.infographicUrl || ch.resources.infographic) types.push("infographic");
+    if (ch.resources.mindmapUrl || ch.resources.mindmapRoot || ch.resources.mindmap) types.push("mindmap");
+    if (ch.resources.slidedeckUrl || ch.resources.slidedeck) types.push("slidedeck");
+    if (ch.resources.textbookNotesUrl || ch.resources.textbookUrl || ch.resources.textbook) types.push("textbook");
+    if (ch.resources.flashcards && Array.isArray(ch.resources.flashcards) && ch.resources.flashcards.length > 0) types.push("flashcards");
+    if (ch.resources.tableColumns || ch.resources.table) types.push("table");
+    if (ch.resources.audioUrl || ch.resources.audio) types.push("audio");
+    if (ch.resources.videoUrl || ch.resources.video) types.push("video");
+    if (types.length > 0) return types;
+  }
+  return undefined;
+}
+
 export function isMilestoneCompleted(
   m?: ChapterMilestones,
-  availableResources?: ResourceTabType[]
+  availableResources?: (ResourceTabType | string)[]
 ): boolean {
-  if (!m) return false;
-  if (!m.quizCompleted) return false;
+  if (!m || !m.quizCompleted) return false;
 
-  if (availableResources && availableResources.length > 0) {
+  const validResources = availableResources
+    ? availableResources.filter((r) => r !== "arcade" && r !== "quiz")
+    : undefined;
+
+  if (validResources && validResources.length > 0) {
     const seenSet = new Set(m.seenResources || []);
-    const isSeen = (type: ResourceTabType) => {
+    const isSeen = (type: ResourceTabType | string) => {
       switch (type) {
         case "infographic":
           return Boolean(m.infographicSeen);
@@ -189,7 +225,7 @@ export function isMilestoneCompleted(
           return seenSet.has(type);
       }
     };
-    return availableResources.every((res) => isSeen(res) || seenSet.has(res));
+    return validResources.every((res) => isSeen(res) || seenSet.has(res));
   }
 
   const hasSeenAnyResource =
@@ -208,16 +244,28 @@ export function isMilestoneCompleted(
 
 export async function isChapterCompleted(
   chapterId: string,
-  availableResources?: ResourceTabType[]
+  availableResources?: (ResourceTabType | string)[]
 ): Promise<boolean> {
   const all = await getAllMilestones();
   const m = all[chapterId];
   return isMilestoneCompleted(m, availableResources);
 }
 
-export async function getCompletedChaptersCount(subjectId: string): Promise<number> {
-  const all = await getAllMilestones();
+export async function getCompletedChaptersCount(
+  subjectId: string,
+  chapters?: { id: string; resourceTypes?: (ResourceTabType | string)[] }[]
+): Promise<number> {
   const normalized = normalizeSubjectId(subjectId);
+  if (chapters && chapters.length > 0) {
+    let count = 0;
+    for (const ch of chapters) {
+      const isComp = await isChapterCompleted(ch.id, ch.resourceTypes);
+      if (isComp) count++;
+    }
+    return count;
+  }
+
+  const all = await getAllMilestones();
   let count = 0;
   for (const m of Object.values(all)) {
     if (m.subjectId === normalized && isMilestoneCompleted(m)) {
