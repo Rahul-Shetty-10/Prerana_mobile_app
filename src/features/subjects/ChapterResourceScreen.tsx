@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../../shared/theme/ThemeContext";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,8 +11,11 @@ import { colors, spacing, typography, radius, shadows } from "../../shared/theme
 import { Header } from "../../shared/components/Header";
 import { AppIcon } from "../../shared/icons";
 import { saveLearningState } from "../../shared/services/learningStateService";
-import { markMilestoneSeen } from "../../shared/services/chapterProgressService";
+import { markMilestoneSeen, recordAvailableResources } from "../../shared/services/chapterProgressService";
+import { listAvailableResourceTypes } from "./services/resourceAvailability.ts";
 import { useActiveLearningTracker } from "../../shared/hooks/useActiveLearningTracker";
+import { hasChapterQuiz } from "../exercise/services/quizIdResolver.ts";
+import { featureFlags } from "../../featureFlags.ts";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -38,6 +41,10 @@ export function ChapterResourceScreen({
   const styles = getStyles(themeColors);
   const navigation = useNavigation<any>();
   useActiveLearningTracker();
+
+  // Only offer the quiz when one can actually be started for this chapter.
+  // Without it the student hits an error and the chapter can never complete.
+  const quizAvailable = featureFlags.chapterQuizForAllChapters || hasChapterQuiz(chapter.id);
 
   const handleStartQuiz = () => {
     navigation.navigate("Exercise", {
@@ -91,12 +98,27 @@ export function ChapterResourceScreen({
     }
   }, [chapter, subjectName, subjectId, activeTab]);
 
-  // Track milestones for the resources supported by local progress tracking.
+  // Record what this chapter offers as soon as its resources resolve, so every
+  // screen evaluates completion against the same requirement.
   useEffect(() => {
-    if (chapter && subjectId && (activeTab === "infographic" || activeTab === "mindmap" || activeTab === "audio")) {
-      void markMilestoneSeen(chapter.id, subjectId, activeTab);
-    }
-  }, [chapter, subjectId, activeTab]);
+    if (!chapter || !subjectId || isLoading || error || !resources) return;
+    void recordAvailableResources(
+      chapter.id,
+      subjectId,
+      listAvailableResourceTypes(resources),
+      quizAvailable
+    );
+  }, [chapter, subjectId, isLoading, error, resources, quizAvailable]);
+
+  // Track milestones only when a viewer successfully loads and displays a resource
+  const handleResourceDisplayed = useCallback(
+    (tab: ResourceTabType) => {
+      if (chapter && subjectId && !isLoading && !error && resources) {
+        void markMilestoneSeen(chapter.id, subjectId, tab);
+      }
+    },
+    [chapter, subjectId, isLoading, error, resources]
+  );
 
   // Show "Coming Soon" after 5 seconds if still loading and no resources have arrived
   useEffect(() => {
@@ -125,7 +147,7 @@ export function ChapterResourceScreen({
     );
     
     if (hasGames) {
-      return [...RESOURCE_TABS_LIST, { id: "arcade" as any, label: "Arcade", iconName: "game-controller-outline" }];
+      return [...RESOURCE_TABS_LIST, { id: "arcade", label: "Arcade", iconName: "game-controller-outline" }];
     }
     
     return RESOURCE_TABS_LIST;
@@ -133,7 +155,7 @@ export function ChapterResourceScreen({
 
   const handleTabSelect = (tab: ResourceTabType) => {
     // Game tabs navigate immediately rather than switching content pane
-    if (tab === ("arcade" as any)) {
+    if (tab === "arcade") {
       navigateToGame();
       return;
     }
@@ -198,23 +220,26 @@ export function ChapterResourceScreen({
             onSlidedeckPageChange={setSlidedeckPageIndex}
             flashcardIndex={flashcardIndex}
             onFlashcardIndexChange={setFlashcardIndex}
+            onResourceDisplayed={handleResourceDisplayed}
           />
         )}
       </ScrollView>
 
-      {/* Floating Quiz Button */}
-      <Pressable
-        accessibilityLabel="Quiz Yourself"
-        accessibilityRole="button"
-        onPress={handleStartQuiz}
-        style={({ pressed }) => [
-          styles.floatingQuizBtn,
-          pressed && styles.floatingQuizBtnPressed,
-        ]}
-      >
-        <AppIcon color="#FFFFFF" name="clipboard-outline" size={18} />
-        <Text style={styles.floatingQuizBtnText}>Quiz Yourself</Text>
-      </Pressable>
+      {/* Floating Quiz Button - only when this chapter actually has a quiz */}
+      {quizAvailable ? (
+        <Pressable
+          accessibilityLabel="Quiz Yourself"
+          accessibilityRole="button"
+          onPress={handleStartQuiz}
+          style={({ pressed }) => [
+            styles.floatingQuizBtn,
+            pressed && styles.floatingQuizBtnPressed,
+          ]}
+        >
+          <AppIcon color="#FFFFFF" name="clipboard-outline" size={18} />
+          <Text style={styles.floatingQuizBtnText}>Quiz Yourself</Text>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }

@@ -1,6 +1,6 @@
-import { appConfig } from "../config";
-import { getMobileSession, invalidateMobileSession } from "../shared/session/sessionStore";
-import { resolveTenantHeader, shouldInvalidateSession } from "./mobileApiPolicy";
+import { appConfig } from "../config.ts";
+import { getMobileSession, invalidateMobileSession } from "../shared/session/sessionStore.ts";
+import { resolveTenantHeader, shouldInvalidateSession } from "./mobileApiPolicy.ts";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 

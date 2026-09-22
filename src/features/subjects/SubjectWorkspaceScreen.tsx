@@ -13,6 +13,7 @@ import { ChapterItem, SubjectMeta } from "./types";
 import { colors, spacing, typography, radius, shadows } from "../../shared/theme";
 import { AppIcon } from "../../shared/icons";
 import { getCompletedChaptersCount, isChapterCompleted } from "../../shared/services/chapterProgressService";
+import { featureFlags } from "../../featureFlags.ts";
 
 type GetToken = (options?: { template?: string }) => Promise<string | null>;
 
@@ -46,12 +47,12 @@ export function SubjectWorkspaceScreen({
     if (!isFocused || !workspace) return;
 
     const loadChapterStats = async () => {
-      const count = await getCompletedChaptersCount(workspace.subject.id || subject.id);
+      const count = await getCompletedChaptersCount(workspace.subject.id || subject.id, workspace.chapters);
       setCompletedCount(count);
 
       const completedIds: string[] = [];
       for (const ch of workspace.chapters) {
-        const isComp = await isChapterCompleted(ch.id);
+        const isComp = await isChapterCompleted(ch.id, ch.resourceTypes);
         if (isComp) {
           completedIds.push(ch.id);
         }
@@ -191,9 +192,13 @@ export function SubjectWorkspaceScreen({
             {/* Quick Actions Card */}
             <QuickActionsCard
               onOpenFundamentals={onOpenFundamentals}
-              onViewQuizzes={() => {
-                (navigation as any).navigate("Games", { screen: "QuizzesHome" });
-              }}
+              onViewQuizzes={
+                featureFlags.assessmentsHub
+                  ? () => {
+                      (navigation as any).navigate("Games", { screen: "QuizzesHome" });
+                    }
+                  : undefined
+              }
             />
           </>
         ) : null}

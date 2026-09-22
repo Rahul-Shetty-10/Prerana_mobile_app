@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getStorageKeyForIdentity, type StorageIdentity } from "./storageScope";
+import { getStorageKeyForIdentity, type StorageIdentity } from "./storageScope.ts";
 
-export type { StorageIdentity } from "./storageScope";
+export type { StorageIdentity } from "./storageScope.ts";
 
 let activeIdentity: StorageIdentity | null = null;
 
@@ -20,7 +20,7 @@ export function getActiveStorageIdentity(): StorageIdentity | null {
 export function getUserStorageKey(baseKey: string): string | null {
   return activeIdentity
     ? getStorageKeyForIdentity(baseKey, activeIdentity.userId, activeIdentity.tenantId)
-    : null;
+    : baseKey;
 }
 
 export async function clearScopedStorageForIdentity(userId: string, tenantId: string): Promise<void> {

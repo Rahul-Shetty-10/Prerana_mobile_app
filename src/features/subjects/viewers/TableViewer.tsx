@@ -18,7 +18,7 @@ import { Badge } from "../../../shared/components";
 import { AppIcon } from "../../../shared/icons";
 import { colors, radius, shadows, spacing, typography } from "../../../shared/theme";
 import { ContentComingSoon } from "./ContentComingSoon";
-export function TableViewer({ title, columns: propsColumns, rows: propsRows }: TableViewerProps) {
+export function TableViewer({ title, columns: propsColumns, rows: propsRows, onResourceDisplayed }: TableViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -110,17 +110,23 @@ export function TableViewer({ title, columns: propsColumns, rows: propsRows }: T
     }
   };
 
+  const displayedRef = React.useRef<boolean>(false);
+
   useEffect(() => {
     // If backend provided columns, use them directly. No local XLSX fallback.
     if (propsColumns !== undefined && propsRows !== undefined && propsColumns.length > 0) {
       setColumns(propsColumns);
       setRows(propsRows);
       setIsLoading(false);
+      if (!displayedRef.current) {
+        displayedRef.current = true;
+        onResourceDisplayed?.();
+      }
       return;
     }
     // No backend data — show Coming Soon state.
     setIsLoading(false);
-  }, [propsColumns, propsRows]);
+  }, [propsColumns, propsRows, onResourceDisplayed]);
 
 
   const handleZoomIn = () => {

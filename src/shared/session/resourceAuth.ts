@@ -1,6 +1,6 @@
-import { appConfig } from "../../config";
-import { shouldInvalidateSession } from "../../api/mobileApiPolicy";
-import { getTenantAuthHeaders } from "./tenantHeaders";
+import { appConfig } from "../../config.ts";
+import { shouldInvalidateSession } from "../../api/mobileApiPolicy.ts";
+import { getTenantAuthHeaders } from "./tenantHeaders.ts";
 
 /**
  * Clerk credentials are sent only to the configured API origin. External or
@@ -8,9 +8,13 @@ import { getTenantAuthHeaders } from "./tenantHeaders";
  * token in a request header.
  */
 export function isTrustedApiResourceUrl(resourceUrl: string): boolean {
+  // Fail closed: without a configured API origin there is no origin we can
+  // vouch for, so no request may carry Clerk credentials.
+  const apiBase = appConfig.apiBaseUrl?.trim();
+  if (!apiBase) return false;
   try {
-    const apiUrl = new URL(appConfig.apiBaseUrl);
-    const targetUrl = new URL(resourceUrl, appConfig.apiBaseUrl);
+    const apiUrl = new URL(apiBase);
+    const targetUrl = new URL(resourceUrl, apiBase);
     return targetUrl.origin === apiUrl.origin;
   } catch {
     return false;

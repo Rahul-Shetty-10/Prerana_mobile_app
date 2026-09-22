@@ -1,4 +1,4 @@
-import { IconName } from "../../../shared/icons";
+import type { IconName } from "../../../shared/icons/types.ts";
 
 export interface StudentInfo {
   name: string;

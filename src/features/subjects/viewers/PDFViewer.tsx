@@ -32,9 +32,12 @@ interface PDFViewerProps {
   documentTitle: string;
   pdfUrl?: string;
   authToken?: string;
+  tenantSlug?: string;
+  isSlidedeck?: boolean;
+  onResourceDisplayed?: () => void;
 }
 
-export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) {
+export function PDFViewer({ documentTitle, pdfUrl, authToken, onResourceDisplayed }: PDFViewerProps) {
   const { theme, isDark } = useTheme();
   const themeColors = colors[theme as "light" | "dark"];
   const styles = getStyles(themeColors, isDark);
@@ -52,6 +55,7 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) 
   const pdfBase64Ref = useRef<string>("");
   const targetPageRef = useRef<number | null>(null);
   const targetPageTimeoutRef = useRef<any>(null);
+
 
 
 
@@ -130,12 +134,18 @@ export function PDFViewer({ documentTitle, pdfUrl, authToken }: PDFViewerProps) 
     loadTextbook();
   }, [pdfUrl]);
 
+  const displayedRef = useRef<boolean>(false);
+
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "PDF_LOADED") {
         setTotalPages(data.totalPages);
         setLoadState("ready");
+        if (!displayedRef.current) {
+          displayedRef.current = true;
+          onResourceDisplayed?.();
+        }
         setTimeout(() => {
           const inject = `if (typeof goToPage === 'function') { goToPage(${currentPage}); }`;
           webViewRef.current?.injectJavaScript(inject);
