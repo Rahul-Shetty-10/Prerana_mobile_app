@@ -227,18 +227,18 @@ export function ChapterResourceScreen({
 
       {/* Floating Quiz Button - only when this chapter actually has a quiz */}
       {quizAvailable ? (
-      <Pressable
-        accessibilityLabel="Quiz Yourself"
-        accessibilityRole="button"
-        onPress={handleStartQuiz}
-        style={({ pressed }) => [
-          styles.floatingQuizBtn,
-          pressed && styles.floatingQuizBtnPressed,
-        ]}
-      >
-        <AppIcon color="#FFFFFF" name="clipboard-outline" size={18} />
-        <Text style={styles.floatingQuizBtnText}>Quiz Yourself</Text>
-      </Pressable>
+        <Pressable
+          accessibilityLabel="Quiz Yourself"
+          accessibilityRole="button"
+          onPress={handleStartQuiz}
+          style={({ pressed }) => [
+            styles.floatingQuizBtn,
+            pressed && styles.floatingQuizBtnPressed,
+          ]}
+        >
+          <AppIcon color="#FFFFFF" name="clipboard-outline" size={18} />
+          <Text style={styles.floatingQuizBtnText}>Quiz Yourself</Text>
+        </Pressable>
       ) : null}
     </SafeAreaView>
   );
